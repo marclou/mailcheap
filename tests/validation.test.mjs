@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isObjectIdString, isPlainObject, normalizeEmail } from "../lib/validation.js";
+import { isIdString, isPlainObject, normalizeEmail } from "../lib/validation.js";
 
 test("emails are trimmed and lowercased", () => {
 	const accepted = [
@@ -45,10 +45,10 @@ test("addresses SES can't take as a single recipient are rejected", () => {
 });
 
 test("ObjectId strings are exactly 24 hex characters", () => {
-	assert.equal(isObjectIdString("64f1a2b3c4d5e6f7a8b9c0d1"), true);
-	assert.equal(isObjectIdString("64F1A2B3C4D5E6F7A8B9C0D1"), true);
+	assert.equal(isIdString("64f1a2b3c4d5e6f7a8b9c0d1"), true);
+	assert.equal(isIdString("64F1A2B3C4D5E6F7A8B9C0D1"), true);
 	for (const value of ["64f1a2b3c4d5e6f7a8b9c0d", "64f1a2b3c4d5e6f7a8b9c0dz", "aaaaaaaaaaaa", 42, null]) {
-		assert.equal(isObjectIdString(value), false, String(value));
+		assert.equal(isIdString(value), false, String(value));
 	}
 });
 

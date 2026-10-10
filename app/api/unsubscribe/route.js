@@ -1,10 +1,10 @@
+import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { connectDb } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
+import { campaignIncrements } from "@/lib/rows";
+import { campaigns, contacts, messages } from "@/lib/schema";
 import { verifyUnsubscribeToken } from "@/lib/unsubscribe";
-import Campaign from "@/models/Campaign";
-import Contact from "@/models/Contact";
-import Message from "@/models/Message";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 // Bounced and complained contacts stay as they are: those statuses also block sending.
@@ -15,32 +15,40 @@ const RATE_LIMIT = { name: "unsubscribe", limit: 60, window: "1 m" };
 
 // Links don't carry the campaign, so the unsubscribe counts for the latest campaign sent to them.
 async function creditLatestCampaign({ contactId, newsletterId }) {
-	const campaigns = await Campaign.find({ newsletterId, startedAt: { $ne: null } })
-		.sort({ startedAt: -1 })
-		.limit(RECENT_CAMPAIGNS)
-		.select({ _id: 1 })
-		.lean();
-	for (const { _id } of campaigns) {
-		const wasSent = await Message.exists({
-			kind: "campaign",
-			campaignId: _id,
-			contactId,
-			sentAt: { $ne: null },
-		});
-		if (!wasSent) continue;
-		await Campaign.updateOne({ _id }, { $inc: { "stats.unsubscribed": 1 } });
+	const db = getDb();
+	const recent = await db
+		.select({ _id: campaigns._id })
+		.from(campaigns)
+		.where(and(eq(campaigns.newsletterId, newsletterId), isNotNull(campaigns.startedAt)))
+		.orderBy(desc(campaigns.startedAt))
+		.limit(RECENT_CAMPAIGNS);
+	for (const { _id } of recent) {
+		const sent = await db
+			.select({ _id: messages._id })
+			.from(messages)
+			.where(
+				and(
+					eq(messages.kind, "campaign"),
+					eq(messages.campaignId, _id),
+					eq(messages.contactId, contactId),
+					isNotNull(messages.sentAt)
+				)
+			)
+			.limit(1);
+		if (sent.length === 0) continue;
+		await db.update(campaigns).set(campaignIncrements({ "stats.unsubscribed": 1 })).where(eq(campaigns._id, _id));
 		return;
 	}
 }
 
 async function unsubscribe({ contactId, newsletterId }) {
-	await connectDb();
-	const previous = await Contact.findOneAndUpdate(
-		{ _id: contactId, newsletterId, status: { $in: SUBSCRIBED_STATUSES } },
-		{ $set: { status: "unsubscribed", unsubscribedAt: new Date() } }
-	)
-		.select({ _id: 1 })
-		.lean();
+	const [previous] = await getDb()
+		.update(contacts)
+		.set({ status: "unsubscribed", unsubscribedAt: new Date() })
+		.where(
+			and(eq(contacts._id, contactId), eq(contacts.newsletterId, newsletterId), inArray(contacts.status, SUBSCRIBED_STATUSES))
+		)
+		.returning({ _id: contacts._id });
 	if (!previous) return;
 
 	console.log(`[unsubscribe] Contact ${contactId} unsubscribed from newsletter ${newsletterId}`);

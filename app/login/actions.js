@@ -2,9 +2,9 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { notifyActivity } from "@/lib/alerts";
 import { isValidLogin, startSession } from "@/lib/auth";
 import { getConfigProblems } from "@/lib/config";
+import { notifyActivity } from "@/lib/notify-activity";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 
 const ATTEMPTS_PER_IP = { name: "login-ip", limit: 10, window: "15 m" };

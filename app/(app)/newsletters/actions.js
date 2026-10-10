@@ -1,6 +1,6 @@
 "use server";
 
-import { isValidObjectId } from "mongoose";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { revalidateArchive } from "@/lib/archive-data";
@@ -8,11 +8,12 @@ import { requireSession } from "@/lib/auth";
 import { CLEANUP_LIMITS } from "@/lib/cleanup";
 import { isSendingEnabled } from "@/lib/config";
 import { getConfirmationProblem } from "@/lib/confirmation-content";
-import { connectDb } from "@/lib/db";
+import { getDb, isUniqueViolation } from "@/lib/db";
 import { MAX_AUTHOR_BIO_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/newsletters";
+import { newsletters } from "@/lib/schema";
 import { sendWelcomeTestEmail } from "@/lib/sending";
 import { parseSocialLinks } from "@/lib/social";
-import Newsletter from "@/models/Newsletter";
+import { isIdString } from "@/lib/validation";
 
 const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -112,7 +113,7 @@ export async function sendWelcomeTest(newsletterId) {
 export async function saveNewsletter(_state, formData) {
 	await requireSession();
 	const id = readText(formData, "id");
-	if (id && !isValidObjectId(id)) return { error: "Newsletter not found" };
+	if (id && !isIdString(id)) return { error: "Newsletter not found" };
 
 	const values = readNewsletter(formData);
 	const error = validateNewsletter(values);
@@ -126,13 +127,12 @@ export async function saveNewsletter(_state, formData) {
 		...(formData.has("confirmationSubject") && { confirmation }),
 	};
 
-	await connectDb();
 	let createdId;
 	try {
-		if (id) await Newsletter.updateOne({ _id: id }, { $set: document }, { runValidators: true });
-		else createdId = (await Newsletter.create(document))._id.toString();
+		if (id) await getDb().update(newsletters).set(document).where(eq(newsletters._id, id));
+		else [{ _id: createdId }] = await getDb().insert(newsletters).values(document).returning({ _id: newsletters._id });
 	} catch (error) {
-		if (error?.code === 11000) return { error: "This slug is already used" };
+		if (isUniqueViolation(error)) return { error: "This slug is already used" };
 		throw error;
 	}
 

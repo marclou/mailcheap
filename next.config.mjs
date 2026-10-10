@@ -20,7 +20,8 @@ const SECURITY_HEADERS = [
 const nextConfig = {
 	poweredByHeader: false,
 	images: {
-		remotePatterns: [{ protocol: "https", hostname: "*.public.blob.vercel-storage.com" }],
+		// Editor uploads in the Neon Object Storage bucket (lib/storage-bucket.js).
+		remotePatterns: [{ protocol: "https", hostname: "**.aws.neon.tech", pathname: "/mailcheap-images/**" }],
 	},
 	async headers() {
 		return [{ source: "/:path*", headers: SECURITY_HEADERS }];

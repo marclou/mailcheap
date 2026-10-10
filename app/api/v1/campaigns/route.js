@@ -4,13 +4,13 @@ import { listPublishedIssues } from "@/lib/archive-data";
 import { getArchiveUrls } from "@/lib/archive-hosts";
 import { uniqueArchiveSlug } from "@/lib/archive-slugs";
 import { getAppUrl } from "@/lib/config";
-import { connectDb } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { isRateLimited } from "@/lib/rate-limit";
+import { findNewsletterBySlug } from "@/lib/records";
+import { campaigns } from "@/lib/schema";
 import { ARCHIVE_SLUG_PATTERN } from "@/lib/slug";
 import { firstImageUrl } from "@/lib/thumbnail";
 import { MAX_BODY_BYTES, isPlainObject } from "@/lib/validation";
-import Campaign from "@/models/Campaign";
-import Newsletter from "@/models/Newsletter";
 
 const MAX_SUBJECT_LENGTH = 200;
 const MAX_PREVIEW_TEXT_LENGTH = 300;
@@ -74,8 +74,7 @@ export async function GET(request) {
 	const slug = new URL(request.url).searchParams.get("newsletter")?.trim().toLowerCase();
 	if (!slug) return fail(400, "newsletter is required");
 
-	await connectDb();
-	const newsletter = await Newsletter.findOne({ slug }).select({ _id: 1, slug: 1, archiveEnabled: 1 }).lean();
+	const newsletter = await findNewsletterBySlug(slug, { fields: ["slug", "archiveEnabled"] });
 	if (!newsletter) return fail(404, "Newsletter not found");
 
 	const issues = await listPublishedIssues(newsletter._id);
@@ -100,21 +99,22 @@ export async function POST(request) {
 	const input = readInput(await request.json().catch(() => null));
 	if (input.error) return fail(400, input.error);
 
-	await connectDb();
-	const newsletter = await Newsletter.findOne({ slug: input.slug }).select({ _id: 1 }).lean();
+	const newsletter = await findNewsletterBySlug(input.slug, { fields: ["_id"] });
 	if (!newsletter) return fail(404, "Newsletter not found");
 
-	const campaign = await Campaign.create({
-		newsletterId: newsletter._id,
-		subject: input.subject,
-		previewText: input.previewText,
-		format: input.format,
-		[input.format]: input.content,
-		thumbnailUrl:
-			firstImageUrl({ format: input.format, html: input.content, markdown: input.content }) ?? undefined,
-		...(input.archiveSlug && { archiveSlug: await uniqueArchiveSlug(input.archiveSlug) }),
-		source: "api",
-	});
+	const [campaign] = await getDb()
+		.insert(campaigns)
+		.values({
+			newsletterId: newsletter._id,
+			subject: input.subject,
+			previewText: input.previewText,
+			format: input.format,
+			[input.format]: input.content,
+			thumbnailUrl: firstImageUrl({ format: input.format, html: input.content, markdown: input.content }) ?? null,
+			...(input.archiveSlug && { archiveSlug: await uniqueArchiveSlug(input.archiveSlug) }),
+			source: "api",
+		})
+		.returning({ _id: campaigns._id, archiveSlug: campaigns.archiveSlug });
 	const id = String(campaign._id);
 	return NextResponse.json(
 		{ id, url: `${getAppUrl()}/campaigns/${id}`, archiveSlug: campaign.archiveSlug ?? null },

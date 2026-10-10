@@ -22,22 +22,20 @@ import SwatchChart from "@/components/SwatchChart";
 import TableCampaigns from "@/components/TableCampaigns";
 import TabsNewsletter from "@/components/TabsNewsletter";
 import { Button } from "@/components/ui/button";
-import { recentCampaignsPipeline } from "@/lib/campaign-queries";
+import { listRecentCampaigns } from "@/lib/campaign-queries";
 import { listNewslettersWithActiveCounts } from "@/lib/contacts";
-import { connectDb } from "@/lib/db";
+import { getProviderInfo, getSendingAccount, listSendingDomains } from "@/lib/email";
 import { formatCompact, formatNumber, formatSigned } from "@/lib/format";
 import { NEWSLETTER_SUMMARY_FIELDS, toNewsletterMap, toNewsletterOptions } from "@/lib/newsletters";
 import { getEmailStats, getHourlySends, getSubscriberHistory } from "@/lib/overview-data";
 import { PERIOD_DAYS } from "@/lib/overview-series";
-import { getSesAccount, listSesDomains } from "@/lib/ses";
 import { TIME_ZONE_COOKIE, resolveTimeZone, timeZoneLabel } from "@/lib/time-zone";
 import { cn } from "@/lib/utils";
-import Campaign from "@/models/Campaign";
 
 // Everything above Domains is about one newsletter, the largest unless ?newsletter= picks one. The page
 // waits for one query (the tabs); every section then loads on its own behind a skeleton of its size.
 export default async function OverviewPage({ searchParams }) {
-	const [{ newsletter: newsletterParam }, cookieStore] = await Promise.all([searchParams, cookies(), connectDb()]);
+	const [{ newsletter: newsletterParam }, cookieStore] = await Promise.all([searchParams, cookies()]);
 	const timeZone = resolveTimeZone(cookieStore.get(TIME_ZONE_COOKIE)?.value);
 	const newsletters = await listNewslettersWithActiveCounts(NEWSLETTER_SUMMARY_FIELDS);
 	const bySize = newsletters.toSorted((a, b) => b.activeCount - a.activeCount);
@@ -116,7 +114,7 @@ export default async function OverviewPage({ searchParams }) {
 
 				<Section title="System" stagger={5}>
 					<Suspense fallback={<SkeletonSesAccount />}>
-						<StripSesAccount />
+						<StripSendingAccount />
 					</Suspense>
 				</Section>
 			</div>
@@ -193,7 +191,7 @@ async function CardSends({ newsletterId, timeZone }) {
 }
 
 async function TableRecentCampaigns({ newsletterId, newsletters }) {
-	const campaigns = await Campaign.aggregate(recentCampaignsPipeline(5, newsletterId));
+	const campaigns = await listRecentCampaigns(5, newsletterId);
 	if (campaigns.length === 0) {
 		return (
 			<p className="rounded-xl px-4 py-6 text-center text-sm text-muted-foreground shadow-border animate-fade-in">
@@ -210,13 +208,14 @@ async function TableRecentCampaigns({ newsletterId, newsletters }) {
 }
 
 async function SectionDomains() {
-	const domains = await listSesDomains();
+	const domains = await listSendingDomains();
+	const { label } = getProviderInfo();
 
 	if (domains.error || domains.length === 0) {
 		return (
 			<p className="flex items-center gap-3 rounded-xl px-4 py-4 text-sm text-muted-foreground shadow-border animate-fade-in">
 				{domains.error && <TriangleAlert className="size-4 shrink-0 text-amber-500" />}
-				<span className="truncate">{domains.error ? `SES unreachable: ${domains.error}` : "No domains in SES"}</span>
+				<span className="truncate">{domains.error ? `${label} unreachable: ${domains.error}` : `No domains in ${label}`}</span>
 			</p>
 		);
 	}
@@ -228,25 +227,64 @@ async function SectionDomains() {
 	);
 }
 
-async function StripSesAccount() {
-	const account = await getSesAccount();
+async function StripSendingAccount() {
+	const account = await getSendingAccount();
+	const { label } = getProviderInfo();
 
 	if (account.error) {
 		return (
 			<p className="flex items-center gap-3 rounded-xl px-4 py-4 text-sm text-muted-foreground shadow-border animate-fade-in">
 				<TriangleAlert className="size-4 shrink-0 text-amber-500" />
-				<span className="truncate">SES unreachable: {account.error}</span>
+				<span className="truncate">{label} unreachable: {account.error}</span>
 			</p>
 		);
 	}
 
+	const items = account.provider === "resend" ? getResendItems(account) : getSesItems(account);
+	return (
+		<div className="overflow-hidden rounded-xl bg-card shadow-border animate-fade-in">
+			<dl className="grid grid-cols-2 gap-px bg-border/60 lg:grid-cols-4">
+				{items.map(({ label: itemLabel, value }) => (
+					<div key={itemLabel} className="flex min-h-[66px] flex-col items-start justify-center gap-1.5 bg-card px-4 py-3">
+						<dt className="text-xs text-muted-foreground">{itemLabel}</dt>
+						<dd className="w-full text-sm font-medium tabular-nums">{value}</dd>
+					</div>
+				))}
+			</dl>
+		</div>
+	);
+}
+
+// Resend has no account endpoint: its domains and the team's request limit stand in.
+function getResendItems(account) {
+	const isTracking = account.openTracking || account.clickTracking;
+	return [
+		{ label: "Provider", value: <BadgeStatus status="active" label="Resend" /> },
+		{
+			label: "Domains",
+			value: (
+				<BadgeStatus
+					status={account.verifiedDomains > 0 ? "verified" : "pending"}
+					label={`${formatNumber(account.verifiedDomains)} of ${formatNumber(account.domains)} verified`}
+				/>
+			),
+		},
+		{
+			label: "Resend tracking",
+			value: <BadgeStatus status={isTracking ? "pending" : "active"} label={isTracking ? "On, turn it off" : "Off"} />,
+		},
+		{ label: "API rate limit", value: account.maxRequestRate ? `${formatNumber(account.maxRequestRate)}/s` : "Unknown" },
+	];
+}
+
+function getSesItems(account) {
 	const accountLabel = account.productionAccess
 		? "Production"
 		: account.reviewStatus === "PENDING"
 			? "Sandbox, in review"
 			: "Sandbox";
 	const quotaUsed = account.max24HourSend ? Math.min(account.sentLast24Hours / account.max24HourSend, 1) : 0;
-	const items = [
+	return [
 		{
 			label: "SES account",
 			value: <BadgeStatus status={account.productionAccess ? "active" : "sandbox"} label={accountLabel} />,
@@ -268,19 +306,6 @@ async function StripSesAccount() {
 		},
 		{ label: "Max rate", value: `${formatNumber(account.maxSendRate)}/s` },
 	];
-
-	return (
-		<div className="overflow-hidden rounded-xl bg-card shadow-border animate-fade-in">
-			<dl className="grid grid-cols-2 gap-px bg-border/60 lg:grid-cols-4">
-				{items.map(({ label, value }) => (
-					<div key={label} className="flex min-h-[66px] flex-col items-start justify-center gap-1.5 bg-card px-4 py-3">
-						<dt className="text-xs text-muted-foreground">{label}</dt>
-						<dd className="w-full text-sm font-medium tabular-nums">{value}</dd>
-					</div>
-				))}
-			</dl>
-		</div>
-	);
 }
 
 function Section({ title, href, stagger, children }) {

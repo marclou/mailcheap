@@ -1,7 +1,7 @@
 import { getSession } from "@/lib/auth";
-import { putImage } from "@/lib/blob";
-import { MAX_UPLOAD_BYTES } from "@/lib/upload-image";
 import { slugify } from "@/lib/slug";
+import { isStorageConfigured, putImage } from "@/lib/storage-bucket";
+import { MAX_UPLOAD_BYTES } from "@/lib/upload-image";
 
 // The declared type must match the file's first bytes, so nothing but pictures ends up on the CDN.
 const IMAGE_TYPES = {
@@ -13,8 +13,8 @@ const IMAGE_TYPES = {
 
 export async function POST(request) {
 	if (!(await getSession())) return Response.json({ error: "Unauthorized" }, { status: 401 });
-	if (!process.env.BLOB_READ_WRITE_TOKEN) {
-		return Response.json({ error: "Image uploads need a Vercel Blob store (BLOB_READ_WRITE_TOKEN)" }, { status: 503 });
+	if (!isStorageConfigured()) {
+		return Response.json({ error: "Image uploads need Neon Object Storage (run neon deploy, then set STORAGE_*)" }, { status: 503 });
 	}
 
 	const contentType = request.headers.get("content-type");

@@ -33,7 +33,7 @@ test("deliveries set deliveredAt once and only move sent messages forward", () =
 		sesEvent("Delivery", { timestamp: "2026-10-04T10:00:05.000Z", recipients: ["reader@example.com"] })
 	);
 	assert.equal(plan.type, "Delivery");
-	assert.equal(plan.sesMessageId, mail.messageId);
+	assert.equal(plan.providerMessageId, mail.messageId);
 	assert.equal(plan.messageId, messageId);
 	assert.equal(plan.email, "reader@example.com");
 	assert.deepEqual(plan.occurredAt, new Date("2026-10-04T10:00:05.000Z"));
@@ -208,7 +208,7 @@ test("missing or invalid timestamps fall back to the current time", () => {
 	assert.ok(plan.occurredAt.getTime() >= before);
 
 	const withoutMail = getSesEventPlan({ eventType: "Open", open: {} });
-	assert.equal(withoutMail.sesMessageId, null);
+	assert.equal(withoutMail.providerMessageId, null);
 	assert.equal(withoutMail.email, null);
 });
 

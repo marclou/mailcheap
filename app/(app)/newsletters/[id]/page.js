@@ -1,27 +1,26 @@
-import { Types, isValidObjectId } from "mongoose";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import AvatarNewsletter from "@/components/AvatarNewsletter";
 import FormNewsletter from "@/components/FormNewsletter";
 import HeaderPage from "@/components/HeaderPage";
-import { cleanupTotalsPipeline } from "@/lib/cleanup";
 import { isSendingEnabled } from "@/lib/config";
-import { connectDb } from "@/lib/db";
+import { getDb } from "@/lib/db";
+import { getProviderInfo, listSendingDomains } from "@/lib/email";
+import { findNewsletterById } from "@/lib/records";
+import { contacts } from "@/lib/schema";
 import { serialize } from "@/lib/serialize";
-import { listSesDomains } from "@/lib/ses";
-import Contact from "@/models/Contact";
-import Newsletter from "@/models/Newsletter";
+import { isIdString } from "@/lib/validation";
 
 export const metadata = { title: "Newsletter" };
 
 export default async function NewsletterPage({ params }) {
 	const { id } = await params;
 	const isNew = id === "new";
-	if (!isNew && !isValidObjectId(id)) notFound();
+	if (!isNew && !isIdString(id)) notFound();
 
-	await connectDb();
 	const [newsletter, domains, cleanupTotals] = await Promise.all([
-		isNew ? null : Newsletter.findById(id).lean(),
-		listSesDomains(),
+		isNew ? null : findNewsletterById(id),
+		listSendingDomains(),
 		isNew ? null : getCleanupTotals(id),
 	]);
 	if (!isNew && !newsletter) notFound();
@@ -43,12 +42,24 @@ export default async function NewsletterPage({ params }) {
 				isSendingEnabled={isSendingEnabled()}
 				testEmail={process.env.ADMIN_EMAIL}
 				cleanupTotals={cleanupTotals}
+				providerLabel={getProviderInfo().label}
 			/>
 		</>
 	);
 }
 
+// Over contacts who ever got the last-chance email. They answered when a sign of life came after it
+// (lib/cleanup.js getLastSignOfLife).
 async function getCleanupTotals(newsletterId) {
-	const [totals] = await Contact.aggregate(cleanupTotalsPipeline(new Types.ObjectId(newsletterId)));
+	const lastSignOfLife = sql`greatest(${contacts.lastEngagedAt}, ${contacts.lastOpenAt}, ${contacts.lastClickAt}, ${contacts.confirmedAt}, coalesce(${contacts.subscribedAt}, ${contacts.createdAt}))`;
+	const hasAnswered = sql`${contacts.lastChanceAt} < ${lastSignOfLife}`;
+	const [totals] = await getDb()
+		.select({
+			waiting: sql`count(*) filter (where ${contacts.status} = 'active' and not ${hasAnswered})`.mapWith(Number),
+			kept: sql`count(*) filter (where ${contacts.status} = 'active' and ${hasAnswered})`.mapWith(Number),
+			dormant: sql`count(*) filter (where ${contacts.status} = 'dormant')`.mapWith(Number),
+		})
+		.from(contacts)
+		.where(and(eq(contacts.newsletterId, newsletterId), isNotNull(contacts.lastChanceAt)));
 	return { waiting: totals?.waiting ?? 0, kept: totals?.kept ?? 0, dormant: totals?.dormant ?? 0 };
 }

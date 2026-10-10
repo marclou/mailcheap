@@ -21,7 +21,14 @@ import { cn } from "@/lib/utils";
 
 const IMAGE_PREVIEW_PATTERN = /^(https:\/\/\S+\.\S{2,}\/\S+|\/\S+\.\w{3,4})$/;
 
-export default function FormNewsletter({ newsletter, verifiedDomains, isSendingEnabled, testEmail, cleanupTotals }) {
+export default function FormNewsletter({
+	newsletter,
+	verifiedDomains,
+	isSendingEnabled,
+	testEmail,
+	cleanupTotals,
+	providerLabel = "SES",
+}) {
 	const [state, action, isPending] = useActionState(saveNewsletter, null);
 	const [isTesting, startTesting] = useTransition();
 	const [name, setName] = useState(newsletter?.name ?? "");
@@ -171,7 +178,7 @@ export default function FormNewsletter({ newsletter, verifiedDomains, isSendingE
 				</Field>
 				<Field
 					label="From email"
-					hint={isDomainUnverified ? `${fromDomain} is not verified in SES` : null}
+					hint={isDomainUnverified ? `${fromDomain} is not verified in ${providerLabel}` : null}
 					isWarning
 				>
 					<Input

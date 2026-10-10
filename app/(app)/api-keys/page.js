@@ -1,3 +1,4 @@
+import { desc, getTableColumns } from "drizzle-orm";
 import { KeyRound } from "lucide-react";
 import BadgeStatus from "@/components/BadgeStatus";
 import ButtonCopy from "@/components/ButtonCopy";
@@ -14,15 +15,16 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { getAppUrl } from "@/lib/config";
-import { connectDb } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { formatDate, formatRelative } from "@/lib/format";
-import ApiKey from "@/models/ApiKey";
+import { toRecord } from "@/lib/rows";
+import { apiKeys as apiKeysTable } from "@/lib/schema";
 
 export const metadata = { title: "API keys" };
 
 export default async function ApiKeysPage() {
-	await connectDb();
-	const apiKeys = await ApiKey.find().sort({ createdAt: -1 }).select("-hash").lean();
+	const { hash, ...shown } = getTableColumns(apiKeysTable);
+	const apiKeys = (await getDb().select(shown).from(apiKeysTable).orderBy(desc(apiKeysTable.createdAt))).map(toRecord);
 	const examples = getExamples(getAppUrl());
 
 	return (

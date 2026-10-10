@@ -17,13 +17,19 @@ const contacts = [
 test("rows add the contacts a newsletter doesn't have and only make statuses stricter", () => {
 	const writes = getContactWrites({ newsletterId, contacts, source: "import" });
 	assert.equal(writes.length, contacts.length);
-	assert.ok(writes.every(({ updateOne }) => updateOne.upsert === true));
-	assert.deepEqual(writes[0].updateOne.filter, { newsletterId, email: "new@example.com" });
-	assert.deepEqual(writes[0].updateOne.update, {
-		$setOnInsert: { status: "active", source: "import", subscribedAt },
-		$set: { "imported.openRate": 0.5 },
+	assert.deepEqual(writes[0], {
+		newsletterId,
+		email: "new@example.com",
+		status: "active",
+		source: "import",
+		subscribedAt,
+		importedOpenRate: 0.5,
 	});
-	assert.ok(writes[1].updateOne.update.$setOnInsert.unsubscribedAt instanceof Date);
+	assert.ok(writes[1].unsubscribedAt instanceof Date);
+	assert.deepEqual(
+		[writes[4].importedEmailsReceived, writes[4].importedOpenRate, writes[4].importedClickRate],
+		[9, 0, 0]
+	);
 
 	assert.deepEqual(getStatusChanges(contacts), [
 		{ status: "unsubscribed", emails: ["left@example.com", "left-too@example.com"], replaces: ["active", "dormant"] },
@@ -34,8 +40,10 @@ test("rows add the contacts a newsletter doesn't have and only make statuses str
 
 test("existing contacts never become active and contacts waiting to confirm stay as they are", () => {
 	const writes = getContactWrites({ newsletterId, contacts, source: "import" });
-	for (const { updateOne } of writes) {
-		assert.ok(Object.keys(updateOne.update.$set ?? {}).every((key) => key.startsWith("imported.")));
+	const updatable = /^imported/;
+	for (const write of writes) {
+		// Only the imported* columns change on a contact that already exists (lib/contact-import.js keepUnlessGiven).
+		assert.ok(Object.keys(write).filter(updatable.test.bind(updatable)).every((key) => write[key] !== undefined));
 	}
 	for (const { status, replaces } of getStatusChanges(contacts)) {
 		assert.notEqual(status, "active");

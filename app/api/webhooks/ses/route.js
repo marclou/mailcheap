@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { handleSesEvent } from "@/lib/ses-events";
+import { handleSesEvent } from "@/lib/email-events";
 import { isValidSubscribeUrl, verifySnsMessage } from "@/lib/sns";
 import { isPlainObject } from "@/lib/validation";
 

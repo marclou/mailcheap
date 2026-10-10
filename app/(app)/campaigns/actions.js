@@ -1,22 +1,24 @@
 "use server";
 
-import { isValidObjectId } from "mongoose";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { notifyActivity } from "@/lib/alerts";
 import { PUBLISHED_STATUSES, revalidateArchive } from "@/lib/archive-data";
 import { requireSession } from "@/lib/auth";
 import { getAppUrl, isSendingEnabled } from "@/lib/config";
-import { connectDb } from "@/lib/db";
+import { getDb, isUniqueViolation } from "@/lib/db";
+import { notifyActivity } from "@/lib/notify-activity";
+import { isRateLimited } from "@/lib/rate-limit";
+import { findCampaignById, findNewsletterById } from "@/lib/records";
 import { getScheduleProblem } from "@/lib/schedule";
-import { publishScheduledSend } from "@/lib/scheduling";
+import { campaigns } from "@/lib/schema";
+import { kickSender } from "@/lib/sender-client";
 import { getCleanupPreview, queueCampaign, sendTestEmail, sendToMoreContacts } from "@/lib/sending";
 import { getSendProblem } from "@/lib/sending-rules";
 import { ARCHIVE_SLUG_PATTERN } from "@/lib/slug";
+import { isAiGatewayConfigured, suggestSubjectLines } from "@/lib/subject-ideas";
 import { firstImageUrl } from "@/lib/thumbnail";
-import { MAX_BODY_BYTES } from "@/lib/validation";
-import Campaign from "@/models/Campaign";
-import Newsletter from "@/models/Newsletter";
+import { MAX_BODY_BYTES, isIdString } from "@/lib/validation";
 
 const MAX_SUBJECT_LENGTH = 200;
 const COPY_SUFFIX = " (copy)";
@@ -38,18 +40,25 @@ function formatCount(count) {
 
 async function findCampaign(id) {
 	await requireSession();
-	if (!isValidObjectId(id)) return null;
-	await connectDb();
-	return Campaign.findById(id);
+	if (!isIdString(id)) return null;
+	return findCampaignById(id);
+}
+
+// Conditional writes: the filter is part of the update, so it only lands on a campaign still in that state.
+async function updateCampaign(where, set) {
+	const rows = await getDb().update(campaigns).set(set).where(where).returning({ _id: campaigns._id });
+	return rows.length > 0;
+}
+
+function isEditable(id) {
+	return and(eq(campaigns._id, id), inArray(campaigns.status, EDITABLE_STATUSES));
 }
 
 export async function createCampaign(newsletterId) {
 	await requireSession();
-	if (!isValidObjectId(newsletterId)) return { error: "Newsletter not found" };
-	await connectDb();
-	if (!(await Newsletter.exists({ _id: newsletterId }))) return { error: "Newsletter not found" };
+	if (!(await findNewsletterById(newsletterId, ["_id"]))) return { error: "Newsletter not found" };
 
-	const campaign = await Campaign.create({ newsletterId });
+	const [campaign] = await getDb().insert(campaigns).values({ newsletterId }).returning({ _id: campaigns._id });
 	revalidatePath("/campaigns");
 	redirect(`/campaigns/${campaign._id}`);
 }
@@ -69,20 +78,14 @@ export async function saveCampaign(id, values) {
 	// The editor opens Markdown drafts as rich text, so their first save moves them to it.
 	const format = campaign.format === "markdown" ? "rich" : campaign.format;
 	const thumbnailUrl = firstImageUrl({ format, html: body });
-	const { matchedCount } = await Campaign.updateOne(
-		{ _id: campaign._id, status: { $in: EDITABLE_STATUSES } },
-		{
-			$set: {
-				subject: String(values?.subject ?? "").slice(0, MAX_SUBJECT_LENGTH),
-				previewText: String(values?.previewText ?? "").slice(0, 300),
-				format,
-				html: body,
-				...(thumbnailUrl && { thumbnailUrl }),
-			},
-			...(!thumbnailUrl && { $unset: { thumbnailUrl: 1 } }),
-		}
-	);
-	if (!matchedCount) return { error: "This campaign is already sending" };
+	const saved = await updateCampaign(isEditable(campaign._id), {
+		subject: String(values?.subject ?? "").slice(0, MAX_SUBJECT_LENGTH),
+		previewText: String(values?.previewText ?? "").slice(0, 300),
+		format,
+		html: body,
+		thumbnailUrl: thumbnailUrl ?? null,
+	});
+	if (!saved) return { error: "This campaign is already sending" };
 
 	revalidatePath("/campaigns");
 	return { ok: true };
@@ -111,23 +114,22 @@ export async function sendTestCampaign(id) {
 	return result;
 }
 
-// Sending a scheduled campaign now replaces its schedule; the job left in QStash then does nothing.
+// Sending a scheduled campaign now replaces its schedule: the sender's cron only starts scheduled ones.
 export async function sendCampaign(id, { audienceLimit } = {}) {
 	const campaign = await findCampaign(id);
 	if (!campaign) return { error: "Campaign not found" };
 	if (!EDITABLE_STATUSES.includes(campaign.status)) return { error: "Already sent" };
 	if (!isSendingEnabled()) return { error: "Sending is off" };
 
-	campaign.audienceLimit = readAudienceLimit(audienceLimit);
-	campaign.scheduledAt = undefined;
-	await campaign.save();
+	const limit = readAudienceLimit(audienceLimit);
+	await updateCampaign(isEditable(campaign._id), { audienceLimit: limit ?? null, scheduledAt: null });
 
 	const result = await runSend(() => queueCampaign(campaign._id.toString()));
 	revalidatePath("/campaigns");
 	revalidatePath(`/campaigns/${id}`);
 	if (result.ok) {
+		kickSender();
 		revalidateArchive();
-		const limit = campaign.audienceLimit;
 		await notifySend(campaign, limit ? `Send started (first ${formatCount(limit)})` : "Send started");
 	}
 	return result;
@@ -143,31 +145,18 @@ export async function scheduleCampaign(id, { scheduledAt, audienceLimit } = {}) 
 	const at = new Date(scheduledAt ?? NaN);
 	const problem = getScheduleProblem(at);
 	if (problem) return { error: problem };
-	const newsletter = await Newsletter.findById(campaign.newsletterId).lean();
+	const newsletter = await findNewsletterById(campaign.newsletterId);
 	const sendProblem = getSendProblem({ campaign, newsletter });
 	if (sendProblem) return { error: sendProblem };
 
+	// The sender function's every-minute cron starts it when it's due (lib/scheduling.js).
 	const limit = readAudienceLimit(audienceLimit);
-	const { matchedCount } = await Campaign.updateOne(
-		{ _id: campaign._id, status: { $in: EDITABLE_STATUSES } },
-		{
-			$set: { status: "scheduled", scheduledAt: at, ...(limit && { audienceLimit: limit }) },
-			...(!limit && { $unset: { audienceLimit: 1 } }),
-		}
-	);
-	if (!matchedCount) return { error: "The campaign changed, refresh and try again" };
-
-	try {
-		await publishScheduledSend({ campaignId: campaign._id, scheduledAt: at });
-	} catch (error) {
-		console.error("[campaigns] Scheduling failed:", error);
-		const previous =
-			campaign.status === "scheduled"
-				? { $set: { status: "scheduled", scheduledAt: campaign.scheduledAt } }
-				: { $set: { status: "draft" }, $unset: { scheduledAt: 1 } };
-		await Campaign.updateOne({ _id: campaign._id, status: "scheduled", scheduledAt: at }, previous);
-		return { error: `Couldn't schedule it: ${error.message}` };
-	}
+	const scheduled = await updateCampaign(isEditable(campaign._id), {
+		status: "scheduled",
+		scheduledAt: at,
+		audienceLimit: limit ?? null,
+	});
+	if (!scheduled) return { error: "The campaign changed, refresh and try again" };
 
 	revalidatePath("/campaigns");
 	revalidatePath(`/campaigns/${id}`);
@@ -180,11 +169,11 @@ export async function unscheduleCampaign(id) {
 	const campaign = await findCampaign(id);
 	if (!campaign) return { error: "Campaign not found" };
 
-	const { matchedCount } = await Campaign.updateOne(
-		{ _id: campaign._id, status: "scheduled" },
-		{ $set: { status: "draft" }, $unset: { scheduledAt: 1 } }
-	);
-	if (!matchedCount) return { error: "It isn't scheduled anymore" };
+	const unscheduled = await updateCampaign(and(eq(campaigns._id, campaign._id), eq(campaigns.status, "scheduled")), {
+		status: "draft",
+		scheduledAt: null,
+	});
+	if (!unscheduled) return { error: "It isn't scheduled anymore" };
 
 	revalidatePath("/campaigns");
 	revalidatePath(`/campaigns/${id}`);
@@ -194,7 +183,7 @@ export async function unscheduleCampaign(id) {
 // The send dialogs ask when they open: it walks the whole list.
 export async function previewCleanup(id) {
 	await requireSession();
-	if (!isValidObjectId(id)) return { error: "Campaign not found" };
+	if (!isIdString(id)) return { error: "Campaign not found" };
 	try {
 		return await getCleanupPreview(id);
 	} catch (error) {
@@ -213,7 +202,10 @@ export async function sendCampaignToMore(id, { additional } = {}) {
 	const result = await runSend(() => sendToMoreContacts(campaign._id.toString(), more));
 	revalidatePath("/campaigns");
 	revalidatePath(`/campaigns/${id}`);
-	if (result.ok) await notifySend(campaign, `Send to more started (${more ? `next ${formatCount(more)}` : "everyone left"})`);
+	if (result.ok) {
+		kickSender();
+		await notifySend(campaign, `Send to more started (${more ? `next ${formatCount(more)}` : "everyone left"})`);
+	}
 	return result;
 }
 
@@ -225,14 +217,17 @@ export async function resumeCampaign(id) {
 
 	const result = await runSend(() => queueCampaign(campaign._id.toString()));
 	revalidatePath(`/campaigns/${id}`);
-	if (result.ok) await notifySend(campaign, "Send resumed");
+	if (result.ok) {
+		kickSender();
+		await notifySend(campaign, "Send resumed");
+	}
 	return result;
 }
 
 export async function pauseCampaign(id) {
 	const campaign = await findCampaign(id);
 	if (!campaign) return { error: "Campaign not found" };
-	await Campaign.updateOne({ _id: campaign._id, status: "sending" }, { $set: { status: "paused" } });
+	await updateCampaign(and(eq(campaigns._id, campaign._id), eq(campaigns.status, "sending")), { status: "paused" });
 	revalidatePath(`/campaigns/${id}`);
 	return { ok: true };
 }
@@ -242,8 +237,7 @@ export async function toggleArchivePin(id) {
 	if (!campaign) return { error: "Campaign not found" };
 	if (!campaign.archiveSlug || campaign.archiveListed === false) return { error: "Not listed on the archive" };
 
-	campaign.archivePinned = !campaign.archivePinned;
-	await campaign.save();
+	await updateCampaign(eq(campaigns._id, campaign._id), { archivePinned: !campaign.archivePinned });
 	revalidatePath(`/campaigns/${id}`);
 	revalidateArchive();
 	return { ok: true };
@@ -253,17 +247,20 @@ export async function duplicateCampaign(id) {
 	const campaign = await findCampaign(id);
 	if (!campaign) return { error: "Campaign not found" };
 
-	const copy = await Campaign.create({
-		newsletterId: campaign.newsletterId,
-		subject: campaign.subject ? `${campaign.subject.slice(0, MAX_SUBJECT_LENGTH - COPY_SUFFIX.length)}${COPY_SUFFIX}` : "",
-		previewText: campaign.previewText,
-		format: campaign.format,
-		markdown: campaign.markdown,
-		html: campaign.html,
-		thumbnailUrl: campaign.thumbnailUrl,
-		// A copy of an API draft is still content from the API key's holder, not from the dashboard.
-		...(campaign.source === "api" && { source: "api" }),
-	});
+	const [copy] = await getDb()
+		.insert(campaigns)
+		.values({
+			newsletterId: campaign.newsletterId,
+			subject: campaign.subject ? `${campaign.subject.slice(0, MAX_SUBJECT_LENGTH - COPY_SUFFIX.length)}${COPY_SUFFIX}` : "",
+			previewText: campaign.previewText,
+			format: campaign.format,
+			markdown: campaign.markdown,
+			html: campaign.html,
+			thumbnailUrl: campaign.thumbnailUrl,
+			// A copy of an API draft is still content from the API key's holder, not from the dashboard.
+			...(campaign.source === "api" && { source: "api" }),
+		})
+		.returning({ _id: campaigns._id });
 	revalidatePath("/campaigns");
 	redirect(`/campaigns/${copy._id}`);
 }
@@ -274,11 +271,8 @@ export async function discardCampaign(id) {
 	if (!campaign) return { error: "Campaign not found" };
 	if (!EDITABLE_STATUSES.includes(campaign.status)) return { error: "Only drafts can be discarded" };
 
-	const { matchedCount } = await Campaign.updateOne(
-		{ _id: campaign._id, status: { $in: EDITABLE_STATUSES } },
-		{ $set: { status: "canceled" }, $unset: { scheduledAt: 1 } }
-	);
-	if (!matchedCount) return { error: "This campaign is already sending" };
+	const discarded = await updateCampaign(isEditable(campaign._id), { status: "canceled", scheduledAt: null });
+	if (!discarded) return { error: "This campaign is already sending" };
 
 	revalidatePath("/");
 	revalidatePath("/campaigns");
@@ -296,17 +290,17 @@ export async function updateArchiveSlug(id, value) {
 	if (!slug && isPublished) return { error: "A sent issue needs a URL" };
 	if (slug && !ARCHIVE_SLUG_PATTERN.test(slug)) return { error: "Use lowercase letters, digits and hyphens" };
 	if (slug === (campaign.archiveSlug ?? "")) return { ok: true, archiveSlug: slug };
-	if (slug && (await Campaign.exists({ _id: { $ne: campaign._id }, archiveSlug: slug }))) {
-		return { error: "Another issue uses this URL" };
-	}
+	const taken = await getDb()
+		.select({ _id: campaigns._id })
+		.from(campaigns)
+		.where(and(ne(campaigns._id, campaign._id), eq(campaigns.archiveSlug, slug)))
+		.limit(1);
+	if (slug && taken.length > 0) return { error: "Another issue uses this URL" };
 
 	try {
-		await Campaign.updateOne(
-			{ _id: campaign._id },
-			slug ? { $set: { archiveSlug: slug } } : { $unset: { archiveSlug: 1 } }
-		);
+		await updateCampaign(eq(campaigns._id, campaign._id), { archiveSlug: slug || null });
 	} catch (error) {
-		if (error?.code === 11000) return { error: "Another issue uses this URL" };
+		if (isUniqueViolation(error)) return { error: "Another issue uses this URL" };
 		throw error;
 	}
 
@@ -316,4 +310,35 @@ export async function updateArchiveSlug(id, value) {
 		revalidateArchive();
 	}
 	return { ok: true, archiveSlug: slug };
+}
+
+// Subject line ideas from the Neon AI Gateway, for the draft as it is in the editor.
+const IDEAS_RATE_LIMIT = { name: "subject-ideas", limit: 60, window: "1 h" };
+
+export async function suggestSubjects(id, { subject, body } = {}) {
+	const campaign = await findCampaign(id);
+	if (!campaign) return { error: "Campaign not found" };
+	if (!isAiGatewayConfigured()) return { error: "The AI Gateway isn't set up: run neon deploy, then neon env pull" };
+	if (await isRateLimited({ ...IDEAS_RATE_LIMIT, key: "admin" })) return { error: "Too many ideas this hour, try again later" };
+
+	const newsletter = await findNewsletterById(campaign.newsletterId, ["name", "description"]);
+	const draft = {
+		...campaign,
+		subject: String(subject ?? campaign.subject ?? "").slice(0, MAX_SUBJECT_LENGTH),
+		...(body !== undefined && {
+			format: campaign.format === "markdown" ? "rich" : campaign.format,
+			html: String(body).slice(0, MAX_BODY_BYTES),
+		}),
+	};
+	try {
+		return { ideas: await suggestSubjectLines({ newsletter, campaign: draft }) };
+	} catch (error) {
+		console.error("[campaigns] Subject ideas failed:", error);
+		if (error.message === "Write some of the issue first") return { error: error.message };
+		// The gateway says why it refused (no credits, a model the branch doesn't serve): only the admin sees it.
+		if (error.statusCode >= 400 && error.statusCode < 500 && error.data?.error?.message) {
+			return { error: `AI Gateway: ${error.data.error.message}` };
+		}
+		return { error: "Couldn't get ideas, try again" };
+	}
 }

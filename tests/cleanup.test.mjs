@@ -9,8 +9,8 @@ import {
 	getLastSignOfLife,
 	splitAudience,
 	summarizePreview,
-	withEngagement,
 } from "../lib/cleanup.js";
+import { withEngagement } from "../lib/engagement.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2027-06-01T12:00:00Z");
@@ -86,12 +86,11 @@ test("after the last-chance email: skip while waiting, dormant at a send 14 or m
 
 test("signs of life reset the count and move the date forward only", () => {
 	const at = new Date("2027-01-01T00:00:00Z");
-	assert.deepEqual(withEngagement(undefined, at), { $set: { ignoredIssues: 0 }, $max: { lastEngagedAt: at } });
-	assert.deepEqual(withEngagement({ $set: { status: "active" }, $max: { lastOpenAt: at }, $inc: { "stats.opens": 1 } }, at), {
-		$set: { status: "active", ignoredIssues: 0 },
-		$max: { lastOpenAt: at, lastEngagedAt: at },
-		$inc: { "stats.opens": 1 },
-	});
+	const update = withEngagement(undefined, at);
+	assert.deepEqual(Object.keys(update), ["ignoredIssues", "lastEngagedAt"]);
+	assert.equal(update.ignoredIssues, 0);
+	assert.ok(update.lastEngagedAt.queryChunks.some((chunk) => chunk === at), "lastEngagedAt takes the later date");
+	assert.equal(withEngagement({ status: "active" }, at).status, "active");
 });
 
 // Most engaged first, as the send walks them.
@@ -171,13 +170,9 @@ test("the send dialog's counts match what the send does, at any limit", () => {
 
 test("signing up again is a sign of life", () => {
 	const at = new Date(NOW);
-	assert.deepEqual(withEngagement(undefined, at), {
-		$set: { ignoredIssues: 0 },
-		$max: { lastEngagedAt: at },
-	});
-	assert.deepEqual(withEngagement({ $set: { status: "active", subscribedAt: at }, $unset: { unsubscribedAt: 1 } }, at), {
-		$set: { status: "active", subscribedAt: at, ignoredIssues: 0 },
-		$unset: { unsubscribedAt: 1 },
-		$max: { lastEngagedAt: at },
-	});
+	const update = withEngagement({ status: "active", subscribedAt: at, unsubscribedAt: null }, at);
+	assert.equal(update.status, "active");
+	assert.equal(update.subscribedAt, at);
+	assert.equal(update.unsubscribedAt, null);
+	assert.equal(update.ignoredIssues, 0);
 });

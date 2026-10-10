@@ -1,13 +1,14 @@
 "use server";
 
-import { isValidObjectId } from "mongoose";
+import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { notifyActivity } from "@/lib/alerts";
 import { generateApiKey } from "@/lib/api-keys";
 import { requireSession } from "@/lib/auth";
 import { getAppUrl } from "@/lib/config";
-import { connectDb } from "@/lib/db";
-import ApiKey from "@/models/ApiKey";
+import { getDb } from "@/lib/db";
+import { notifyActivity } from "@/lib/notify-activity";
+import { apiKeys } from "@/lib/schema";
+import { isIdString } from "@/lib/validation";
 
 export async function createApiKey(_state, formData) {
 	await requireSession();
@@ -16,9 +17,8 @@ export async function createApiKey(_state, formData) {
 		.slice(0, 60);
 	if (!name) return { error: "Name is required" };
 
-	await connectDb();
 	const { key, prefix, hash } = generateApiKey();
-	await ApiKey.create({ name, prefix, hash });
+	await getDb().insert(apiKeys).values({ name, prefix, hash });
 	await notifyActivity([`API key created: ${name}`, `${getAppUrl()}/api-keys`]);
 
 	revalidatePath("/api-keys");
@@ -27,10 +27,12 @@ export async function createApiKey(_state, formData) {
 
 export async function revokeApiKey(id) {
 	await requireSession();
-	if (!isValidObjectId(id)) return { error: "Key not found" };
+	if (!isIdString(id)) return { error: "Key not found" };
 
-	await connectDb();
-	await ApiKey.updateOne({ _id: id, revokedAt: null }, { $set: { revokedAt: new Date() } });
+	await getDb()
+		.update(apiKeys)
+		.set({ revokedAt: new Date() })
+		.where(and(eq(apiKeys._id, id), isNull(apiKeys.revokedAt)));
 
 	revalidatePath("/api-keys");
 	return { ok: true };

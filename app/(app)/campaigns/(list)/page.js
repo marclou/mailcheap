@@ -4,22 +4,16 @@ import HeaderPage from "@/components/HeaderPage";
 import StateEmpty from "@/components/StateEmpty";
 import TableCampaigns from "@/components/TableCampaigns";
 import { getIssuePageUrl } from "@/lib/archive-data";
-import { recentCampaignsPipeline } from "@/lib/campaign-queries";
-import { connectDb } from "@/lib/db";
+import { listRecentCampaigns } from "@/lib/campaign-queries";
 import { NEWSLETTER_SUMMARY_FIELDS, toNewsletterMap, toNewsletterOptions } from "@/lib/newsletters";
-import Campaign from "@/models/Campaign";
-import Newsletter from "@/models/Newsletter";
+import { listNewsletters } from "@/lib/records";
 
 export const metadata = { title: "Campaigns" };
 
 export default async function CampaignsPage() {
-	await connectDb();
 	const [campaigns, newsletters] = await Promise.all([
-		Campaign.aggregate(recentCampaignsPipeline(200)),
-		Newsletter.find()
-			.sort({ createdAt: 1 })
-			.select(`${NEWSLETTER_SUMMARY_FIELDS} archiveEnabled`)
-			.lean(),
+		listRecentCampaigns(200),
+		listNewsletters(`${NEWSLETTER_SUMMARY_FIELDS} archiveEnabled`),
 	]);
 	const newslettersById = new Map(newsletters.map((newsletter) => [newsletter._id.toString(), newsletter]));
 	const pageUrls = Object.fromEntries(

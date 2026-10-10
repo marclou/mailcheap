@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { escapeHtml } from "@/lib/render-email";
-import { recordEngagement } from "@/lib/ses-events";
+import { recordEngagement } from "@/lib/email-events";
 import { readClickToken } from "@/lib/tracking";
 
 function redirectTo(url) {

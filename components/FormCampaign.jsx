@@ -13,6 +13,7 @@ import EditorRich from "@/components/EditorRich";
 import HeaderPage from "@/components/HeaderPage";
 import InputCampaignSlug from "@/components/InputCampaignSlug";
 import ListChecks from "@/components/ListChecks";
+import MenuSubjectIdeas from "@/components/MenuSubjectIdeas";
 import PreviewEmail from "@/components/PreviewEmail";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +41,8 @@ export default function FormCampaign({
 	testEmail,
 	sendTimes,
 	archiveUrlBase,
+	isAiEnabled,
+	providerLabel,
 }) {
 	const isHtml = campaign.format === "html";
 	const [isDiscardOpen, setIsDiscardOpen] = useState(false);
@@ -80,6 +83,7 @@ export default function FormCampaign({
 		rendered,
 		isDomainVerified,
 		isSendingEnabled,
+		providerLabel,
 	});
 
 	async function persist() {
@@ -137,6 +141,11 @@ export default function FormCampaign({
 	}
 
 	const updateBody = useCallback((body) => setValues((current) => ({ ...current, body })), []);
+
+	const pickIdea = useCallback(
+		({ subject, previewText }) => setValues((current) => ({ ...current, subject, previewText })),
+		[]
+	);
 
 	const from = newsletter.fromName
 		? `${newsletter.fromName} <${newsletter.fromEmail}>`
@@ -230,13 +239,22 @@ export default function FormCampaign({
 						</span>
 					</Row>
 					<Row label="Subject">
-						<input
-							value={values.subject}
-							onChange={update("subject")}
-							placeholder="Subject"
-							maxLength={200}
-							className="h-11 w-full min-w-0 bg-transparent text-sm font-medium outline-none placeholder:font-normal placeholder:text-muted-foreground"
-						/>
+						<span className="flex min-w-0 items-center gap-1">
+							<input
+								value={values.subject}
+								onChange={update("subject")}
+								placeholder="Subject"
+								maxLength={200}
+								className="h-11 w-full min-w-0 bg-transparent text-sm font-medium outline-none placeholder:font-normal placeholder:text-muted-foreground"
+							/>
+							{isAiEnabled && (
+								<MenuSubjectIdeas
+									campaignId={campaign._id}
+									getDraft={() => ({ subject: values.subject, body: values.body })}
+									onPick={pickIdea}
+								/>
+							)}
+						</span>
 					</Row>
 					<Row label="Preview">
 						<input

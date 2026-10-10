@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { isLimitedInMemory, isRateLimited } from "../lib/rate-limit.js";
 
-delete process.env.UPSTASH_REDIS_REST_URL;
-delete process.env.UPSTASH_REDIS_REST_TOKEN;
+delete process.env.DATABASE_URL;
 
 const LOGIN = { name: "test-login", limit: 3, window: "15 m" };
 
@@ -13,7 +12,7 @@ async function countAllowed(options, attempts, limiter) {
 	return allowed;
 }
 
-test("without Redis, limits still apply, counted in memory per key", async () => {
+test("without a database, limits still apply, counted in memory per key", async () => {
 	const results = [];
 	for (let attempt = 0; attempt < 4; attempt += 1) results.push(await isRateLimited({ ...LOGIN, key: "203.0.113.7" }));
 	assert.deepEqual(results, [false, false, false, true]);
@@ -21,7 +20,7 @@ test("without Redis, limits still apply, counted in memory per key", async () =>
 	assert.equal(await isRateLimited({ ...LOGIN, name: "test-other", key: "203.0.113.7" }), false, "and other limits");
 });
 
-test("a Redis error or timeout falls back to memory instead of letting everything through", async (t) => {
+test("a Postgres error or timeout falls back to memory instead of letting everything through", async (t) => {
 	t.mock.method(console, "error", () => {});
 	const failing = { limit: async () => Promise.reject(new Error("fetch failed")) };
 	const timingOut = { limit: async () => ({ success: true, reason: "timeout" }) };
@@ -32,7 +31,7 @@ test("a Redis error or timeout falls back to memory instead of letting everythin
 	assert.equal(reports.length, 1, "an outage is reported at most every 30 minutes, not on every request");
 });
 
-test("Redis answers decide while it's up", async () => {
+test("Postgres answers decide while it is up", async () => {
 	const allowing = { limit: async () => ({ success: true }) };
 	const refusing = { limit: async () => ({ success: false }) };
 	assert.equal(await countAllowed({ ...LOGIN, key: "198.51.100.5" }, 5, allowing), 5);

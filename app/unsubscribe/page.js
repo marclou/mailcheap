@@ -1,9 +1,10 @@
+import { and, eq } from "drizzle-orm";
 import { CircleAlert, Link2Off, MailCheck, MailX } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { connectDb } from "@/lib/db";
+import { getDb } from "@/lib/db";
+import { findNewsletterById } from "@/lib/records";
+import { contacts } from "@/lib/schema";
 import { verifyUnsubscribeToken } from "@/lib/unsubscribe";
-import Contact from "@/models/Contact";
-import Newsletter from "@/models/Newsletter";
 
 // The URL carries the unsubscribe token: keep it out of search results and referrer headers.
 export const metadata = {
@@ -49,10 +50,12 @@ export default async function UnsubscribePage({ searchParams }) {
 
 async function getSubscription({ contactId, newsletterId }) {
 	try {
-		await connectDb();
-		const [newsletter, contact] = await Promise.all([
-			Newsletter.findById(newsletterId).select({ name: 1 }).lean(),
-			Contact.findOne({ _id: contactId, newsletterId }).select({ status: 1 }).lean(),
+		const [newsletter, [contact]] = await Promise.all([
+			findNewsletterById(newsletterId, ["name"]),
+			getDb()
+				.select({ status: contacts.status })
+				.from(contacts)
+				.where(and(eq(contacts._id, contactId), eq(contacts.newsletterId, newsletterId))),
 		]);
 		return {
 			newsletterName: newsletter?.name,

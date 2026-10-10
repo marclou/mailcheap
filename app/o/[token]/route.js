@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { recordEngagement } from "@/lib/ses-events";
+import { recordEngagement } from "@/lib/email-events";
 import { readOpenToken } from "@/lib/tracking";
 
 // A 1×1 transparent GIF.

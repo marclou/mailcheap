@@ -7,13 +7,24 @@ import ImageFavicon from "@/components/ImageFavicon";
 import SkeletonDomains from "@/components/SkeletonDomains";
 import StateEmpty from "@/components/StateEmpty";
 import { Button } from "@/components/ui/button";
+import { getProviderInfo, listSendingDomains } from "@/lib/email";
 import { rootDomain } from "@/lib/favicon";
-import { listSesDomains } from "@/lib/ses";
 
 export const metadata = { title: "Domains" };
 
-export default function DomainsPage() {
+// Where each provider's own domain settings are.
+function getConsoleLink(provider) {
+	if (provider === "resend") return { href: "https://resend.com/domains", favicon: "resend.com" };
 	const region = process.env.SES_REGION || "us-east-1";
+	return {
+		href: `https://${region}.console.aws.amazon.com/ses/home?region=${region}#/identities`,
+		favicon: "aws.amazon.com",
+	};
+}
+
+export default function DomainsPage() {
+	const { provider, label } = getProviderInfo();
+	const consoleLink = getConsoleLink(provider);
 	return (
 		<>
 			<HeaderPage title="Domains">
@@ -25,35 +36,31 @@ export default function DomainsPage() {
 					</a>
 				</Button>
 				<Button asChild variant="outline">
-					<a
-						href={`https://${region}.console.aws.amazon.com/ses/home?region=${region}#/identities`}
-						target="_blank"
-						rel="noreferrer"
-					>
-						<ImageFavicon domain="aws.amazon.com" size={16} />
-						SES
+					<a href={consoleLink.href} target="_blank" rel="noreferrer">
+						<ImageFavicon domain={consoleLink.favicon} size={16} />
+						{label}
 						<ExternalLink data-icon="inline-end" className="opacity-60" />
 					</a>
 				</Button>
 			</HeaderPage>
 			<Suspense fallback={<SkeletonDomains />}>
-				<ListDomains />
+				<ListDomains label={label} />
 			</Suspense>
 		</>
 	);
 }
 
-async function ListDomains() {
-	const domains = await listSesDomains({ fresh: true });
+async function ListDomains({ label }) {
+	const domains = await listSendingDomains({ fresh: true });
 
 	if (domains.error) {
 		return (
-			<StateEmpty icon={TriangleAlert} title="Could not reach SES">
+			<StateEmpty icon={TriangleAlert} title={`Could not reach ${label}`}>
 				<p className="max-w-md text-sm text-muted-foreground">{domains.error}</p>
 			</StateEmpty>
 		);
 	}
-	if (domains.length === 0) return <StateEmpty icon={Globe} title="No domains in SES" />;
+	if (domains.length === 0) return <StateEmpty icon={Globe} title={`No domains in ${label}`} />;
 
 	return (
 		<div className="flex flex-col gap-3">

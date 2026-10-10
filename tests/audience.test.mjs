@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildAudienceQuery, selectAudience } from "../lib/audience.js";
+import { drizzle } from "drizzle-orm/pg-proxy";
+import { selectAudience } from "../lib/audience.js";
+import { buildAudienceQuery } from "../lib/audience-query.js";
+import { contacts as contactsTable } from "../lib/schema.js";
+
+const proxy = drizzle(async () => ({ rows: [] }));
 
 const newsletterId = "74f1a2b3c4d5e6f7a8b9c0d2";
 
@@ -75,26 +80,20 @@ test("contacts with equal engagement keep a stable order", () => {
 	);
 });
 
-test("the Mongo query selects the same audience in the same order", () => {
-	const query = buildAudienceQuery({ newsletterId, suppressedEmails, audienceLimit: 500 });
-	assert.deepEqual(query.filter, {
-		newsletterId,
-		status: "active",
-		email: { $nin: suppressedEmails },
-	});
-	assert.deepEqual(Object.entries(query.sort), [
-		["lastClickAt", -1],
-		["lastOpenAt", -1],
-		["imported.clickRate", -1],
-		["imported.openRate", -1],
-		["createdAt", 1],
-		["_id", 1],
-	]);
+test("the SQL query selects the same audience in the same order", () => {
+	const query = buildAudienceQuery({ newsletterId, audienceLimit: 500 });
+	const { sql, params } = proxy.select().from(contactsTable).where(query.where).orderBy(...query.orderBy).toSQL();
+	assert.match(sql, /"newsletter_id" = \$1 and "contacts"."status" = \$2 and not exists/);
+	assert.match(sql, /from "suppressions" where "suppressions"."email" = "contacts"."email"/);
+	assert.match(
+		sql,
+		/order by "contacts"."last_click_at" desc nulls last, "contacts"."last_open_at" desc nulls last, "contacts"."imported_click_rate" desc nulls last, "contacts"."imported_open_rate" desc nulls last, "contacts"."created_at" asc, "contacts"."id" asc$/
+	);
+	assert.deepEqual(params, [newsletterId, "active"]);
 	assert.equal(query.limit, 500);
 });
 
-test("the Mongo query skips empty suppression lists and invalid limits", () => {
-	assert.deepEqual(buildAudienceQuery({ newsletterId }).filter, { newsletterId, status: "active" });
+test("the SQL query skips invalid limits", () => {
 	for (const audienceLimit of [undefined, null, 0, -1, 2.5, "abc"]) {
 		assert.equal(buildAudienceQuery({ newsletterId, audienceLimit }).limit, null);
 	}

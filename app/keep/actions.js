@@ -2,7 +2,6 @@
 
 import { headers } from "next/headers";
 import { keepContact } from "@/lib/contacts";
-import { connectDb } from "@/lib/db";
 import { verifyKeepToken } from "@/lib/last-chance";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 
@@ -14,7 +13,6 @@ export async function keepSending(token) {
 	const reference = verifyKeepToken(token);
 	if (!reference) return { error: "invalid" };
 
-	await connectDb();
 	const contact = await keepContact(reference);
 	return contact ? { ok: true } : { error: "invalid" };
 }

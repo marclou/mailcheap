@@ -330,6 +330,18 @@
   & [data-callout] > :last-child {
     margin-bottom: 0;
   }
+  /* SparkLoop cards (lib/sparkloop-cards.js): the picture opens the box, the label is small print. */
+  & [data-card] > :first-child img {
+    margin: 0 auto 1.25em;
+  }
+  & [data-card] > p:has(+ h3) {
+    margin-bottom: 0.25em;
+    font-size: 0.8125rem;
+    color: var(--muted-foreground);
+  }
+  & [data-card] > h3 {
+    margin-top: 0;
+  }
   & hr {
     margin: 3em 0;
     border: 0;
@@ -425,5 +437,96 @@
   }
   & hr.ProseMirror-selectednode {
     border-top-color: var(--ring);
+  }
+  /* SparkLoop cards: a preview of the email's card, which is always drawn on white. */
+  & .sparkloop-card {
+    position: relative;
+    margin: 2em 0;
+    overflow: hidden;
+    border: 1px solid #e4e4e7;
+    border-radius: 0.75rem;
+    background: #fff;
+    color: #52525b;
+    cursor: grab;
+    user-select: none;
+  }
+  & .sparkloop-card.ProseMirror-selectednode {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  & .sparkloop-card img {
+    margin: 0;
+    border-radius: 0;
+    outline: none;
+  }
+  & .sparkloop-card-image {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  & .sparkloop-card-body {
+    padding: 1.25rem 1.5rem 1.5rem;
+  }
+  /* Without a picture, the badge sits above the byline instead of over it. */
+  & .sparkloop-card:not(:has(.sparkloop-card-image)) .sparkloop-card-body {
+    padding-top: 2.75rem;
+  }
+  & .sparkloop-card-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.875rem;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+  & .sparkloop-card .sparkloop-card-logo {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.625rem;
+    object-fit: cover;
+  }
+  & .sparkloop-card-brand {
+    font-weight: 600;
+    color: #18181b;
+  }
+  & .sparkloop-card-label {
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #71717a;
+  }
+  & .sparkloop-card .sparkloop-card-title {
+    margin: 0 0 0.5rem;
+    font-size: 1.1875rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: #09090b;
+  }
+  & .sparkloop-card .sparkloop-card-description {
+    margin: 0 0 1.25rem;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+  & .sparkloop-card-cta {
+    display: inline-block;
+    padding: 0.6875rem 1.25rem;
+    border-radius: 0.5rem;
+    background: #18181b;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
+    color: #fff;
+  }
+  & .sparkloop-card-badge {
+    position: absolute;
+    top: 0.625rem;
+    right: 0.625rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.92);
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.08);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: #52525b;
   }
 }

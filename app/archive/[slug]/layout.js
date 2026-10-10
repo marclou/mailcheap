@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import FooterArchive from "@/components/FooterArchive";
 import HeaderArchive from "@/components/HeaderArchive";
 import ProviderSubscribe from "@/components/ProviderSubscribe";
+import ScriptSparkLoop from "@/components/ScriptSparkLoop";
 import { countReaders, getArchiveNewsletter } from "@/lib/archive-data";
 import { getArchiveUrls } from "@/lib/archive-hosts";
 
@@ -18,8 +19,11 @@ export default async function ArchiveLayout({ children, params }) {
 		description: newsletter.description,
 	};
 
+	const { publicationUuid, signupFlowEnabled } = newsletter.sparkloop ?? {};
+
 	return (
 		<ProviderSubscribe newsletter={pitch} readers={readers}>
+			{signupFlowEnabled && publicationUuid && <ScriptSparkLoop publicationUuid={publicationUuid} />}
 			<div className="flex min-h-dvh flex-col">
 				<HeaderArchive newsletter={newsletter} indexHref={index} />
 				<main className="flex-1">{children}</main>

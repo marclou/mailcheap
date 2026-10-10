@@ -9,6 +9,8 @@ import { connectDb } from "@/lib/db";
 import { MESSAGE_STATS_GROUP } from "@/lib/message-stats";
 import { serialize } from "@/lib/serialize";
 import { listSesDomains } from "@/lib/ses";
+import { getSparkLoopConnection } from "@/lib/sparkloop-account";
+import { SPARKLOOP_PITCH } from "@/lib/sparkloop-content";
 import Campaign from "@/models/Campaign";
 import Contact from "@/models/Contact";
 import Message from "@/models/Message";
@@ -41,10 +43,11 @@ export default async function CampaignPage({ params }) {
 		);
 	}
 
-	const [audienceCount, domains, sendTimes] = await Promise.all([
+	const [audienceCount, domains, sendTimes, sparkloop] = await Promise.all([
 		Contact.countDocuments({ newsletterId: newsletter._id, status: "active" }),
 		listSesDomains(),
 		getSendTimes(campaign),
+		getSparkLoopConnection(),
 	]);
 	const fromDomain = newsletter.fromEmail.split("@")[1];
 	const isDomainVerified =
@@ -60,6 +63,9 @@ export default async function CampaignPage({ params }) {
 			testEmail={process.env.ADMIN_EMAIL}
 			sendTimes={sendTimes}
 			archiveUrlBase={newsletter.archiveEnabled ? getArchiveUrls(newsletter).absolutePost("") : null}
+			hasSparkLoopCards={
+				SPARKLOOP_PITCH || (sparkloop.status === "connected" && Boolean(newsletter.sparkloop?.publicationUuid))
+			}
 		/>
 	);
 }

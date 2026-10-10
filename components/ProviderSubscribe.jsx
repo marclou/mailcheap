@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, use, useMemo, useState } from "react";
+import { createContext, use, useEffect, useMemo, useState } from "react";
 import PitchSubscribe from "@/components/PitchSubscribe";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { storeValue, subscribeSnoozedKey } from "@/lib/storage";
@@ -20,6 +20,13 @@ export default function ProviderSubscribe({ newsletter, readers, children }) {
 		setOpenedBy(null);
 		storeValue(subscribeSnoozedKey(newsletter.slug), Date.now());
 	}
+
+	// SparkLoop's signup flow takes over after a signup; the popup is modal, so it would block the flow.
+	useEffect(() => {
+		const close = () => setOpenedBy(null);
+		document.addEventListener("sl:signup-flow-opened", close);
+		return () => document.removeEventListener("sl:signup-flow-opened", close);
+	}, []);
 
 	// A popup that appears mid-read shouldn't throw the phone keyboard over the issue.
 	function onOpenAutoFocus(event) {

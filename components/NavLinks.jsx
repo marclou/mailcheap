@@ -2,37 +2,77 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Globe, KeyRound, LayoutGrid, Newspaper, Send, Users } from "lucide-react";
+import {
+	ClipboardList,
+	Gift,
+	Globe,
+	HeartHandshake,
+	KeyRound,
+	LayoutGrid,
+	Newspaper,
+	Send,
+	Settings2,
+	UserPlus,
+	Users,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function NavLinks({ onNavigate }) {
+export default function NavLinks({ showSparkLoop = false, onNavigate }) {
 	const pathname = usePathname();
 
 	return (
 		<nav className="flex flex-col gap-0.5">
-			{NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-				const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
-				return (
+			{NAV_ITEMS.map((item) => (
+				<NavLink key={item.href} {...item} pathname={pathname} onNavigate={onNavigate} />
+			))}
+			{showSparkLoop && (
+				<>
 					<Link
-						key={href}
-						href={href}
+						href="/sparkloop"
 						onClick={onNavigate}
-						aria-current={isActive ? "page" : undefined}
+						aria-current={pathname === "/sparkloop" ? "page" : undefined}
+						aria-label="SparkLoop settings"
 						className={cn(
-							"flex h-9 items-center gap-2.5 rounded-lg pr-3 pl-2.5 text-sm font-medium transition-colors duration-150",
-							isActive
-								? "bg-muted text-foreground"
-								: "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+							"mt-5 mb-1 flex h-6 items-center justify-between rounded-md px-2.5 text-xs font-medium transition-colors duration-150",
+							pathname === "/sparkloop" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
 						)}
 					>
-						<Icon className="size-4" />
-						{label}
+						SparkLoop
+						<Settings2 className="size-3.5" />
 					</Link>
-				);
-			})}
+					{SPARKLOOP_ITEMS.map((item) => (
+						<NavLink key={item.href} {...item} pathname={pathname} onNavigate={onNavigate} />
+					))}
+				</>
+			)}
 		</nav>
 	);
 }
+
+function NavLink({ href, label, icon: Icon, pathname, onNavigate }) {
+	const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
+	return (
+		<Link
+			href={href}
+			onClick={onNavigate}
+			aria-current={isActive ? "page" : undefined}
+			className={cn(
+				"flex h-9 items-center gap-2.5 rounded-lg pr-3 pl-2.5 text-sm font-medium transition-colors duration-150",
+				isActive ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+			)}
+		>
+			<Icon className="size-4" />
+			{label}
+		</Link>
+	);
+}
+
+const SPARKLOOP_ITEMS = [
+	{ href: "/sparkloop/signup-flow", label: "Signup flow", icon: UserPlus },
+	{ href: "/sparkloop/survey", label: "Welcome survey", icon: ClipboardList },
+	{ href: "/sparkloop/offers", label: "Offers", icon: Gift },
+	{ href: "/sparkloop/recommendations", label: "Recommendations", icon: HeartHandshake },
+];
 
 const NAV_ITEMS = [
 	{ href: "/", label: "Overview", icon: LayoutGrid },

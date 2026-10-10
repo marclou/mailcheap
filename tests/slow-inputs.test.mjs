@@ -54,6 +54,8 @@ const SHAPES = {
 	"unclosed <title>": repeat("<title>"),
 	"unclosed <head ": repeat("<head "),
 	"unclosed email-only parts": repeat("<a data-email-only>"),
+	"unclosed SparkLoop cards": repeat('<div data-sparkloop-card="offer" '),
+	"many SparkLoop cards": repeat('<div data-sparkloop-card="offer" data-url="https://recs.page/a" data-title="t"></div>'),
 	"tag soup 1": tagSoup(1),
 	"tag soup 2": tagSoup(2),
 	"tag soup 3": tagSoup(3),

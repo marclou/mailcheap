@@ -7,15 +7,20 @@ import Image from "@tiptap/extension-image";
 import { Placeholder } from "@tiptap/extensions";
 import StarterKit from "@tiptap/starter-kit";
 import { toast } from "sonner";
+import DialogSparkLoopCard from "@/components/DialogSparkLoopCard";
 import MenuFormat from "@/components/MenuFormat";
 import { SlashCommand } from "@/components/MenuSlash";
 import { Callout } from "@/lib/editor-callout";
+import { SparkLoopCard } from "@/lib/editor-sparkloop-card";
 import { IMAGE_TYPES, getDisplaySize, prepareImage, uploadImage } from "@/lib/upload-image";
 
 const MIN_HEIGHT = "min-h-[560px]";
 
-export default function EditorRich({ content, onChange }) {
+// hasCards: SparkLoop offers and recommendations can be added (lib/sparkloop-content.js decides when).
+export default function EditorRich({ content, onChange, newsletterId, hasCards = false }) {
 	const [isEditingLink, setIsEditingLink] = useState(false);
+	// A SparkLoop card being added ({ kind }) or edited ({ kind, attrs, getPos }).
+	const [card, setCard] = useState(null);
 	const editor = useEditor({
 		immediatelyRender: false,
 		content,
@@ -36,6 +41,7 @@ export default function EditorRich({ content, onChange }) {
 				},
 			}),
 			Callout,
+			SparkLoopCard.configure({ onEdit: ({ attrs, getPos }) => setCard({ kind: attrs.kind, attrs, getPos }) }),
 			Placeholder.configure({
 				placeholder: ({ node }) => (node.type.name === "heading" ? "Heading" : "Write, or press / for commands"),
 			}),
@@ -45,7 +51,7 @@ export default function EditorRich({ content, onChange }) {
 				onDrop: (current, files, position) => insertImages(current, files, position),
 				onPaste: (current, files) => insertImages(current, files),
 			}),
-			SlashCommand.configure({ onPickImage: pickImages }),
+			SlashCommand.configure({ onPickImage: pickImages, onPickCard: (_editor, kind) => setCard({ kind }), hasCards }),
 		],
 		editorProps: {
 			attributes: { class: `prose-issue ${MIN_HEIGHT} px-5 py-5 outline-none`, "aria-label": "Content" },
@@ -65,8 +71,32 @@ export default function EditorRich({ content, onChange }) {
 		<>
 			<EditorContent editor={editor} />
 			<MenuFormat editor={editor} isEditingLink={isEditingLink} onEditLink={setIsEditingLink} />
+			<DialogSparkLoopCard
+				request={card}
+				newsletterId={newsletterId}
+				onOpenChange={(isOpen) => !isOpen && setCard(null)}
+				onSave={(attrs) => saveCard(editor, card, attrs)}
+			/>
 		</>
 	);
+}
+
+// An edited card keeps its place and its SparkLoop link; a new one goes where the slash command was.
+function saveCard(editor, request, attrs) {
+	if (!request?.getPos) {
+		editor.chain().focus().insertContent({ type: "sparkloopCard", attrs }).run();
+		return;
+	}
+	const position = request.getPos();
+	if (typeof position !== "number") return;
+	editor
+		.chain()
+		.focus()
+		.command(({ tr }) => {
+			tr.setNodeMarkup(position, undefined, { ...request.attrs, ...attrs });
+			return true;
+		})
+		.run();
 }
 
 // Safari only opens pickers for inputs in the document, so this one joins it until a choice is made.

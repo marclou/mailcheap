@@ -56,6 +56,6 @@ export async function subscribe(_state, formData) {
 			)
 		);
 	}
-	if (!isPending) return { ok: true };
+	if (!isPending) return { ok: true, email };
 	return { ok: true, pending: true, email, inbox: getInbox({ email, fromEmail: newsletter.fromEmail }) };
 }

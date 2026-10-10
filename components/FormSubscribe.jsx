@@ -4,6 +4,7 @@ import { useActionState, useEffect } from "react";
 import { Check, Loader2, MailOpen } from "lucide-react";
 import { subscribe } from "@/app/archive/actions";
 import { Button } from "@/components/ui/button";
+import { openSignupFlow } from "@/lib/sparkloop-embed";
 import { storeValue, subscribedKey } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +13,8 @@ export default function FormSubscribe({ newsletterSlug, className }) {
 
 	useEffect(() => {
 		if (state?.ok && !state.pending) storeValue(subscribedKey(newsletterSlug), 1);
+		// Only a signup that went through opens SparkLoop's flow, when the archive has its script.
+		if (state?.ok) openSignupFlow(state.email);
 	}, [state, newsletterSlug]);
 
 	if (state?.pending) return <CardConfirmEmail email={state.email} inbox={state.inbox} className={className} />;
@@ -31,7 +34,7 @@ export default function FormSubscribe({ newsletterSlug, className }) {
 	}
 
 	return (
-		<form action={action} className={cn("w-full", className)}>
+		<form action={action} data-sparkloop-form-ignore="" className={cn("w-full", className)}>
 			<input type="hidden" name="newsletter" value={newsletterSlug} />
 			<div aria-hidden="true" className="absolute -left-[10000px] size-px overflow-hidden">
 				<input type="text" name="website" tabIndex={-1} autoComplete="off" />

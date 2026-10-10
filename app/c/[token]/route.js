@@ -1,7 +1,10 @@
 import { after } from "next/server";
+import { connectDb } from "@/lib/db";
 import { escapeHtml } from "@/lib/render-email";
 import { recordEngagement } from "@/lib/ses-events";
-import { readClickToken } from "@/lib/tracking";
+import { SUBSCRIBER_EMAIL_PLACEHOLDER, fillCardLink } from "@/lib/sparkloop-cards";
+import { isLikelyScanner, readClickToken } from "@/lib/tracking";
+import Message from "@/models/Message";
 
 function redirectTo(url) {
 	return new Response(null, { status: 302, headers: { Location: url, "Cache-Control": "no-store" } });
@@ -16,10 +19,20 @@ function continuePage(url) {
 	return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
 
+// A SparkLoop card's link takes the reader's email so a click subscribes or claims. Only a reader's
+// click on an issue gets it: not a test send, and not a link scanner opening every link as mail arrives.
+async function getDestination(link, userAgent) {
+	if (!link.url.includes(SUBSCRIBER_EMAIL_PLACEHOLDER)) return link.url;
+	await connectDb();
+	const message = await Message.findById(link.messageId).select("email kind sentAt").lean();
+	const isReader = message?.kind === "campaign" && !isLikelyScanner({ userAgent, sentAt: message.sentAt });
+	return fillCardLink(link.url, isReader ? message.email : null);
+}
+
 export async function GET(request, { params }) {
 	const link = readClickToken((await params).token);
 	if (!link) return new Response("Not found", { status: 404 });
-	if (!link.isSigned) return continuePage(link.url);
+	if (!link.isSigned) return continuePage(fillCardLink(link.url, null));
 
 	const userAgent = request.headers.get("user-agent") ?? "";
 	after(() =>
@@ -27,12 +40,12 @@ export async function GET(request, { params }) {
 			console.error("[tracking] Click not recorded:", error)
 		)
 	);
-	return redirectTo(link.url);
+	return redirectTo(await getDestination(link, userAgent));
 }
 
 // Link checkers often send HEAD first: same answer, never counted as a click.
 export async function HEAD(_request, { params }) {
 	const link = readClickToken((await params).token);
 	if (!link) return new Response(null, { status: 404 });
-	return link.isSigned ? redirectTo(link.url) : new Response(null, { status: 200 });
+	return link.isSigned ? redirectTo(fillCardLink(link.url, null)) : new Response(null, { status: 200 });
 }

@@ -31,6 +31,11 @@ const newsletterSchema = new mongoose.Schema(
 			previewText: { type: String, trim: true },
 			markdown: { type: String },
 		},
+		// The SparkLoop publication this newsletter is, and whether its signup forms show the signup flow.
+		sparkloop: {
+			publicationUuid: { type: String, trim: true },
+			signupFlowEnabled: { type: Boolean, default: false },
+		},
 		// The newsletter's own confirmation email; the built-in one goes out until it has one.
 		confirmation: {
 			subject: { type: String, trim: true },

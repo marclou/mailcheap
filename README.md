@@ -39,6 +39,14 @@ Mailcheap is the rest of what a newsletter needs, in one small Next.js app: an e
 - List cleanup, off by default: readers who ignored several issues get one "do you still want this?" email, then stop getting issues.
 - Open and click tracking on your own domain, with link scanners filtered out.
 
+**Grow and earn with SparkLoop** (optional)
+
+- Connect a free [SparkLoop](https://dash.sparkloop.app/signup?aff=010ac617) account from any newsletter's settings to add four pages: Signup flow, Welcome survey, Offers and Recommendations.
+- After each signup on your archive, readers see other newsletters to join, a welcome survey and brand offers.
+- Free recommendations bring you readers from other newsletters. They join your list on their own.
+- Paid recommendations and offers earn you money once SparkLoop approves your newsletter as a partner.
+- Add an offer or a recommendation to an issue from the editor: type / and pick it.
+
 **Publish and measure**
 
 - A public archive for each newsletter: issue pages, author page, share images, sitemap. Optional custom domain.
@@ -159,6 +167,12 @@ QStash calls `APP_URL/api/jobs/...` to send each batch, so the app has to be rea
   This is the safer setup: issue pages show HTML from your editor and from API keys, and on their own domain that HTML never shares the dashboard's origin. Without one, the archive stays on the app domain, where the sanitizer, the sandboxed frame and the Content Security Policy protect it.
 - **Image uploads:** in Vercel, **Storage > Create > Blob**, connect it to the project, and redeploy.
 - **Shared rate limits:** create a Redis database in the [Upstash console](https://console.upstash.com/redis) and add `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
+- **SparkLoop:** create a free account at [SparkLoop](https://dash.sparkloop.app/signup?aff=010ac617) and add your newsletter. Mailcheap isn't in SparkLoop's list of email platforms: pick Custom ESP. Copy the API key from **Settings > Integrations** in SparkLoop and paste it on Mailcheap's SparkLoop page (a newsletter's settings link to it). It's stored encrypted with `SESSION_SECRET`: if you change that secret, paste the key again.
+  - Link each newsletter to its SparkLoop publication on the same page. With one of each, they're linked for you.
+  - **Signup flow > Show after each signup** loads SparkLoop's script on that newsletter's archive. SparkLoop only opens the flow on pages its visibility rules allow, so add your archive's URL there, or pick "All pages".
+  - Readers other newsletters send you are added through a webhook, with source `sparkloop`. Confirmed opt-in still applies, and people who unsubscribed aren't added back. SparkLoop only calls https addresses, so `APP_URL` has to be your public URL.
+  - Offers and paid recommendations need SparkLoop to approve your newsletter as a partner. Free recommendations work right away.
+  - Your list stays in your database. SparkLoop gets a reader's email when they sign up on an archive with the flow on, and when they click an offer or recommendation in an email. Mention SparkLoop in your privacy policy.
 - **Alerts:** set `ALERT_FROM` (like `Mailcheap <alerts@mail.example.com>`) to get alerts by email at `ADMIN_EMAIL`: spam complaints, paused sends, signup floods and rate limiter outages, plus every login, new API key and send. Otherwise they only show in the logs.
 
 ## Local development
@@ -208,6 +222,7 @@ A local MongoDB works: `docker run -d -p 27017:27017 mongo` and `MONGODB_URI=mon
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | No | Shared rate limits |
 | `BLOB_READ_WRITE_TOKEN` | No | Image uploads in the editor (set by Vercel Blob) |
 | `ALERT_FROM` | No | From address for alert emails, on a verified domain |
+| `SPARKLOOP_API_URL` | No | Another SparkLoop API, like a staging server or a local mock. SparkLoop itself is connected from the dashboard. |
 
 [`.env.example`](.env.example) has the same list with more detail.
 

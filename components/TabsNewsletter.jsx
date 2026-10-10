@@ -2,8 +2,8 @@ import Link from "next/link";
 import AvatarNewsletter from "@/components/AvatarNewsletter";
 import { cn } from "@/lib/utils";
 
-// One tab per newsletter; the overview reads the selected one from ?newsletter=.
-export default function TabsNewsletter({ newsletters, selectedId }) {
+// One tab per newsletter; the page at basePath reads the selected one from ?newsletter=.
+export default function TabsNewsletter({ newsletters, selectedId, basePath = "/" }) {
 	return (
 		<nav
 			aria-label="Newsletters"
@@ -15,7 +15,7 @@ export default function TabsNewsletter({ newsletters, selectedId }) {
 				return (
 					<Link
 						key={id}
-						href={`/?newsletter=${id}`}
+						href={`${basePath}?newsletter=${id}`}
 						scroll={false}
 						aria-current={isSelected ? "page" : undefined}
 						className={cn(

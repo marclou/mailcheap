@@ -1,10 +1,12 @@
 "use client";
 
-import { useImperativeHandle, useState } from "react";
+import { Fragment, useImperativeHandle, useState } from "react";
 import { Extension } from "@tiptap/core";
 import { ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 import {
+	Gift,
+	HeartHandshake,
 	Heading1,
 	Heading2,
 	Heading3,
@@ -52,26 +54,33 @@ export default function MenuSlash({ items, command, ref }) {
 		>
 			{items.map((item, itemIndex) => {
 				const isSelected = itemIndex === index;
+				const startsGroup = item.group && items[itemIndex - 1]?.group !== item.group;
 				return (
-					<button
-						key={item.title}
-						type="button"
-						role="option"
-						aria-selected={isSelected}
-						ref={isSelected ? scrollIntoView : undefined}
-						onMouseEnter={() => select(itemIndex)}
-						onMouseDown={(event) => event.preventDefault()}
-						onClick={() => command(item)}
-						className={cn(
-							"flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm",
-							isSelected && "bg-accent text-accent-foreground"
+					<Fragment key={item.title}>
+						{startsGroup && (
+							<p role="presentation" className="px-2 pt-2 pb-1 text-xs font-medium text-muted-foreground">
+								{item.group}
+							</p>
 						)}
-					>
-						<span className="grid size-7 shrink-0 place-items-center rounded-md border bg-background text-muted-foreground">
-							<item.icon className="size-4" />
-						</span>
-						{item.title}
-					</button>
+						<button
+							type="button"
+							role="option"
+							aria-selected={isSelected}
+							ref={isSelected ? scrollIntoView : undefined}
+							onMouseEnter={() => select(itemIndex)}
+							onMouseDown={(event) => event.preventDefault()}
+							onClick={() => command(item)}
+							className={cn(
+								"flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm",
+								isSelected && "bg-accent text-accent-foreground"
+							)}
+						>
+							<span className="grid size-7 shrink-0 place-items-center rounded-md border bg-background text-muted-foreground">
+								<item.icon className="size-4" />
+							</span>
+							{item.title}
+						</button>
+					</Fragment>
 				);
 			})}
 		</div>
@@ -82,17 +91,19 @@ export default function MenuSlash({ items, command, ref }) {
 export const SlashCommand = Extension.create({
 	name: "slashCommand",
 	addOptions() {
-		return { onPickImage: () => {} };
+		// hasCards: SparkLoop's Offer and Recommendation, when this newsletter can use them.
+		return { onPickImage: () => {}, onPickCard: () => {}, hasCards: false };
 	},
 	addProseMirrorPlugins() {
 		return [
 			Suggestion({
 				editor: this.editor,
 				char: "/",
-				items: ({ query }) => filterItems(query),
+				items: ({ query }) => filterItems(query, this.options),
 				command: ({ editor, range, props: item }) => {
 					item.run(editor.chain().focus().deleteRange(range)).run();
 					if (item.isImage) this.options.onPickImage(editor);
+					if (item.card) this.options.onPickCard(editor, item.card);
 				},
 				render: renderMenu,
 			}),
@@ -122,9 +133,11 @@ function renderMenu() {
 	};
 }
 
-function filterItems(query) {
+function filterItems(query, { hasCards }) {
 	const search = query.toLowerCase().trim();
-	return SLASH_ITEMS.filter(({ title, keywords }) => `${title} ${keywords}`.toLowerCase().includes(search));
+	return SLASH_ITEMS.filter(
+		({ title, keywords, card }) => (hasCards || !card) && `${title} ${keywords}`.toLowerCase().includes(search)
+	);
 }
 
 function scrollIntoView(element) {
@@ -146,5 +159,21 @@ const SLASH_ITEMS = [
 		keywords: "callout container update promo",
 		icon: RectangleHorizontal,
 		run: (chain) => chain.wrapIn("callout"),
+	},
+	{
+		title: "Offer",
+		keywords: "sparkloop sponsor brand ad earn money",
+		icon: Gift,
+		run: (chain) => chain,
+		card: "offer",
+		group: "SparkLoop",
+	},
+	{
+		title: "Recommendation",
+		keywords: "sparkloop newsletter recommend partner swap",
+		icon: HeartHandshake,
+		run: (chain) => chain,
+		card: "recommendation",
+		group: "SparkLoop",
 	},
 ];

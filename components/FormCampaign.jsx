@@ -40,6 +40,7 @@ export default function FormCampaign({
 	testEmail,
 	sendTimes,
 	archiveUrlBase,
+	hasSparkLoopCards,
 }) {
 	const isHtml = campaign.format === "html";
 	const [isDiscardOpen, setIsDiscardOpen] = useState(false);
@@ -270,7 +271,7 @@ export default function FormCampaign({
 							/>
 						</div>
 					) : (
-						<EditorRich content={initialBody} onChange={updateBody} />
+						<EditorRich content={initialBody} onChange={updateBody} newsletterId={newsletter._id} hasCards={hasSparkLoopCards} />
 					)}
 				</div>
 

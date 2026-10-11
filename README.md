@@ -1,6 +1,6 @@
 # Mailcheap
 
-Mailcheap is a self-hosted newsletter app on Amazon SES. Write an issue, send it to your list, publish it on the web. About $0.10 per 1,000 emails.
+Mailcheap is a self-hosted newsletter app on Amazon SES. Write an issue, send it to your list, publish it on the web. From $0.16 per 1,000 emails on Amazon SES.
 
 ![Mailcheap overview](docs/screenshots/overview.webp)
 
@@ -69,7 +69,7 @@ All names and addresses in the screenshots are made up.
 | Service | For | Cost |
 | --- | --- | --- |
 | [MongoDB](https://www.mongodb.com/atlas) | Contacts, campaigns, stats | Free tier works |
-| [Amazon SES](https://aws.amazon.com/ses/) | Sending | About $0.10 per 1,000 emails |
+| [Amazon SES](https://aws.amazon.com/ses/) | Sending | From $0.16 per 1,000 emails (Essentials plan, [see pricing](#amazon-ses-pricing)) |
 | [Upstash QStash](https://upstash.com/docs/qstash) | Background sending and scheduling | Free tier to start, then pay per message. One message sends 50 emails. |
 | [Vercel](https://vercel.com) or any Node.js host | Hosting | Free tier works |
 | [Upstash Redis](https://upstash.com/docs/redis) (optional) | Rate limits shared by every server instance | Free tier |
@@ -78,6 +78,12 @@ All names and addresses in the screenshots are made up.
 Without Redis, Mailcheap counts the same rate limits in each server instance's memory. That still stops a script hammering a form, but on serverless hosts the limits aren't shared between instances and reset on each deploy. Add Redis before you put a signup form on a busy site.
 
 Without Blob, image uploads in the editor are off. HTML and Markdown campaigns can still use images hosted anywhere.
+
+### Amazon SES pricing
+
+Amazon SES now offers three plans. Essentials is the cheapest for most newsletters: $0.16 per 1,000 emails up to 10M a month, with no monthly fee. See [aws.amazon.com/ses/pricing](https://aws.amazon.com/ses/pricing/) for current prices.
+
+![Amazon SES pricing plans](docs/ses-pricing.png)
 
 ## Setup
 

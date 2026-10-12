@@ -18,6 +18,8 @@ const SECURITY_HEADERS = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+	// The Dockerfile sets NEXT_OUTPUT=standalone for a small self-contained server. Vercel and `npm start` keep the default.
+	output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
 	poweredByHeader: false,
 	images: {
 		remotePatterns: [{ protocol: "https", hostname: "*.public.blob.vercel-storage.com" }],

@@ -36,6 +36,14 @@ services:
       UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-}
       BLOB_READ_WRITE_TOKEN: ${BLOB_READ_WRITE_TOKEN:-}
       ALERT_FROM: ${ALERT_FROM:-}
+      # Optional SMTP instead of SES (Stalwart, Postfix...). See lib/smtp.js for what you give up.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_TLS_VERIFY: ${SMTP_TLS_VERIFY:-true}
+      SMTP_DOMAINS: ${SMTP_DOMAINS:-}
     expose:
       - "3000"
     healthcheck:

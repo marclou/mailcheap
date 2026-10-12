@@ -184,6 +184,8 @@ Mailcheap runs on any server with Docker instead of Vercel. The [`Dockerfile`](D
 
 **Coolify:** create a resource from your fork with the **Docker Compose** build pack. Coolify lists every variable from `docker-compose.yml` in the Environment Variables tab: fill in the required ones there. Then give the `app` service its domain with the port, like `https://mailcheap.example.com:3000`, and deploy. Coolify's proxy handles HTTPS. The MongoDB data lives in the `mongo-data` volume: add a backup for it.
 
+**SMTP instead of SES (this fork):** set `SMTP_HOST`, `SMTP_PORT` (587 by default, STARTTLS required), `SMTP_USER`, `SMTP_PASSWORD` and `SMTP_DOMAINS` (the domains you send from, comma-separated), and every email goes through that server instead: Stalwart, Postfix, or a provider's SMTP. `SMTP_SECURE=true` is for port 465. `SMTP_TLS_VERIFY=false` is only for an internal relay whose certificate can't match its Docker hostname. The SMTP server does DKIM and SPF. What you lose: SES events. Bounces and complaints aren't recorded, so the suppression list and the auto-pause at 2% bounces / 0.08% complaints don't work. Watch the server's bounce reports and Google Postmaster Tools.
+
 **Your own MongoDB (Atlas or elsewhere):** remove the `mongo` service and `depends_on` from `docker-compose.yml` and set `MONGODB_URI` directly. Or skip Compose: `docker build -t mailcheap .` then `docker run -p 3000:3000 --env-file .env mailcheap`, with `MONGODB_URI` in the `.env` file.
 
 ## Local development

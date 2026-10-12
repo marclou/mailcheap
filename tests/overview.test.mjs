@@ -31,6 +31,8 @@ test("days and hours follow the timezone, DST included", () => {
 	assert.equal(shiftDateKey("2026-03-01", -1), "2026-02-28");
 	assert.equal(timeZoneLabel("Asia/Nicosia", lateEvening), "GMT+3");
 	assert.equal(timeZoneLabel("UTC"), "UTC");
+	// London in winter is a zero offset too; ICU 78 formats it "GMT+0".
+	assert.equal(timeZoneLabel("Europe/London", new Date("2026-01-15T12:00:00Z")), "UTC");
 });
 
 test("an unknown or missing timezone cookie falls back to UTC", () => {

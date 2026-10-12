@@ -27,6 +27,8 @@ services:
       SES_CONFIGURATION_SET: ${SES_CONFIGURATION_SET:-}
       SES_SNS_TOPIC_ARN: ${SES_SNS_TOPIC_ARN:-}
       SEND_RATE_PER_SECOND: ${SEND_RATE_PER_SECOND:-}
+      # local: campaign batches and scheduled sends run from a MongoDB job queue inside the app. No QStash needed.
+      JOB_QUEUE: ${JOB_QUEUE:-local}
       QSTASH_TOKEN: ${QSTASH_TOKEN:-}
       QSTASH_CURRENT_SIGNING_KEY: ${QSTASH_CURRENT_SIGNING_KEY:-}
       QSTASH_NEXT_SIGNING_KEY: ${QSTASH_NEXT_SIGNING_KEY:-}

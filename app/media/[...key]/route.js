@@ -1,4 +1,6 @@
-import { getMediaContentType, getS3Image, isS3Configured, MEDIA_CACHE_CONTROL } from "@/lib/s3-images";
+import { isS3Configured } from "@/lib/config";
+import { getMediaContentType, MEDIA_CACHE_CONTROL } from "@/lib/media-keys";
+import { getS3Image } from "@/lib/s3-images";
 
 export const dynamic = "force-dynamic";
 

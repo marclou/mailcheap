@@ -79,6 +79,8 @@ Without Redis, Mailcheap counts the same rate limits in each server instance's m
 
 Without Blob, image uploads in the editor are off. HTML and Markdown campaigns can still use images hosted anywhere.
 
+Running your own server instead? Every row except Redis has a self-hosted alternative: see [Self-hosting with Docker](#self-hosting-with-docker).
+
 ## Setup
 
 Plan for about an hour, most of it waiting for DNS and for AWS to approve production access.
@@ -161,9 +163,21 @@ QStash calls `APP_URL/api/jobs/...` to send each batch, so the app has to be rea
 - **Shared rate limits:** create a Redis database in the [Upstash console](https://console.upstash.com/redis) and add `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
 - **Alerts:** set `ALERT_FROM` (like `Mailcheap <alerts@mail.example.com>`) to get alerts by email at `ADMIN_EMAIL`: spam complaints, paused sends, signup floods and rate limiter outages, plus every login, new API key and send. Otherwise they only show in the logs.
 
-## Docker
+## Self-hosting with Docker
 
-Mailcheap runs on any server with Docker instead of Vercel. The [`Dockerfile`](Dockerfile) builds a standalone Next.js server that runs as a non-root user, and [`docker-compose.yml`](docker-compose.yml) runs it next to its own MongoDB. SES and QStash stay the same, so follow steps 3 to 5 above for them.
+Mailcheap also runs on any server with Docker instead of Vercel. The [`Dockerfile`](Dockerfile) builds a standalone Next.js server that runs as a non-root user, and [`docker-compose.yml`](docker-compose.yml) runs it next to its own MongoDB.
+
+Each hosted service has a self-hosted alternative. They're independent: keep SES and swap only the queue, or swap everything.
+
+| Hosted | Self-hosted alternative | Turn it on with |
+| --- | --- | --- |
+| Vercel | The Docker image, behind any HTTPS reverse proxy | `docker compose up -d` |
+| MongoDB Atlas | The `mongo` service in the Compose file | `MONGO_PASSWORD` |
+| Upstash QStash | A job queue in MongoDB, run by the server itself | `JOB_QUEUE=local` (the Compose default) |
+| Amazon SES | Any SMTP server: Postfix, Stalwart, a provider's SMTP | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_DOMAINS` |
+| Vercel Blob | Any S3-compatible bucket: Garage, MinIO, R2, AWS S3 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` |
+
+### Run it
 
 1. Create a `.env` file next to `docker-compose.yml`:
 
@@ -178,19 +192,47 @@ Mailcheap runs on any server with Docker instead of Vercel. The [`Dockerfile`](D
    MONGO_PASSWORD=
    ```
 
-2. Run `docker compose up -d`. The app listens on port 3000 inside the Compose network and publishes no port, so put a reverse proxy with HTTPS in front of it (Caddy, Traefik, nginx). QStash and SNS must reach `APP_URL` over HTTPS. The proxy must set `X-Forwarded-For`, which the rate limits read.
+   Then add a sender: the SES variables from step 3 of the setup, or the SMTP ones below. Skip QStash (step 4): the Compose file runs the local job queue.
 
-3. `GET /api/health` answers `200` once the server is up. The image and the Compose file both use it as their health check.
+2. Run `docker compose up -d`. The app listens on port 3000 inside the Compose network and publishes no port, so put a reverse proxy with HTTPS in front of it (Caddy, Traefik, nginx). The proxy must set `X-Forwarded-For`, which the rate limits read. With SES, SNS must reach `APP_URL` over HTTPS.
 
-**Coolify:** create a resource from your fork with the **Docker Compose** build pack. Coolify lists every variable from `docker-compose.yml` in the Environment Variables tab: fill in the required ones there. Then give the `app` service its domain with the port, like `https://mailcheap.example.com:3000`, and deploy. Coolify's proxy handles HTTPS. The MongoDB data lives in the `mongo-data` volume: add a backup for it.
+3. `GET /api/health` answers `200` once the server is up. The image and the Compose file both use it as their health check. It doesn't touch the database, so a MongoDB blip doesn't restart a healthy server.
 
-**No QStash needed (this fork):** the Compose file sets `JOB_QUEUE=local`. Campaign batches and scheduled sends then go into a `jobs` collection in MongoDB, and the server works through them itself every few seconds, one batch at a time at `SEND_RATE_PER_SECOND`. Failed jobs are retried with backoff (6 attempts), and a job left running by a server that died runs again after 10 minutes. Scheduled sends have no 7-day limit. Skip step 4 of the setup. Keep QStash on Vercel, where nothing runs between requests.
+### Coolify
 
-**Image uploads without Vercel (this fork):** set `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` (plus `S3_REGION` if your provider checks it) to store editor uploads in any S3-compatible bucket: Garage, MinIO, R2, AWS. The bucket stays private. The app serves each picture at `APP_URL/media/images/...` with a one-year cache, so links in sent emails live on your domain.
+- **Docker Compose build pack:** create a resource from your repository with the Docker Compose build pack. Coolify lists every variable from `docker-compose.yml` in the Environment Variables tab; fill in the required ones there. Give the `app` service its domain with the port, like `https://mailcheap.example.com:3000`, and deploy. Coolify's proxy handles HTTPS. The MongoDB data lives in the `mongo-data` volume: back it up.
+- **Dockerfile build pack + a Coolify MongoDB** (gets Coolify's scheduled database backups): create a MongoDB database in Coolify, then an application with the Dockerfile build pack, port `3000`, and `MONGODB_URI` set to the database's internal URL with `/mailcheap?authSource=admin` added. Set `JOB_QUEUE=local` yourself. For the health check, use path `/api/health`, port `3000` and **host `127.0.0.1`**. The image has no curl, and BusyBox wget resolves `localhost` to IPv6, where the server doesn't listen, so with `localhost` every deploy fails its health check and rolls back.
 
-**SMTP instead of SES (this fork):** set `SMTP_HOST`, `SMTP_PORT` (587 by default, STARTTLS required), `SMTP_USER`, `SMTP_PASSWORD` and `SMTP_DOMAINS` (the domains you send from, comma-separated), and every email goes through that server instead: Stalwart, Postfix, or a provider's SMTP. `SMTP_SECURE=true` is for port 465. `SMTP_TLS_VERIFY=false` is only for an internal relay whose certificate can't match its Docker hostname. The SMTP server does DKIM and SPF. What you lose: SES events. Bounces and complaints aren't recorded, so the suppression list and the auto-pause at 2% bounces / 0.08% complaints don't work. Watch the server's bounce reports and Google Postmaster Tools.
+### The local job queue (instead of QStash)
 
-**Your own MongoDB (Atlas or elsewhere):** remove the `mongo` service and `depends_on` from `docker-compose.yml` and set `MONGODB_URI` directly. Or skip Compose: `docker build -t mailcheap .` then `docker run -p 3000:3000 --env-file .env mailcheap`, with `MONGODB_URI` in the `.env` file.
+With `JOB_QUEUE=local`, campaign batches and scheduled sends go into a `jobs` collection in MongoDB, and the server works through them itself every 5 seconds: one batch at a time, oldest first, at `SEND_RATE_PER_SECOND`.
+
+- Failed jobs are retried with backoff, up to 6 attempts.
+- A job left running by a server that died runs again after 10 minutes.
+- Scheduled sends have no 7-day limit.
+- Finished jobs are deleted after 30 days.
+
+Keep QStash on Vercel, where nothing runs between requests.
+
+### SMTP instead of SES
+
+Set `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` and `SMTP_DOMAINS` (the domains you send from, comma-separated), and every email goes through that server.
+
+- **Ports and TLS:** `SMTP_PORT` is 587 by default, with STARTTLS required. `SMTP_SECURE=true` is for implicit TLS on 465. `SMTP_TLS_VERIFY=false` is only for an internal relay whose certificate can't match its Docker hostname.
+- **DNS:** your mail server signs DKIM and covers SPF. Publish its records and a DMARC record for the sending domain.
+- **What you give up:** SES events. Bounces and complaints aren't recorded, so the suppression list doesn't grow from them and the auto-pause at 2% bounces / 0.08% complaints can't trip. The overview says so. Watch your server's bounce reports and Google Postmaster Tools, and warm up a new IP slowly.
+
+### Image uploads without Vercel Blob
+
+Set `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` (plus `S3_REGION` if your provider checks it) to store editor uploads in any S3-compatible bucket.
+
+- **The bucket stays private.** The app serves each picture at `APP_URL/media/images/...` with a one-year immutable cache, so links in sent emails live on your domain.
+- **Only pictures:** the route serves only keys the upload endpoint built, with the content type taken from the extension. Nothing else in the bucket is reachable through it.
+- **Path style:** `S3_FORCE_PATH_STYLE` defaults to `true`, which Garage and MinIO need.
+
+### Your own MongoDB (Atlas or elsewhere)
+
+Remove the `mongo` service and `depends_on` from `docker-compose.yml` and set `MONGODB_URI` directly. Or skip Compose: `docker build -t mailcheap .` then `docker run -p 3000:3000 --env-file .env mailcheap`, with `MONGODB_URI` in the `.env` file.
 
 ## Local development
 
@@ -228,16 +270,22 @@ A local MongoDB works: `docker run -d -p 27017:27017 mongo` and `MONGODB_URI=mon
 | `SESSION_SECRET` | Yes | Signs sessions and email links. 32+ random characters. Changing it breaks links in sent emails. |
 | `APP_URL` | On other hosts | Public URL of the app. On Vercel it defaults to the production domain. |
 | `SENDING_ENABLED` | To send | Nothing is sent unless it's `true` |
-| `SES_REGION` | To send | SES region, `us-east-1` by default |
-| `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | To send | IAM user keys |
-| `SES_CONFIGURATION_SET` | To send | Configuration set that publishes events to SNS |
-| `SES_SNS_TOPIC_ARN` | To send | SNS topic Mailcheap accepts at `/api/webhooks/ses` |
-| `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY` | To send campaigns | Background sending and scheduling |
+| `SES_REGION` | To send with SES | SES region, `us-east-1` by default |
+| `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | To send with SES | IAM user keys |
+| `SES_CONFIGURATION_SET` | To send with SES | Configuration set that publishes events to SNS |
+| `SES_SNS_TOPIC_ARN` | To send with SES | SNS topic Mailcheap accepts at `/api/webhooks/ses` |
+| `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` | To send with SMTP | Any SMTP server instead of SES. `SMTP_HOST` turns SMTP mode on. |
+| `SMTP_DOMAINS` | To send with SMTP | Domains you send from, comma-separated. They count as verified in the pre-send checks. |
+| `SMTP_PORT`, `SMTP_SECURE`, `SMTP_TLS_VERIFY` | No | 587 with required STARTTLS by default; `SMTP_SECURE=true` for 465; `SMTP_TLS_VERIFY=false` only for an internal relay |
+| `QSTASH_TOKEN`, `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY` | To send campaigns on Vercel | Background sending and scheduling |
+| `JOB_QUEUE` | To send campaigns without QStash | `local` runs batches and scheduled sends from MongoDB inside the server. Docker and Coolify only, not Vercel. |
 | `QSTASH_URL` | No | QStash region other than the default, or a local QStash dev server |
 | `SEND_RATE_PER_SECOND` | No | Emails per second, 1 to 14 (default 10). Use 6 on a free Atlas cluster. |
 | `ARCHIVE_HOSTS` | No | Archive domains, like `news.example.com=weekly,letters.example.org=monthly` |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | No | Shared rate limits |
 | `BLOB_READ_WRITE_TOKEN` | No | Image uploads in the editor (set by Vercel Blob) |
+| `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | No | Image uploads to any S3-compatible bucket instead of Vercel Blob, served at `/media/` |
+| `S3_REGION`, `S3_FORCE_PATH_STYLE` | No | `us-east-1` and `true` by default |
 | `ALERT_FROM` | No | From address for alert emails, on a verified domain |
 
 [`.env.example`](.env.example) has the same list with more detail.
@@ -268,6 +316,8 @@ curl -X POST https://<your-app>/api/v1/contacts \
 
 - Next.js App Router, JavaScript, Tailwind CSS with shadcn/ui, MongoDB through Mongoose.
 - **Send** picks the audience (active contacts, suppressions left out, most engaged first), creates one message per reader, and queues one QStash job per batch of 50. Each job sends through the SES v2 API at `SEND_RATE_PER_SECOND` and pauses the campaign if bounce or complaint rates pass the limits.
+- With `JOB_QUEUE=local`, the same batches and scheduled sends are documents in a `jobs` collection instead of QStash messages. A timer in the server posts to `/api/jobs/run` every 5 seconds with a token derived from `SESSION_SECRET`, and the runner claims due jobs atomically, so several servers can tick at once without running a job twice.
+- With `SMTP_HOST` set, every email goes through that SMTP server instead of the SES API, with the same headers (one-click unsubscribe, `Feedback-ID`).
 - Welcome and confirmation emails go out right away, capped at 100 every 10 minutes per newsletter.
 - SES publishes events to SNS, which posts them to `/api/webhooks/ses`. Mailcheap verifies the SNS signature, updates the message, the campaign stats and the contact, and suppresses bounced and complaining addresses for every newsletter.
 - Opens and clicks go through `/o/...` and `/c/...` on your app's domain. Clicks within 30 seconds of the send, or from known link scanners, don't count.

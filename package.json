@@ -15,6 +15,7 @@
     "test": "node --test \"tests/*.test.mjs\""
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1149.0",
     "@aws-sdk/client-sesv2": "^3.1146.0",
     "@floating-ui/dom": "^1.8.0",
     "@tiptap/extension-file-handler": "^3.31.4",
@@ -36,6 +37,7 @@
     "mongoose": "^9.10.4",
     "next": "16.3.8",
     "next-themes": "^0.4.6",
+    "nodemailer": "^7.0.13",
     "papaparse": "^5.7.0",
     "radix-ui": "^1.6.7",
     "react": "19.2.8",

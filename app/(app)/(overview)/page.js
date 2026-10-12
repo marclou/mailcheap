@@ -23,6 +23,7 @@ import TableCampaigns from "@/components/TableCampaigns";
 import TabsNewsletter from "@/components/TabsNewsletter";
 import { Button } from "@/components/ui/button";
 import { recentCampaignsPipeline } from "@/lib/campaign-queries";
+import { isSmtpConfigured } from "@/lib/config";
 import { listNewslettersWithActiveCounts } from "@/lib/contacts";
 import { connectDb } from "@/lib/db";
 import { formatCompact, formatNumber, formatSigned } from "@/lib/format";
@@ -216,7 +217,13 @@ async function SectionDomains() {
 		return (
 			<p className="flex items-center gap-3 rounded-xl px-4 py-4 text-sm text-muted-foreground shadow-border animate-fade-in">
 				{domains.error && <TriangleAlert className="size-4 shrink-0 text-amber-500" />}
-				<span className="truncate">{domains.error ? `SES unreachable: ${domains.error}` : "No domains in SES"}</span>
+				<span className="truncate">
+					{domains.error
+						? `SES unreachable: ${domains.error}`
+						: isSmtpConfigured()
+							? "No domains in SMTP_DOMAINS"
+							: "No domains in SES"}
+				</span>
 			</p>
 		);
 	}
@@ -230,6 +237,17 @@ async function SectionDomains() {
 
 async function StripSesAccount() {
 	const account = await getSesAccount();
+
+	if (account.smtp) {
+		return (
+			<p className="flex items-center gap-3 rounded-xl px-4 py-4 text-sm text-muted-foreground shadow-border animate-fade-in">
+				<TriangleAlert className="size-4 shrink-0 text-amber-500" />
+				<span className="truncate">
+					Sending through SMTP ({account.host}). Bounces and complaints aren&apos;t recorded: watch your mail server&apos;s bounce reports.
+				</span>
+			</p>
+		);
+	}
 
 	if (account.error) {
 		return (

@@ -13,6 +13,8 @@ const PUBLIC_PATHS = [
 	/^\/c\//,
 	/^\/p\//,
 	/^\/archive\//,
+	/^\/media\//,
+	/^\/api\/health$/,
 	/^\/api\/unsubscribe$/,
 	/^\/api\/views$/,
 	/^\/api\/v1\//,

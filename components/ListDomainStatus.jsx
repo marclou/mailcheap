@@ -3,11 +3,20 @@ import { rootDomain } from "@/lib/favicon";
 import { cn } from "@/lib/utils";
 
 // One row per SES domain: whether it can send, its DKIM records and its return path (MAIL FROM), in words.
+// With SMTP, the domains come from SMTP_DOMAINS and their DKIM and SPF are the mail server's job.
+const SMTP_CHECKS = [
+	{ key: "verification", label: "Sending via SMTP", tone: "good" },
+	{ key: "dkim", label: "DKIM on the SMTP server", tone: "none" },
+	{ key: "return-path", label: "Return path on the SMTP server", tone: "none" },
+];
+
 export default function ListDomainStatus({ domains }) {
 	return (
 		<ul className="divide-y divide-border/60 overflow-hidden rounded-xl bg-card shadow-border">
 			{domains.map((domain) => {
-				const checks = [verificationCheck(domain), dkimCheck(domain), returnPathCheck(domain)];
+				const checks = domain.smtp
+					? SMTP_CHECKS
+					: [verificationCheck(domain), dkimCheck(domain), returnPathCheck(domain)];
 				return (
 					<li
 						key={domain.domain}

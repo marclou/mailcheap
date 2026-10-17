@@ -4,7 +4,7 @@ import { isObjectIdString } from "@/lib/validation";
 import Campaign from "@/models/Campaign";
 
 const BOT_PATTERN = /bot|crawl|spider|slurp|preview|facebookexternalhit|headless|lighthouse|curl|wget|python|axios|go-http/i;
-const RATE_LIMIT = { name: "views", limit: 30, window: "10 m" };
+const RATE_LIMIT = { name: "views", limit: 5, window: "1 d" };
 
 function noContent() {
 	return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
@@ -16,7 +16,7 @@ export async function POST(request) {
 	const userAgent = request.headers.get("user-agent") ?? "";
 	const { id } = await request.json().catch(() => ({}));
 	if (!isObjectIdString(id) || !userAgent || BOT_PATTERN.test(userAgent)) return noContent();
-	if (await isRateLimited({ ...RATE_LIMIT, key: getClientIp(request.headers) })) return noContent();
+	if (await isRateLimited({ ...RATE_LIMIT, key: `${getClientIp(request.headers)}:${id}` })) return noContent();
 
 	await connectDb();
 	await Campaign.updateOne(

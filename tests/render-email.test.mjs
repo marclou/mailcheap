@@ -41,6 +41,15 @@ test("HTML emails keep their design and get the footer before </body>", () => {
 	assert.ok(html.indexOf(UNSUBSCRIBE_PLACEHOLDER) < html.indexOf("</body>"));
 });
 
+test("Outlook on Windows gets a fixed 600px column, since it ignores max-width", () => {
+	const ghost = '<!--[if mso]><table role="presentation" width="600"';
+	assert.ok(renderEmail({ markdown: "Hi", newsletter }).html.includes(ghost));
+	assert.ok(renderEmail({ format: "html", html: "<p>Issue</p>", newsletter }).html.includes(ghost));
+	// and images get a width it reads, so a wide photo can't push the column open
+	assert.match(renderEmail({ markdown: "![Chart](https://example.com/a.png)", newsletter }).html, /<img width="600" style="width:auto;/);
+	assert.match(renderEmail({ format: "rich", html: '<img src="https://example.com/a.png">', newsletter }).html, /<img width="600" style="display:block;width:auto;/);
+});
+
 test("HTML emails with their own unsubscribe link are not changed", () => {
 	const source = `<html><body><a href="${UNSUBSCRIBE_PLACEHOLDER}">Leave</a></body></html>`;
 	assert.equal(renderEmail({ format: "html", html: source, newsletter }).html, source);

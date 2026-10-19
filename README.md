@@ -28,7 +28,7 @@
 
 ![MailCheap's overview: emails sent, delivery, open, click, bounce and complaint rates, and subscribers over the last 30 days](docs/screenshots/overview.webp)
 
-MailCheap is a newsletter app: write an issue, send it to your list, publish it on the web, from the dashboard or from your AI agent. This repository is the whole app. Self-host it with your own Amazon SES or PostShiba account, or use [MailCheap Cloud](https://mailcheap.ai), which runs this same code.
+MailCheap is a newsletter app: write an issue, send it to your list, publish it on the web, from the dashboard or from your AI agent. This repository is the whole app. Self-host it with your own Amazon SES, PostShiba or Groundmail account, or use [MailCheap Cloud](https://mailcheap.ai), which runs this same code.
 
 ## Features
 
@@ -59,7 +59,7 @@ All names and addresses in the screenshots are made up.
 | | [MailCheap Cloud](https://mailcheap.ai) | Self-hosted |
 | --- | --- | --- |
 | Price | From $19 a month for 20,000 emails | Free, plus what your provider charges per email: $0.10 to $0.16 per 1,000 on Amazon SES |
-| Sending | Set up for you, from `hello@<slug>.mailcheap.ai` or your domain | Your Amazon SES or PostShiba account, from your domain |
+| Sending | Set up for you, from `hello@<slug>.mailcheap.ai` or your domain | Your Amazon SES, PostShiba or Groundmail account, from your domain |
 | Website | `<slug>.mailcheap.ai` | `/archive/<slug>` on your server's domain |
 | Who signs in | Anyone who signs up | The emails you allow |
 | Limits | Emails a month and active subscribers, by plan | None |
@@ -81,10 +81,10 @@ Plan for about an hour, most of it waiting for DNS and for your provider to appr
 | Service | For | Cost |
 | --- | --- | --- |
 | [MongoDB](https://www.mongodb.com/atlas) | Contacts, campaigns, stats | Free tier works |
-| [Amazon SES](https://aws.amazon.com/ses/) or [PostShiba](https://postshiba.com) | Sending | SES: $0.10 to $0.16 per 1,000 emails, depending on its pricing plan. PostShiba: a fixed price per cluster, invite only for now |
+| [Amazon SES](https://aws.amazon.com/ses/), [PostShiba](https://postshiba.com) or [Groundmail](https://groundmail.dev) | Sending | SES: $0.10 to $0.16 per 1,000 emails, depending on its pricing plan. PostShiba: a fixed price per cluster, invite only for now. Groundmail: by plan, with newsletter sending enabled on request |
 | [Upstash QStash](https://upstash.com/docs/qstash) | Background sending and scheduling | Free tier to start, then pay per message. One message sends 50 emails |
 | [Vercel](https://vercel.com) or any Node.js 22+ host | Hosting | Free tier works |
-| [Resend](https://resend.com) (optional) | Sign-in codes and alerts. Without it, they go through SES or PostShiba | Free plan works |
+| [Resend](https://resend.com) (optional) | Sign-in codes and alerts. Without it, they go through the email provider | Free plan works |
 | [Upstash Redis](https://upstash.com/docs/redis) (optional) | Rate limits shared by every server instance | Free tier |
 | [Amazon S3](https://aws.amazon.com/s3/) with [CloudFront](https://aws.amazon.com/cloudfront/), or [Vercel Blob](https://vercel.com/docs/vercel-blob) (optional) | Image uploads in the editor, the newsletter settings and the API | S3 and CloudFront: pay per use. Blob: free tier |
 
@@ -103,7 +103,7 @@ Without Redis, MailCheap counts the same rate limits in each server instance's m
 | `APP_URL` | Public URL of the app, for email links and sign-in. On Vercel it defaults to the production domain |
 | `RESEND_API_KEY` | Optional: sign-in codes and alerts through Resend. Without it, they go through the email provider |
 | `SENDING_ENABLED` | Nothing goes to readers unless it's `true`. Sign-in codes and alerts don't wait for it |
-| `SES_*` or `POSTSHIBA_*` | The email provider, in step 4 |
+| `SES_*`, `POSTSHIBA_*` or `GROUNDMAIL_*` | The email provider, in step 4 |
 | `QSTASH_*` | Background sending and scheduling, in step 5 |
 
 [`.env.example`](.env.example) lists every variable with what it does, the optional ones included: Google sign-in and Postmaster Tools, image uploads, Redis, Telegram alerts, the shared domain, and MailCheap Cloud's own.
@@ -119,7 +119,7 @@ Without Redis, MailCheap counts the same rate limits in each server instance's m
 
 1. Click **Deploy** above.
 2. Fill in `MONGODB_URI`, `BETTER_AUTH_SECRET` (at least 32 characters; generate it with `openssl rand -base64 48`), `SUPPRESSION_HASH_KEY` (generated the same way, another value), `ADMIN_EMAILS` (your email) and `EMAIL_FROM` (like `MailCheap <login@mail.example.com>`, on a domain your Resend account or email provider verified). With a short secret, MailCheap refuses to start and the logs say why.
-3. Sign-in codes need a way to reach you. The quickest is [Resend](https://resend.com): verify `EMAIL_FROM`'s domain there and add `RESEND_API_KEY`. Without it, codes go through SES or PostShiba once step 4 is done.
+3. Sign-in codes need a way to reach you. The quickest is [Resend](https://resend.com): verify `EMAIL_FROM`'s domain there and add `RESEND_API_KEY`. Without it, codes go through the email provider once step 4 is done.
 4. Open `https://<your-project>.vercel.app/signin` and sign in with your email.
 
 Sending stays off until you finish the next steps, so nothing goes out to readers by mistake. On any other Node.js host: `npm ci && npm run build && npm start`, with the same variables, behind HTTPS. `/api/health` answers 200, or 503 with what to fix.
@@ -134,7 +134,7 @@ Everyone gets an account of their own, with up to 3 newsletters and their contac
 
 ### 4. Email provider
 
-Pick Amazon SES or PostShiba (invite only for now). `EMAIL_PROVIDER` picks one; without it, MailCheap uses PostShiba when `POSTSHIBA_API_KEY` is set and SES otherwise. Every account gets its own tenant there, with its own domains, suppression list and pause switch. MailCheap creates them; you set up the provider account and its events once.
+Pick Amazon SES, PostShiba (invite only for now) or Groundmail. `EMAIL_PROVIDER` picks one; without it, MailCheap uses PostShiba when `POSTSHIBA_API_KEY` is set and SES otherwise. Every account gets its own tenant there, with its own domains, suppression list and pause switch. MailCheap creates them; you set up the provider account and its events once.
 
 #### Amazon SES
 
@@ -192,6 +192,18 @@ PostShiba approves production sending by hand: until then, sends to anyone outsi
 MailCheap creates the rest: a tenant per account (slug `mc-<accountId>`), an SMTP credential for it on each cluster (one in all on a single cluster), and its domains. Creating credentials and domains and running domain checks share PostShiba's budget of 60 an hour per key; a failed setup is retried at the account's next send.
 
 Without Resend, sign-in codes and alerts go through a tenant of their own, `mc-platform`, on the transactional cluster. The first one adds `EMAIL_FROM`'s domain there, and the server log lists the two CNAME records it needs; once PostShiba finds them, codes go out. A domain belongs to one tenant at PostShiba, so `EMAIL_FROM` needs a domain or subdomain that no newsletter sends from.
+
+#### Groundmail
+
+Groundmail sends newsletters from IPs of their own, apart from its transactional email, once it has enabled newsletter sending for your account: until then, sends answer `newsletter_not_enabled` (campaigns pause with that reason). Ask its support to enable it.
+
+1. **Key.** In API keys, create a full access key: `GROUNDMAIL_API_KEY`, with `EMAIL_PROVIDER=groundmail`. A test key (`gm_test_...`) runs everything without delivering anything, and the addresses at `simulator.groundmail.dev` bounce or complain on purpose.
+2. **Webhook.** One endpoint at `https://<your-app>/api/webhooks/groundmail` with the events `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.failed` and `contact.unsubscribed`. Its secret goes in `GROUNDMAIL_WEBHOOK_SECRET`. Groundmail puts its own one-click unsubscribe in newsletter emails' `List-Unsubscribe` header: a reader who uses it comes back as `contact.unsubscribed` and is unsubscribed in MailCheap. The links in the email stay MailCheap's.
+3. **Rate.** New Groundmail accounts and tenants ramp up their daily volume: over it, Groundmail answers `daily_ramp_limit` and the batch waits until it resets at midnight UTC. Set `SEND_RATE_PER_SECOND` to the rate Groundmail agreed for your account.
+
+MailCheap creates the rest: a tenant per account (external id `mc-<accountId>`) with its own domains, suppression list and pause switch. Each domain needs an ownership TXT, a DKIM TXT, an `rp.` CNAME and SPF (`include:spf.groundmail.dev`, merged into the domain's SPF record if it has one). Groundmail checks DNS when it's asked, so MailCheap asks at most once a minute while a domain is being set up, and on **Check now**. Tenants come with Groundmail's Scale and Dedicated plans. On other plans every account sends as the Groundmail account, with one suppression list for all, and a block in MailCheap stops an account's sends without a pause at Groundmail.
+
+Without Resend, sign-in codes and alerts go out as transactional email of the Groundmail account, outside every tenant. The first one adds `EMAIL_FROM`'s domain there, and the server log lists the records it needs; once Groundmail finds them, codes go out. `EMAIL_FROM` needs a domain or subdomain that no newsletter sends from.
 
 ### 5. QStash
 

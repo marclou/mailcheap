@@ -110,6 +110,7 @@ before(async () => {
 		newsletters: await import("../app/(app)/newsletters/actions.js"),
 		campaigns: await import("../app/(app)/campaigns/actions.js"),
 		contacts: await import("../app/(app)/contacts/actions.js"),
+		contactsLib: await import("../lib/contacts.js"),
 		domains: await import("../app/(app)/domains/actions.js"),
 		domainsLib: await import("../lib/domains.js"),
 		admin: await import("../app/admin/actions.js"),
@@ -124,6 +125,7 @@ before(async () => {
 		Contact: (await import("../models/Contact.js")).default,
 		Domain: (await import("../models/Domain.js")).default,
 		Message: (await import("../models/Message.js")).default,
+		Newsletter: (await import("../models/Newsletter.js")).default,
 		Suppression: (await import("../models/Suppression.js")).default,
 	};
 });
@@ -405,6 +407,94 @@ describe("Groundmail sending", () => {
 		const messages = await m.Message.find({ accountId: user.accountId, campaignId: id }).lean();
 		assert.deepEqual(Object.fromEntries(messages.map(({ email, status }) => [email, status])), { "gone@example.org": "suppressed", "here@example.org": "sent" });
 		assert.equal((await m.Suppression.findOne({ accountId: user.accountId, email: "gone@example.org" }).lean()).reason, "provider");
+	});
+
+	test("a reader who unsubscribed through Groundmail and signs up again gets the account's newsletters again, and other tenants keep theirs", async () => {
+		const user = await customer("gm-back@example.com", "gm-back");
+		const other = await customer("gm-back-other@example.com", "gm-back-other");
+		const reader = "returning@example.org";
+		const tenant = `mc-${user.accountId}`;
+		await importContacts(user, [reader]);
+		const first = await draft(user, "Before");
+		await as(user, () => m.campaigns.sendCampaign(first, {}));
+		await runJobs();
+		const sent = fake.state.emails.find(({ body }) => body.to === reader && body.tenant === tenant);
+		// Groundmail's one-click unsubscribe: kept for this tenant, and the reader leaves in MailCheap.
+		fake.optOut(tenant, reader);
+		fake.optOut(`mc-${other.accountId}`, reader);
+		await postWebhook({
+			type: "contact.unsubscribed",
+			created_at: new Date().toISOString(),
+			data: { email: reader, scope: "category", category: "newsletter", email_id: sent.response.id, tenant },
+		});
+		const contact = () => m.Contact.findOne({ accountId: user.accountId, email: reader }).lean();
+		assert.equal((await contact()).status, "unsubscribed");
+
+		const newsletter = await m.Newsletter.findOne({ accountId: user.accountId, _id: user.newsletterId }).lean();
+		const lifts = () => fake.callsTo("DELETE", /^\/suppressions$/);
+		const before = lifts().length;
+		await m.contactsLib.upsertContact({ newsletter, email: reader, source: "website", resubscribe: true });
+		assert.equal((await contact()).status, "active");
+		assert.deepEqual(lifts().slice(before).map(({ query }) => query), [{ type: "category_opt_out", email: reader, category: "newsletter", tenant }]);
+		assert.ok(!fake.state.optOuts.has(`${tenant}:${reader}:newsletter`));
+		assert.ok(fake.state.optOuts.has(`mc-${other.accountId}:${reader}:newsletter`), "another account's unsubscribe stays");
+
+		const second = await draft(user, "After");
+		await as(user, () => m.campaigns.sendCampaign(second, {}));
+		await runJobs();
+		assert.equal((await m.Message.findOne({ accountId: user.accountId, campaignId: second, email: reader }).lean()).status, "sent");
+		assert.equal(await m.Suppression.countDocuments({ accountId: user.accountId, email: reader }), 0);
+
+		// Signing up when already subscribed, or someone new, asks Groundmail nothing.
+		await m.contactsLib.upsertContact({ newsletter, email: reader, source: "website", resubscribe: true });
+		await m.contactsLib.upsertContact({ newsletter, email: "new-reader@example.org", source: "website", resubscribe: true });
+		assert.equal(lifts().length, before + 1);
+	});
+
+	test("joining another newsletter of the account lifts the account's unsubscribe at Groundmail", async () => {
+		const user = await customer("gm-second-list@example.com", "gm-second-list");
+		const tenant = `mc-${user.accountId}`;
+		const reader = "left-one@example.org";
+		await importContacts(user, [reader]);
+		await m.Contact.updateOne({ accountId: user.accountId, email: reader }, { $set: { status: "unsubscribed", unsubscribedAt: new Date() } });
+		fake.optOut(tenant, reader);
+		const firstNewsletterId = user.newsletterId;
+		await createNewsletter(user, "gm-second-list-b", { fromEmail: "news@gm-second-list.dev" });
+		assert.notEqual(user.newsletterId, firstNewsletterId);
+		const newsletter = await m.Newsletter.findOne({ accountId: user.accountId, _id: user.newsletterId }).lean();
+		const { created } = await m.contactsLib.upsertContact({ newsletter, email: reader, source: "website", resubscribe: true });
+		assert.equal(created, true);
+		assert.ok(!fake.state.optOuts.has(`${tenant}:${reader}:newsletter`));
+	});
+
+	test("resubscribing a contact from the dashboard lifts Groundmail's unsubscribe, and Groundmail failing never stops it", async () => {
+		const user = await customer("gm-resub@example.com", "gm-resub");
+		const tenant = `mc-${user.accountId}`;
+		await importContacts(user, ["flaky@example.org", "steady@example.org"]);
+		const find = (email) => m.Contact.findOne({ accountId: user.accountId, email }).lean();
+		for (const email of ["flaky@example.org", "steady@example.org"]) {
+			const { _id } = await find(email);
+			assert.deepEqual(await as(user, () => m.contacts.setContactStatus(String(_id), "unsubscribed")), { ok: true });
+			fake.optOut(tenant, email);
+		}
+
+		fake.fail({ method: "DELETE", path: /^\/suppressions$/, status: 500, body: { error: { code: "internal_error", message: "Something went wrong" } } });
+		const errors = [];
+		const original = console.error;
+		console.error = (...args) => errors.push(args.join(" "));
+		try {
+			const flaky = await find("flaky@example.org");
+			assert.deepEqual(await as(user, () => m.contacts.setContactStatus(String(flaky._id), "active", true)), { ok: true });
+		} finally {
+			console.error = original;
+		}
+		assert.equal((await find("flaky@example.org")).status, "active", "MailCheap resubscribes them anyway");
+		assert.ok(errors.some((line) => /Groundmail may still refuse a resubscribed contact/.test(line)));
+		assert.ok(!errors.some((line) => line.includes("flaky@example.org")), "no address in the log");
+
+		const steady = await find("steady@example.org");
+		assert.deepEqual(await as(user, () => m.contacts.setContactStatus(String(steady._id), "active", true)), { ok: true });
+		assert.ok(!fake.state.optOuts.has(`${tenant}:steady@example.org:newsletter`));
 	});
 
 	test("until Groundmail enables newsletter sending, a campaign pauses with the reason and the admins hear of it", async () => {

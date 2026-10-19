@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 
 // An in-memory Groundmail behind a mocked fetch: tenants, domains with their records and verify, POST /emails with
-// Idempotency-Key, as its API reference describes them. Nothing reaches the network.
+// Idempotency-Key, category opt-outs and their removal, as its API reference describes them. Nothing reaches the network.
 export const GROUNDMAIL = {
 	apiUrl: "https://api.groundmail.test",
 	apiKey: "gm_test_key",
@@ -52,6 +52,8 @@ export function createFakeGroundmail() {
 		failures: [],
 		// tenant external id (or "" for the account):email pairs on a suppression list.
 		suppressed: new Set(),
+		// tenant:email:category for a reader's one-click unsubscribe from one category.
+		optOuts: new Set(),
 		// Names whose records are in public DNS, as verify finds them.
 		dnsReady: new Set(),
 		isTenantsEnabled: true,
@@ -115,6 +117,26 @@ export function createFakeGroundmail() {
 		state.suppressed.add(`${tenant ?? ""}:${email}`);
 	}
 
+	function optOut(tenant, email, category = "newsletter") {
+		state.optOuts.add(`${tenant ?? ""}:${email}:${category}`);
+	}
+
+	// DELETE /suppressions?type=category_opt_out: the tenant's list, or the account's without one; 404 when it had none.
+	function removeOptOuts(query) {
+		if (query.get("type") !== "category_opt_out") return apiError(404, "not_found", "Suppression not found");
+		const tenant = query.get("tenant") ?? "";
+		if (tenant && !findTenant(tenant)) return apiError(404, "not_found", "Tenant not found");
+		const email = query.get("email")?.toLowerCase();
+		const category = query.get("category");
+		const matches = [...state.optOuts].filter((key) => {
+			const [owner, address, kind] = key.split(":");
+			return owner === tenant && address === email && (!category || kind === category);
+		});
+		if (matches.length === 0) return apiError(404, "not_found", "Category opt-out not found");
+		for (const key of matches) state.optOuts.delete(key);
+		return reply(200, { ok: true, deleted: matches.length });
+	}
+
 	function handleSend({ body, init }) {
 		const key = header(init.headers, "idempotency-key");
 		const fingerprint = JSON.stringify(body);
@@ -151,13 +173,19 @@ export function createFakeGroundmail() {
 		if (suppressed.length === to.length) {
 			return apiError(422, "validation_error", "All recipients are suppressed", { details: { suppressed, email_id: newId("msg_") } });
 		}
+		const optedOut = to.filter((email) => [tenant?.external_id ?? "", ""].some((owner) => state.optOuts.has(`${owner}:${email}:${body.category}`)));
+		if (optedOut.length === to.length) {
+			return apiError(422, "validation_error", "One or more recipients opted out of this email category", {
+				details: { category_unsubscribed: optedOut, category: body.category, email_id: newId("msg_") },
+			});
+		}
 		const response = { id: newId("msg_"), status: "sent", ...(GROUNDMAIL.apiKey.startsWith("gm_test_") && { test: true }) };
 		state.emails.push({ key, body, tenant: tenant?.external_id ?? null, response });
 		if (key) state.idempotency.set(key, { fingerprint, response });
 		return reply(200, response);
 	}
 
-	function route({ method, path, body, init }) {
+	function route({ method, path, query, body, init }) {
 		let match;
 		if (path.startsWith("/tenants") && !state.isTenantsEnabled) return apiError(403, "tenants_not_enabled", "Tenants are not enabled for this account.");
 
@@ -229,21 +257,22 @@ export function createFakeGroundmail() {
 			}
 		}
 		if (method === "POST" && path === "/emails") return handleSend({ body, init });
+		if (method === "DELETE" && path === "/suppressions") return removeOptOuts(query);
 		return apiError(404, "not_found", "Not found");
 	}
 
 	async function handle(url, init = {}) {
 		const method = init.method ?? "GET";
-		const { pathname } = new URL(url);
+		const { pathname, searchParams } = new URL(url);
 		const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
-		state.calls.push({ method, path: pathname, body, headers: init.headers });
+		state.calls.push({ method, path: pathname, query: Object.fromEntries(searchParams), body, headers: init.headers });
 		const failure = findFailure(method, pathname);
 		if (failure) {
 			if (failure.throws) throw failure.throws;
 			return new Response(JSON.stringify(failure.body), { status: failure.status, headers: { "content-type": "application/json", ...failure.headers } });
 		}
 		if (header(init.headers, "authorization") !== `Bearer ${GROUNDMAIL.apiKey}`) return apiError(401, "unauthorized", "Invalid API key");
-		return route({ method, path: pathname, body, init });
+		return route({ method, path: pathname, query: searchParams, body, init });
 	}
 
 	// Answers Groundmail's URLs and hands every other request to the fetch already installed.
@@ -262,5 +291,5 @@ export function createFakeGroundmail() {
 		return state.calls.filter((call) => call.method === method && pattern.test(call.path));
 	}
 
-	return { state, fail, publishDns, pauseTenant, suppress, install, callsTo, findTenant, findDomain };
+	return { state, fail, publishDns, pauseTenant, suppress, optOut, install, callsTo, findTenant, findDomain };
 }

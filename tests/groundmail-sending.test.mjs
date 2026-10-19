@@ -94,6 +94,7 @@ function emailEvent(type, sent, data = {}) {
 			status: type.split(".")[1],
 			bounce_reason: null,
 			bounce_type: null,
+			tags: sent.body.tags ?? [],
 			...(sent.tenant && { tenant: sent.tenant }),
 			...data,
 		},
@@ -350,9 +351,33 @@ describe("Groundmail sending", () => {
 		assert.equal(await m.Suppression.countDocuments({ accountId: other.accountId }), 0);
 		assert.deepEqual(await (await postWebhook({ type: "email.opened", created_at: new Date().toISOString(), data: { email_id: sent.response.id } })).json(), { ok: true, handled: 0 });
 
+		// The message_id tag names another tenant's message: never applied to it.
+		const otherSent = { ...sent, tenant: `mc-${other.accountId}` };
+		assert.deepEqual(await (await postWebhook(emailEvent("email.bounced", otherSent, { bounce_type: "hard", email_id: "msg_unknown" }))).json(), { ok: true, handled: 1 });
+		assert.equal((await m.Message.findOne({ accountId: owner.accountId, kind: "test", campaignId: id }).lean()).status, "sent", "still untouched");
+
 		await withEnv({ GROUNDMAIL_WEBHOOK_SECRET: "" }, async () => {
 			assert.equal((await postWebhook(emailEvent("email.delivered", sent))).status, 503);
 		});
+	});
+
+	test("an event that arrives before the send's answer is saved finds the message by its message_id tag", async () => {
+		const user = await customer("gm-early@example.com", "gm-early");
+		const id = await draft(user);
+		await as(user, () => m.campaigns.sendTestCampaign(id));
+		const sent = fake.state.emails.at(-1);
+		const query = { accountId: user.accountId, kind: "test", campaignId: id };
+		// As if Groundmail's event beat MailCheap's write of the email id.
+		await m.Message.updateOne(query, { $set: { providerMessageId: null } });
+
+		assert.deepEqual(await (await postWebhook(emailEvent("email.delivered", sent))).json(), { ok: true, handled: 1 });
+		const message = await m.Message.findOne(query).lean();
+		assert.equal(message.status, "delivered");
+		assert.equal(message.providerMessageId, sent.response.id, "the email id is saved from the event");
+
+		// Without tags (an older event shape), Groundmail's id still finds it.
+		assert.deepEqual(await (await postWebhook(emailEvent("email.complained", sent, { tags: undefined }))).json(), { ok: true, handled: 1 });
+		assert.equal((await m.Message.findOne(query).lean()).status, "complained");
 	});
 
 	test("a daily ramp limit puts the batch back until Groundmail resets it", async () => {

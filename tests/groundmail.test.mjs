@@ -182,6 +182,20 @@ test("Groundmail's events take the one event shape, named by Groundmail's id and
 	assert.deepEqual(getEventPlan(delivered).status, { to: "delivered", from: ["queued", "sent", "failed"] });
 	assert.equal(normalizeGroundmailEvent(groundmailEvent("email.delivered", { tenant: undefined })).accountId, null, "an account without a tenant");
 	assert.equal(normalizeGroundmailEvent(groundmailEvent("email.delivered", { tenant: "cust_8412" })).accountId, null, "another sender's tenant");
+	assert.equal(delivered.messageId, null, "no tags");
+
+	const MESSAGE_ID = "6512bd43d9caa6e02c990b0b";
+	const tags = [
+		{ name: "account_id", value: ACCOUNT_ID },
+		{ name: "message_id", value: MESSAGE_ID },
+		{ name: "kind", value: "campaign" },
+	];
+	const tagged = normalizeGroundmailEvent(groundmailEvent("email.delivered", { tags }));
+	assert.deepEqual([tagged.messageId, tagged.accountId, tagged.providerMessageId], [MESSAGE_ID, ACCOUNT_ID, "msg_abc"], "the message_id tag names the message");
+	assert.equal(normalizeGroundmailEvent(groundmailEvent("email.delivered", { tags, tenant: undefined })).accountId, ACCOUNT_ID, "without a tenant, the account_id tag");
+	const otherAccount = [{ name: "account_id", value: "6512bd43d9caa6e02c990b0c" }];
+	assert.equal(normalizeGroundmailEvent(groundmailEvent("email.delivered", { tags: otherAccount })).accountId, null, "a tag that disagrees with the tenant");
+	assert.equal(normalizeGroundmailEvent(groundmailEvent("email.delivered", { tags: [{ name: "message_id", value: "not-an-id" }] })).messageId, null);
 
 	const hard = getEventPlan(normalizeGroundmailEvent(groundmailEvent("email.bounced", { bounce_type: "hard", bounce_reason: "550 5.1.1 user unknown" })));
 	assert.equal(hard.error, "Hard bounce: 550 5.1.1 user unknown");

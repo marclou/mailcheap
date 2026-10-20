@@ -25,8 +25,8 @@ export default function PreviewEmail({
 		const frame = frameRef.current;
 		// Measured after the width transition, since the email reflows at each width.
 		const timeout = setTimeout(() => {
-			const root = frame?.contentDocument?.documentElement;
-			if (root) setContentHeight(root.scrollHeight);
+			const height = measureEmail(frame);
+			if (height) setContentHeight(height);
 		}, 350);
 		return () => clearTimeout(timeout);
 	}, [device, isContentFit]);
@@ -82,19 +82,33 @@ export default function PreviewEmail({
 					srcDoc={html}
 					onLoad={(event) => {
 						if (!isContentFit) return;
-						const root = event.currentTarget.contentDocument?.documentElement;
-						if (root) setContentHeight(root.scrollHeight);
+						const height = measureEmail(event.currentTarget);
+						if (height) setContentHeight(height);
 					}}
 					style={isContentFit ? { height: contentHeight ?? 640 } : undefined}
 					className={cn(
 						"max-w-full rounded-lg bg-white shadow-border transition-[width] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
-						isContentFit ? "min-h-96" : "h-[640px] lg:h-full",
+						isContentFit ? "min-h-48" : "h-[640px] lg:h-full",
 						device === "mobile" ? "w-[375px]" : "w-full max-w-[760px]"
 					)}
 				/>
 			</div>
 		</div>
 	);
+}
+
+// The email's own height, measured with the frame collapsed: a document is never shorter than its frame, so a short
+// email would keep the frame's height, which a theme's colored page shows.
+function measureEmail(frame) {
+	const root = frame?.contentDocument?.documentElement;
+	if (!root) return null;
+	const { height, minHeight } = frame.style;
+	frame.style.height = "0px";
+	frame.style.minHeight = "0px";
+	const contentHeight = root.scrollHeight;
+	frame.style.height = height;
+	frame.style.minHeight = minHeight;
+	return contentHeight;
 }
 
 const DEVICES = [

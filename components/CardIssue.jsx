@@ -29,7 +29,7 @@ export default function CardIssue({ issue, newsletter, href, isFeatured = false,
 				<MetaIssue issue={issue} />
 				<h3
 					className={cn(
-						"font-semibold tracking-tight text-balance decoration-foreground/30 underline-offset-4 group-hover:underline",
+						"font-theme-heading text-balance decoration-foreground/30 underline-offset-4 group-hover:underline",
 						isFeatured ? "text-2xl sm:text-3xl" : "text-lg leading-snug"
 					)}
 				>
@@ -50,7 +50,7 @@ function ImageIssue({ issue, newsletter, sizes, isEager }) {
 	const src = issue.thumbnailUrl || getShareCardUrl(newsletter, issue);
 
 	return (
-		<div className="relative aspect-[1200/630] overflow-hidden rounded-xl bg-muted outline -outline-offset-1 outline-black/10 dark:outline-white/10">
+		<div className="relative aspect-[1200/630] overflow-hidden rounded-xl bg-muted outline -outline-offset-1 outline-foreground/10">
 			<Image
 				src={src}
 				alt=""

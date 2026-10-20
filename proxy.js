@@ -7,10 +7,14 @@ import { siteExtensions } from "@/lib/site-extensions";
 
 // No route can live under an underscore folder, so this always renders the not-found page with a 404.
 const NOT_FOUND_PATH = "/_not-on-this-server";
+// Vercel BotID's script and its calls (lib/bot-check.js), which next.config rewrites to Vercel. They pass on every host and
+// without a session, or every form it checks would look sent by a bot.
+const BOTID_PATH_PREFIX = "/149e9513-01fa-4fb0-aad4-566afd725d1b/2d206a39-8ed7-437e-a3be-862e0f06eea3/";
 
 // Reachable without a session: recipients, mail providers, AWS, Stripe, QStash, Vercel Cron, API-key
-// and OAuth clients (REST and MCP, OAuth discovery), the docs and uptime checks. The consent page checks
-// the session itself, so a signed-out visitor goes to sign-in with the app's request.
+// and OAuth clients (REST and MCP, OAuth discovery), the docs, the help center, their search index and
+// uptime checks. The consent page checks the session itself, so a signed-out visitor goes to sign-in with
+// the app's request.
 const PUBLIC_PATHS = [
 	/^\/api\/health$/,
 	/^\/favicon\.ico$/,
@@ -20,6 +24,8 @@ const PUBLIC_PATHS = [
 	/^\/oauth\/consent$/,
 	/^\/\.well-known\/(oauth-protected-resource(\/mcp)?|oauth-authorization-server|openid-configuration)$/,
 	/^\/docs(\/.*)?$/,
+	/^\/help(\/.*)?$/,
+	/^\/search-index\.json$/,
 	/^\/llms(-full)?\.txt$/,
 	/^\/mcp$/,
 	/^\/api\/mcp$/,
@@ -33,6 +39,9 @@ const PUBLIC_PATHS = [
 	/^\/archive\//,
 	/^\/api\/unsubscribe$/,
 	/^\/api\/views$/,
+	/^\/embed\.js$/,
+	/^\/embed\/[^/]+(\/done)?$/,
+	/^\/api\/embed\/[^/]+$/,
 	/^\/api\/v1\//,
 	/^\/api\/webhooks\//,
 	/^\/api\/jobs\//,
@@ -62,6 +71,7 @@ function rewriteTo(request, pathname) {
 
 export async function proxy(request) {
 	const { pathname } = request.nextUrl;
+	if (pathname.startsWith(BOTID_PATH_PREFIX)) return NextResponse.next();
 
 	const { isArchiveHost, slug: archiveSlug } = await resolveArchiveHost(request.headers.get("host"));
 	if (isArchiveHost) {
@@ -109,7 +119,8 @@ export async function proxy(request) {
 	return NextResponse.redirect(signin);
 }
 
-// favicon.ico goes through the proxy so archive domains answer 404 and browsers keep the newsletter's logo.
+// favicon.ico goes through the proxy so archive domains answer 404 and browsers keep the newsletter's logo. Theme fonts
+// (public/fonts) load on every host, archives included.
 export const config = {
-	matcher: ["/((?!_next/static|_next/image|.*\\.(?:png|svg|jpg|webp)$).*)"],
+	matcher: ["/((?!_next/static|_next/image|.*\\.(?:png|svg|jpg|webp|woff2)$).*)"],
 };

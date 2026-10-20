@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { findUserByEmail } from "@/lib/accounts";
 import { notifyActivity } from "@/lib/alerts";
 import { SIGNIN_NOT_ALLOWED_MESSAGE, SIGNUP_ERRORS, getAuth, getAuthCallContext, getSignupError, isGoogleEnabled, sendSigninCodeEmail } from "@/lib/auth";
+import { isBotRequest } from "@/lib/bot-check";
 import { isCloud, isEmailAllowed } from "@/lib/config";
 import { isDisposableDomain } from "@/lib/disposable-domains";
 import { getCanonicalEmail } from "@/lib/email-aliases";
@@ -17,12 +18,15 @@ const CODES_PER_EMAIL = { name: "signin-code-email", limit: 5, window: "15 m" };
 // Each code also dies after 3 wrong tries (Better Auth's emailOTP).
 const CHECKS_PER_IP = { name: "signin-check-ip", limit: 30, window: "15 m" };
 const CODE_PATTERN = /^\d{6}$/;
+const CODE_FAILED_MESSAGE = "Couldn't send the code. Try again in a minute.";
 const OAUTH_EXPIRED_MESSAGE = "This sign-in link expired. Go back to the app and connect MailCheap again.";
 
 // The allowlist is checked after the rate limits, so the form can't be used to test addresses quickly.
 export async function sendSigninCode(_state, formData) {
 	const email = normalizeEmail(formData.get("email"));
 	if (!email) return { error: "Enter a valid email" };
+	// The same answer as a failed send, so a script learns nothing from it.
+	if (await isBotRequest("sign-in code request")) return { error: CODE_FAILED_MESSAGE };
 
 	const ip = getClientIp(await headers());
 	// Counted per inbox: every dot and +tag of a Gmail address reaches the same one (lib/email-aliases.js).
@@ -39,7 +43,7 @@ export async function sendSigninCode(_state, formData) {
 		await sendSigninCodeEmail(email);
 	} catch (error) {
 		console.error("[signin] Could not send a code:", error.message);
-		return { error: "Couldn't send the code. Try again in a minute." };
+		return { error: CODE_FAILED_MESSAGE };
 	}
 	return { email };
 }

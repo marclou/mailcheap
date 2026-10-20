@@ -31,15 +31,23 @@ test("a draft has unsaved changes until it's back to what the newsletter has sav
 	assert.equal(hasChanges({ ...saved, socialLinks: "https://x.com/example" }), false);
 });
 
-test("the confirmation email counts while new signups confirm, the welcome email otherwise", () => {
+test("the confirmation email and the welcome email both count, the welcome page staying open while signups confirm", () => {
 	const confirmation = getDraftConfirmation(saved, newsletter);
 	assert.equal(hasChanges({ ...saved, confirmationEdits: { ...confirmation, subject: "Please confirm" } }), true);
 	assert.equal(hasChanges({ ...saved, confirmationEdits: { ...confirmation } }), false, "edited back to the built-in email");
 	assert.equal(hasChanges({ ...saved, name: "Field notes weekly" }), true);
 
-	const welcome = { ...saved.welcome, subject: "Welcome" };
-	assert.equal(hasChanges({ ...saved, welcome }), false, "a collapsed welcome email isn't sent");
+	assert.equal(hasChanges({ ...saved, welcome: { ...saved.welcome, subject: "Welcome" } }), true);
+	assert.equal(hasChanges({ ...saved, isWelcomeEnabled: true }), true);
 	assert.equal(hasChanges({ ...saved, isConfirmationRequired: false }), true);
+});
+
+test("a welcome email saved on while signups confirm shows off, as it doesn't go out", () => {
+	const bothOn = getNewsletterDraft({ newsletter: { ...newsletter, welcome: { enabled: true, subject: "Hi", markdown: "Hello" } }, domains: [], sharedDomain });
+	assert.equal(bothOn.isWelcomeEnabled, false);
+	const welcoming = getNewsletterDraft({ newsletter: { ...newsletter, requireConfirmation: false, welcome: { enabled: true } }, domains: [], sharedDomain });
+	assert.equal(welcoming.isWelcomeEnabled, true);
+	assert.equal(getNewsletterDraft({ newsletter: null, domains: [], sharedDomain }).isWelcomeEnabled, false, "new newsletters confirm signups");
 });
 
 test("the shared address follows the slug; an own domain keeps its address", () => {

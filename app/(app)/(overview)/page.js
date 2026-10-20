@@ -9,11 +9,11 @@ import ChartSends from "@/components/ChartSends";
 import ChartSubscribers from "@/components/ChartSubscribers";
 import CookieTimezone from "@/components/CookieTimezone";
 import HeaderPage from "@/components/HeaderPage";
+import ListLegend from "@/components/ListLegend";
 import ListStats from "@/components/ListStats";
 import SkeletonCampaigns from "@/components/SkeletonCampaigns";
 import { SkeletonSends, SkeletonStats, SkeletonSubscribers } from "@/components/SkeletonOverview";
 import StateEmpty from "@/components/StateEmpty";
-import SwatchChart from "@/components/SwatchChart";
 import TableCampaigns from "@/components/TableCampaigns";
 import { Button } from "@/components/ui/button";
 import { hasActiveSubscription } from "@/lib/account-state";
@@ -214,20 +214,6 @@ function SectionTitle({ href, children }) {
 				<ChevronRight className="size-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
 			</Link>
 		</h2>
-	);
-}
-
-function ListLegend({ items }) {
-	return (
-		<ul className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-			{items.map(({ swatch, label, value }) => (
-				<li key={label} className="flex items-center gap-2">
-					{swatch && <SwatchChart kind={swatch} />}
-					{label}
-					{value && <span className="font-medium text-foreground tabular-nums">{value}</span>}
-				</li>
-			))}
-		</ul>
 	);
 }
 

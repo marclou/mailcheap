@@ -9,7 +9,7 @@ export default function PitchSubscribe({ newsletter, readers, titleAs: Title = "
 	return (
 		<div className="flex flex-col items-center text-center">
 			<AvatarNewsletter newsletter={newsletter} size={48} className="rounded-xl" />
-			<Title className="mt-4 text-xl font-semibold tracking-tight text-balance">
+			<Title className="mt-4 text-xl font-theme-heading text-balance">
 				{readers >= MIN_READERS_SHOWN
 					? `Join ${formatNumber(readers)} readers`
 					: `Subscribe to ${newsletter.name}`}

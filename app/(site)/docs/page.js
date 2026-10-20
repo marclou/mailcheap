@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import BlockCode from "@/components/BlockCode";
 import ButtonCopy from "@/components/ButtonCopy";
 import HeaderDocs from "@/components/HeaderDocs";
+import LinkApp from "@/components/LinkApp";
 import { API_BASE_PATH } from "@/lib/api/rest";
 import { getAppUrl } from "@/lib/config";
 import { getDocsPageMetadata } from "@/lib/docs/llms";
@@ -34,9 +35,9 @@ export default function DocsPage() {
 				<Step number="1" title="Create an API key">
 					<p>
 						On the{" "}
-						<Link href="/api-keys" className="font-medium text-foreground underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground">
+						<LinkApp href="/api-keys" className="font-medium text-foreground underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground">
 							API keys page
-						</Link>
+						</LinkApp>
 						. Full access for scripts and AI assistants; signups only for signup forms in your website&apos;s code. Keys are shown once.
 					</p>
 				</Step>

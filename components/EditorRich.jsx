@@ -3,13 +3,16 @@
 import { useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import FileHandler from "@tiptap/extension-file-handler";
-import Image from "@tiptap/extension-image";
 import { Placeholder } from "@tiptap/extensions";
 import StarterKit from "@tiptap/starter-kit";
 import DialogImagePicker from "@/components/DialogImagePicker";
 import MenuFormat from "@/components/MenuFormat";
+import MenuImage from "@/components/MenuImage";
 import { SlashCommand } from "@/components/MenuSlash";
+import { BlockHandle } from "@/lib/editor-block-handle";
 import { Callout } from "@/lib/editor-callout";
+import { ImageAligned } from "@/lib/editor-image";
+import { MergeTags } from "@/lib/editor-merge-tags";
 import { toast } from "@/lib/toast";
 import { IMAGE_TYPES, getDisplaySize, prepareImage, uploadImage } from "@/lib/upload-image";
 
@@ -28,7 +31,7 @@ export default function EditorRich({ content, onChange }) {
 				link: { openOnClick: false, defaultProtocol: "https" },
 				dropcursor: { color: "var(--ring)", width: 2 },
 			}),
-			Image.configure({
+			ImageAligned.configure({
 				resize: {
 					enabled: true,
 					directions: ["left", "right"],
@@ -38,6 +41,8 @@ export default function EditorRich({ content, onChange }) {
 				},
 			}),
 			Callout,
+			BlockHandle,
+			MergeTags,
 			Placeholder.configure({
 				placeholder: ({ node }) => (node.type.name === "heading" ? "Heading" : "Write, or press / for commands"),
 			}),
@@ -50,7 +55,8 @@ export default function EditorRich({ content, onChange }) {
 			SlashCommand.configure({ onPickImage: () => setIsPickingImage(true) }),
 		],
 		editorProps: {
-			attributes: { class: `prose-issue ${MIN_HEIGHT} px-5 py-5 outline-none`, "aria-label": "Content" },
+			// With a mouse, the left padding holds the blocks' drag handle (lib/editor-block-handle.js).
+			attributes: { class: `prose-issue ${MIN_HEIGHT} px-5 py-5 outline-none [@media(pointer:fine)]:pl-12`, "aria-label": "Content" },
 			handleKeyDown: (view, event) => {
 				const isLinkShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
 				if (!isLinkShortcut || view.state.selection.empty) return false;
@@ -65,8 +71,9 @@ export default function EditorRich({ content, onChange }) {
 
 	return (
 		<>
-			<EditorContent editor={editor} />
+			<EditorContent editor={editor} className="relative" />
 			<MenuFormat editor={editor} isEditingLink={isEditingLink} onEditLink={setIsEditingLink} />
+			<MenuImage editor={editor} />
 			<DialogImagePicker
 				open={isPickingImage}
 				onOpenChange={setIsPickingImage}

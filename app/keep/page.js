@@ -1,6 +1,7 @@
 import { Link2Off } from "lucide-react";
 import CardNotice from "@/components/CardNotice";
 import FormKeep from "@/components/FormKeep";
+import StyleTheme from "@/components/StyleTheme";
 import { getArchiveUrls } from "@/lib/archive-hosts";
 import { connectDb } from "@/lib/db";
 import { verifyKeepToken } from "@/lib/last-chance";
@@ -21,6 +22,7 @@ export default async function KeepPage({ searchParams }) {
 
 	return (
 		<main className="flex min-h-dvh items-center justify-center bg-background px-4 py-16">
+			<StyleTheme theme={newsletter?.theme} />
 			{newsletter ? (
 				<FormKeep
 					token={validToken}

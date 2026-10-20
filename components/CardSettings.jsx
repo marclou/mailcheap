@@ -1,9 +1,13 @@
 import { cn } from "@/lib/utils";
 
-// A settings section like the newsletter's: a title, an action on its right, and rows under a line.
-export default function CardSettings({ title, action, stagger = 0, className, children }) {
+// A settings section like the newsletter's: a title, an action on its right, and rows under a line. isStreamed: it takes
+// its skeleton's place (Suspense), so it only fades in.
+export default function CardSettings({ title, action, stagger = 0, isStreamed = false, className, children }) {
 	return (
-		<section style={{ "--stagger": stagger }} className={cn("rounded-xl bg-card shadow-border animate-enter", className)}>
+		<section
+			style={{ "--stagger": stagger }}
+			className={cn("rounded-xl bg-card shadow-border", isStreamed ? "animate-fade-in" : "animate-enter", className)}
+		>
 			<div className="flex h-12 items-center justify-between gap-3 px-4">
 				<h2 className="text-sm font-medium">{title}</h2>
 				{action}

@@ -123,6 +123,7 @@ before(async () => {
 		NextRequest: (await import("next/server")).NextRequest,
 		sitemap: (await import("../app/sitemap.js")).default,
 		docs: await import("../lib/docs/llms.js"),
+		help: await import("../lib/help.js"),
 		accountState: await import("../lib/account-state.js"),
 		Account: (await import("../models/Account.js")).default,
 		Campaign: (await import("../models/Campaign.js")).default,
@@ -336,13 +337,15 @@ describe("public pages", () => {
 		assert.deepEqual(outcome(await visit("/")), { status: 307, location: "http://localhost:3000/signin" });
 		const user = await signIn("pages@team.example.org");
 		assert.deepEqual(outcome(await visit("/", { cookie: cookieOf(user) })), { next: true });
-		for (const path of ["/signin", "/docs", "/docs/mcp", "/llms.txt", "/sitemap.xml", "/robots.txt", "/opengraph-image-12o0cb", "/api/health"]) {
+		for (const path of ["/signin", "/docs", "/docs/mcp", "/help", "/help/sending", "/llms.txt", "/sitemap.xml", "/robots.txt", "/opengraph-image-12o0cb", "/api/health"]) {
 			assert.deepEqual(outcome(await visit(path)), { next: true }, path);
 		}
 	});
 
-	test("the sitemap lists only the docs", () => {
+	test("the sitemap lists the docs and the help center, without the articles about plans and the warm-up", () => {
 		const urls = m.sitemap().map(({ url }) => url);
-		assert.deepEqual(urls, m.docs.DOC_PAGES.map(({ href }) => `http://localhost:3000${href}`));
+		const help = ["/help", ...m.help.HELP_ARTICLES.filter(({ isCloudOnly }) => !isCloudOnly).map(({ slug }) => `/help/${slug}`)];
+		assert.deepEqual(urls, [...m.docs.DOC_PAGES.map(({ href }) => href), ...help].map((path) => `http://localhost:3000${path}`));
+		assert.ok(!urls.some((url) => url.endsWith("/help/warm-up") || url.endsWith("/help/plans")));
 	});
 });

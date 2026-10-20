@@ -14,7 +14,7 @@ export default function CardNotice({ icon: Icon, tone, spin, title, children }) 
 			>
 				<Icon className={spin ? "size-5 animate-spin" : "size-5 animate-icon-in"} aria-hidden="true" />
 			</div>
-			<h1 className="mt-4 text-lg font-semibold tracking-tight text-balance">{title}</h1>
+			<h1 className="mt-4 text-lg font-theme-heading text-balance">{title}</h1>
 			<div className="mt-1.5 text-sm leading-relaxed text-pretty text-muted-foreground">{children}</div>
 		</div>
 	);

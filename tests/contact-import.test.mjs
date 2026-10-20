@@ -43,3 +43,19 @@ test("existing contacts never become active and contacts waiting to confirm stay
 		assert.equal(replaces.includes("pending"), false);
 	}
 });
+
+test("opens and clicks from the previous platform only move a contact's own forward", () => {
+	const lastOpenAt = new Date("2026-09-30T08:00:00.000Z");
+	const lastClickAt = new Date("2026-09-12T08:00:00.000Z");
+	const [write] = getContactWrites({
+		accountId,
+		newsletterId,
+		contacts: [{ email: "reader@example.com", status: "active", subscribedAt, emailsReceived: 40, lastOpenAt, lastClickAt, opens: 31, clicks: 6 }],
+		source: "import",
+	});
+	assert.deepEqual(write.updateOne.update.$max, { lastOpenAt, lastClickAt, "stats.opens": 31, "stats.clicks": 6 });
+	assert.deepEqual(write.updateOne.update.$set, { "imported.emailsReceived": 40 });
+
+	const [plain] = getContactWrites({ accountId, newsletterId, contacts: [{ email: "plain@example.com", status: "active" }], source: "import" });
+	assert.equal(plain.updateOne.update.$max, undefined, "rows without engagement don't touch it");
+});

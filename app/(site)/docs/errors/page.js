@@ -35,7 +35,7 @@ export default function ErrorsPage() {
 					</thead>
 					<tbody className="divide-y divide-border/60 align-top">
 						{Object.entries(ERRORS).map(([code, { status, description }]) => (
-							<tr key={code}>
+							<tr key={code} id={code} className="scroll-mt-20 transition-colors duration-500 target:bg-muted/60">
 								<td className="py-3 pr-3 pl-4">
 									<code className="font-mono text-[13px]">{code}</code>
 									<p className="mt-1 text-[13px] leading-5 text-muted-foreground sm:hidden">{description}</p>

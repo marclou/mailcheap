@@ -3,54 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { runDashboardAction, toFormError } from "@/lib/actions/dashboard";
+import { SETTINGS_PATH, readSettingsForm } from "@/lib/newsletter-sections";
 import { getSelectedNewsletter, saveSelectedNewsletter, switchNewsletter } from "@/lib/selected-newsletter";
 
 function readText(formData, key) {
 	return String(formData.get(key) ?? "").trim();
-}
-
-// Empty stays unset, so the newsletter's default applies.
-function readNumber(formData, key) {
-	const text = readText(formData, key);
-	return text ? Number(text) : null;
-}
-
-// A collapsed email section sends no fields, and what it had saved stays as it is.
-function readSettings(formData) {
-	return {
-		name: readText(formData, "name"),
-		slug: readText(formData, "slug"),
-		imageUrl: readText(formData, "imageUrl"),
-		fromName: readText(formData, "fromName"),
-		fromEmail: readText(formData, "fromEmail"),
-		replyTo: readText(formData, "replyTo"),
-		postalAddress: readText(formData, "postalAddress"),
-		archiveEnabled: formData.get("archiveEnabled") === "on",
-		description: readText(formData, "description"),
-		author: { bio: readText(formData, "authorBio"), imageUrl: readText(formData, "authorImageUrl") },
-		socialLinks: readText(formData, "socialLinks").split(/[\s,]+/).filter(Boolean),
-		requireConfirmation: formData.get("requireConfirmation") === "on",
-		cleanup: {
-			enabled: formData.get("cleanupEnabled") === "on",
-			issues: readNumber(formData, "cleanupIssues"),
-			days: readNumber(formData, "cleanupDays"),
-		},
-		...(formData.has("welcomeSubject") && {
-			welcome: {
-				enabled: formData.get("welcomeEnabled") === "on",
-				subject: readText(formData, "welcomeSubject"),
-				previewText: readText(formData, "welcomePreviewText"),
-				markdown: String(formData.get("welcomeMarkdown") ?? ""),
-			},
-		}),
-		...(formData.has("confirmationSubject") && {
-			confirmation: {
-				subject: readText(formData, "confirmationSubject"),
-				previewText: readText(formData, "confirmationPreviewText"),
-				markdown: String(formData.get("confirmationMarkdown") ?? ""),
-			},
-		}),
-	};
 }
 
 // The slug field asks as its value settles: available, or why not.
@@ -67,14 +24,15 @@ export async function sendWelcomeTest(newsletterId) {
 	return failure ? toFormError(failure) : { ok: true };
 }
 
+// A section's page saves only its section; the overview and the other pages show what it changed.
 export async function saveNewsletter(_state, formData) {
 	const id = readText(formData, "id");
-	const settings = readSettings(formData);
+	const settings = readSettingsForm(formData);
 	const { output, failure } = id
 		? await runDashboardAction("update_newsletter", { id, ...settings })
 		: await runDashboardAction("create_newsletter", settings);
 	if (failure) return toFormError(failure);
-	revalidatePath("/newsletters");
+	revalidatePath(SETTINGS_PATH, "layout");
 	if (!id) redirect(`/newsletters/${output.id}`);
 	return { ok: true, savedAt: Date.now() };
 }
@@ -101,4 +59,20 @@ export async function createNewsletter(_state, formData) {
 	if (failure) return toFormError(failure);
 	await saveSelectedNewsletter(output.id);
 	redirect("/newsletters");
+}
+
+// Form for your site (FormEmbed): its switch, text, layout and sites, all sent each time.
+export async function saveSignupForm(newsletterId, signupForm) {
+	const { output, failure } = await runDashboardAction("update_newsletter", { id: String(newsletterId ?? ""), signupForm });
+	if (failure) return toFormError(failure);
+	revalidatePath(SETTINGS_PATH, "layout");
+	return { ok: true, signupForm: output.signupForm };
+}
+
+// Design (FormTheme): a preset alone applies it as it comes; the customizer sends a theme's full values.
+export async function saveTheme(newsletterId, theme) {
+	const { output, failure } = await runDashboardAction("update_newsletter", { id: String(newsletterId ?? ""), theme });
+	if (failure) return toFormError(failure);
+	revalidatePath("/newsletters", "layout");
+	return { ok: true, theme: output.theme };
 }

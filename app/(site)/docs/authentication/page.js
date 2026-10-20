@@ -1,6 +1,7 @@
 import Link from "next/link";
 import BlockCode from "@/components/BlockCode";
 import HeaderDocs from "@/components/HeaderDocs";
+import LinkApp from "@/components/LinkApp";
 import { MAX_ACTIVE_API_KEYS } from "@/lib/actions/api-keys";
 import { SLUG_CHANGES } from "@/lib/newsletters";
 import { ACTIONS } from "@/lib/actions/registry";
@@ -29,7 +30,11 @@ export default function AuthenticationPage() {
 
 			<Section title="Send the key" stagger={1}>
 				<p>
-					Create keys on the dashboard&apos;s API keys page. They start with <Code>mc_</Code> and are shown once: MailCheap only keeps
+					Create keys on the dashboard&apos;s{" "}
+					<LinkApp href="/api-keys" className="font-medium text-foreground underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground">
+						API keys page
+					</LinkApp>
+					. They start with <Code>mc_</Code> and are shown once: MailCheap only keeps
 					their hash, their first characters and when they were last used. The REST API and the MCP server take the same header. An
 					account has up to {MAX_ACTIVE_API_KEYS} active keys.
 				</p>

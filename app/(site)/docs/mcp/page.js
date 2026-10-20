@@ -1,6 +1,7 @@
 import Link from "next/link";
 import BlockCode from "@/components/BlockCode";
 import HeaderDocs from "@/components/HeaderDocs";
+import LinkApp from "@/components/LinkApp";
 import { ACTION_GROUPS, ACTIONS } from "@/lib/actions/registry";
 import { getAppUrl } from "@/lib/config";
 import { getDocsPageMetadata } from "@/lib/docs/llms";
@@ -69,9 +70,9 @@ export default function McpPage() {
 					<h2 className="text-xl font-semibold tracking-tight">Connected apps</h2>
 					<p className="mt-2 text-[15px] leading-7 text-pretty text-foreground/80">
 						An app you allow gets the same access as a full access key, in your account only. The{" "}
-						<Link href="/api-keys" className={LINK_CLASS}>
+						<LinkApp href="/api-keys" className={LINK_CLASS}>
 							API keys page
-						</Link>{" "}
+						</LinkApp>{" "}
 						lists connected apps with when they were last used. Revoke one there and its tokens stop working right away; it has to ask
 						you again to come back.
 					</p>

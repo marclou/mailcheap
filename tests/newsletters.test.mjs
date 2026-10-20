@@ -123,6 +123,9 @@ describe("the open newsletter", () => {
 		assert.equal(m.rules.getSwitchPath("/contacts"), "/contacts");
 		assert.equal(m.rules.getSwitchPath("/"), "/");
 		assert.equal(m.rules.getSwitchPath("/api-keys"), null);
+		assert.equal(m.rules.getSwitchPath("/newsletters/sender"), "/newsletters/sender", "a settings page stays the same page");
+		assert.equal(m.rules.getSwitchPath("/newsletters/design"), "/newsletters/design");
+		assert.equal(m.rules.getSwitchPath(`/newsletters/${alpha}`), "/newsletters", "an ID isn't a settings page");
 	});
 
 	test("a forged ID is refused: another account's newsletter, or none, never opens", async () => {

@@ -24,6 +24,9 @@ const campaignSchema = new mongoose.Schema(
 		ratesAcceptedAt: { type: Date },
 		// Warm-up: send to the most engaged contacts first, capped at audienceLimit.
 		audienceLimit: { type: Number, min: 1 },
+		// Only this segment's active contacts get it, its conditions read at each send (lib/segments.js). Without one,
+		// every active contact does.
+		segmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Segment" },
 		// Contacts never mailed before go out in steps: a first slice, a check, then the rest (lib/first-send.js), over
 		// restHours in a spread send.
 		firstSend: {
@@ -62,6 +65,12 @@ const campaignSchema = new mongoose.Schema(
 			clicked: counter,
 			unsubscribed: counter,
 			failed: counter,
+		},
+		// Clicks per link (models/CampaignLink.js): contacts who clicked at least one, and when the send started being counted
+		// per link. Counted from its start, it has every click; one that started earlier only has the clicks since.
+		links: {
+			clickers: counter,
+			countedAt: { type: Date },
 		},
 		// The list cleanup at this send: last-chance emails sent instead of the issue, and contacts made dormant.
 		lastChance: {

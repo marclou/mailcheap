@@ -61,7 +61,7 @@ export default async function IssuePage({ params }) {
 			<ScriptJsonLd data={getIssueSeo(newsletter, issue).jsonLd} />
 			<article className="mx-auto max-w-2xl px-5 pt-12 sm:pt-16">
 				<header className="animate-enter">
-					<h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-[2.75rem] sm:leading-[1.1]">
+					<h1 className="text-4xl font-theme-heading text-balance sm:text-[2.75rem] sm:leading-[1.1]">
 						{issue.subject}
 					</h1>
 					{issue.previewText && (

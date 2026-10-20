@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { FIELD_TYPE_IDS } from "../lib/contact-fields.js";
 import { INTERVALS, PLAN_IDS } from "../lib/plans.js";
 
 export const ACCOUNT_STATUSES = ["active", "paused"];
@@ -92,6 +93,25 @@ const accountSchema = new mongoose.Schema(
 			completedAt: { type: Date },
 			checklistDismissedAt: { type: Date },
 			checklistFinishedAt: { type: Date },
+		},
+		// The changelog entries, by id, its owner closed the dashboard's what's new card on: MailCheap Cloud's WhatsNew
+		// site extension (components/SiteExtensions.jsx) only lists the others.
+		changelog: {
+			seen: { type: [String], default: undefined },
+		},
+		// The fields its contacts can hold besides a first name and tags, shared by its newsletters (lib/contact-fields.js).
+		// Each contact keeps its values under fields.<key>; deleting a field here leaves them on the contacts.
+		contactFields: {
+			type: [
+				{
+					_id: false,
+					key: { type: String, required: true },
+					label: { type: String, required: true, trim: true },
+					type: { type: String, enum: FIELD_TYPE_IDS, required: true },
+					createdAt: { type: Date },
+				},
+			],
+			default: undefined,
 		},
 		// Set by an admin; they replace the plan's numbers.
 		limitOverrides: {

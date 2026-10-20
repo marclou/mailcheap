@@ -42,7 +42,7 @@ async function customer(email, { emails, ...set } = {}) {
 	return user;
 }
 
-// A newsletter on the shared address whose new subscribers get the welcome email, unless they confirm first.
+// A newsletter on the shared address whose new subscribers get the welcome email, or the confirmation email instead.
 async function addNewsletter(user, { requireConfirmation = false } = {}) {
 	user.slug = user.email.split("@")[0].replace(/[^a-z0-9]/g, "-");
 	const url = await as(user, () =>
@@ -55,10 +55,9 @@ async function addNewsletter(user, { requireConfirmation = false } = {}) {
 					fromEmail: `hello@${user.slug}.mailcheapmail.com`,
 					postalAddress: "1 Main St, Paris",
 					archiveEnabled: "on",
-					welcomeEnabled: "on",
 					welcomeSubject: "Welcome aboard",
 					welcomeMarkdown: "Thanks for joining.",
-					...(requireConfirmation && { requireConfirmation: "on" }),
+					...(requireConfirmation ? { requireConfirmation: "on" } : { welcomeEnabled: "on" }),
 				})
 			)
 		)
@@ -376,7 +375,10 @@ describe("what the API, MCP and dashboard say", () => {
 		assert.deepEqual([paused.welcomeEmailsPaused, paused.emailsLimit], [true, 1]);
 		assert.equal(await m.usage.hasWelcomeEmailsOn(user.accountId), true);
 
-		const confirming = await callApi("PATCH", `/api/v1/newsletters/${user.slug}`, { key: user.key, body: { requireConfirmation: true } });
+		const confirming = await callApi("PATCH", `/api/v1/newsletters/${user.slug}`, {
+			key: user.key,
+			body: { requireConfirmation: true, welcome: { enabled: false } },
+		});
 		assert.equal(confirming.status, 200);
 		assert.equal(await m.usage.hasWelcomeEmailsOn(user.accountId), false, "the confirmation email replaces it");
 	});

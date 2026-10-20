@@ -28,6 +28,23 @@ async function mcp(key, method, params = {}, { route = m.mcpRoute, path = "/mcp"
 	return { status: response.status, headers: response.headers, body: data ? JSON.parse(data.slice(6)) : text ? JSON.parse(text) : null };
 }
 
+// The whole body, or null when it's still streaming after ms (the stream is then cancelled).
+async function readWithin(response, ms) {
+	const reader = response.body.getReader();
+	const decoder = new TextDecoder();
+	const deadline = Date.now() + ms;
+	let text = "";
+	for (;;) {
+		const chunk = await Promise.race([reader.read(), new Promise((resolve) => setTimeout(() => resolve(null), deadline - Date.now()))]);
+		if (chunk === null) {
+			await reader.cancel();
+			return null;
+		}
+		if (chunk.done) return text;
+		text += decoder.decode(chunk.value, { stream: true });
+	}
+}
+
 async function callTool(key, name, args = {}) {
 	const { body } = await mcp(key, "tools/call", { name, arguments: args });
 	return body.result;
@@ -85,7 +102,7 @@ describe("connecting", () => {
 		assert.equal(headers.get("mcp-session-id"), null, "no session to keep");
 		assert.equal(body.result.protocolVersion, "2025-06-18");
 		assert.equal(body.result.serverInfo.name, "mailcheap");
-		assert.ok(body.result.capabilities.tools);
+		assert.deepEqual(body.result.capabilities.tools, { listChanged: false }, "the tool list never changes mid-connection");
 		assert.match(body.result.instructions, /can't be undone/);
 		assert.equal((await mcp(owner.fullKey, "notifications/initialized")).status, 202);
 	});
@@ -122,6 +139,41 @@ describe("connecting", () => {
 			assert.equal(result.structuredContent.plan.id, "starter", "the client checked it against the output schema too");
 			await client.close();
 		}
+	});
+
+	test("a 2026-07-28 client's subscriptions/listen ends at once instead of holding the function open", async () => {
+		const request = new Request("http://localhost:3000/mcp", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				accept: "application/json, text/event-stream",
+				"mcp-protocol-version": "2026-07-28",
+				"mcp-method": "subscriptions/listen",
+				authorization: `Bearer ${owner.fullKey}`,
+			},
+			body: JSON.stringify({
+				jsonrpc: "2.0",
+				id: ++nextId,
+				method: "subscriptions/listen",
+				params: {
+					notifications: { toolsListChanged: true },
+					_meta: {
+						"io.modelcontextprotocol/protocolVersion": "2026-07-28",
+						"io.modelcontextprotocol/clientInfo": { name: "claude-ai", version: "1.0" },
+						"io.modelcontextprotocol/clientCapabilities": {},
+					},
+				},
+			}),
+		});
+		const response = await anonymous(() => m.mcpRoute.POST(request));
+		const text = await readWithin(response, 2000);
+		assert.notEqual(text, null, "the listen stream stayed open");
+		const messages = text
+			.split("\n")
+			.filter((line) => line.startsWith("data: "))
+			.map((line) => JSON.parse(line.slice(6)));
+		assert.deepEqual(messages[0].params.notifications, {}, "nothing to subscribe to");
+		assert.equal(messages.at(-1).result.resultType, "complete");
 	});
 
 	test("the server also answers at /api/mcp", async () => {

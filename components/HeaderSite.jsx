@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Menu } from "lucide-react";
+import ButtonSearch from "@/components/ButtonSearch";
 import LogoWordmark from "@/components/LogoWordmark";
 import { Button } from "@/components/ui/button";
 import { isCloud } from "@/lib/config";
@@ -17,6 +18,7 @@ export default function HeaderSite() {
 			<div className="mx-auto flex h-14 max-w-(--site-width) items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
 				<LogoWordmark href="/" canFly className="-ml-1 rounded-lg px-1 py-1" />
 				<nav aria-label="Main" className="flex items-center gap-1">
+					<ButtonSearch />
 					<span className="hidden items-center gap-1 sm:flex">
 						{links.map(({ href, label }) => (
 							<Button key={href} asChild variant="ghost" size="sm" className="text-muted-foreground">
@@ -54,6 +56,7 @@ export default function HeaderSite() {
 }
 
 const LINKS = [
-	{ href: "/docs", label: "Docs" },
+	{ href: "/help", label: "Help" },
+	{ href: "/docs", label: "API" },
 	{ href: "/signin", label: "Sign in" },
 ];

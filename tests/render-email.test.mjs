@@ -48,6 +48,8 @@ test("Outlook on Windows gets a fixed 600px column, since it ignores max-width",
 	// and images get a width it reads, so a wide photo can't push the column open
 	assert.match(renderEmail({ markdown: "![Chart](https://example.com/a.png)", newsletter }).html, /<img width="600" style="width:auto;/);
 	assert.match(renderEmail({ format: "rich", html: '<img src="https://example.com/a.png">', newsletter }).html, /<img width="600" style="display:block;width:auto;/);
+	// an image the editor already sized keeps its own width
+	assert.doesNotMatch(renderEmail({ format: "rich", html: '<img src="https://example.com/a.png" width="200">', newsletter }).html, /<img width="600"/);
 });
 
 test("HTML emails with their own unsubscribe link are not changed", () => {

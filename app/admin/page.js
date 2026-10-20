@@ -3,13 +3,14 @@ import Form from "next/form";
 import Link from "next/link";
 import { Search, Users } from "lucide-react";
 import CardPostmaster from "@/components/CardPostmaster";
+import CardSendingCapacity from "@/components/CardSendingCapacity";
 import CardSettings from "@/components/CardSettings";
 import CardStat from "@/components/CardStat";
 import CardUndeliverable from "@/components/CardUndeliverable";
 import ChartSendsDaily from "@/components/ChartSendsDaily";
 import HeaderPage from "@/components/HeaderPage";
 import ListAttention from "@/components/ListAttention";
-import { SkeletonSesAccount } from "@/components/SkeletonOverview";
+import { SkeletonSendingCapacity, SkeletonSesAccount } from "@/components/SkeletonOverview";
 import StateEmpty from "@/components/StateEmpty";
 import TableAccounts from "@/components/TableAccounts";
 import TableRecentCampaigns from "@/components/TableRecentCampaigns";
@@ -21,6 +22,7 @@ import { requireAdmin } from "@/lib/auth";
 import { LIMITS, isCloud } from "@/lib/config";
 import { formatNumber, formatPercent } from "@/lib/format";
 import { countGlobalSuppressions } from "@/lib/global-suppressions";
+import { getSendingCapacity } from "@/lib/sending-capacity";
 import { serialize } from "@/lib/serialize";
 import { cn } from "@/lib/utils";
 import { isObjectIdString } from "@/lib/validation";
@@ -38,6 +40,7 @@ export default async function AdminPage({ searchParams }) {
 	const search = typeof q === "string" ? q.trim().slice(0, MAX_SEARCH_LENGTH) : "";
 	const pinnedId = isObjectIdString(account) ? account : null;
 	const now = new Date();
+	const capacity = getSendingCapacity({ now });
 	const [totals, emails, campaigns, attention, accounts, pinned, undeliverable] = await Promise.all([
 		getAccountTotals({ now }),
 		getEmailStats({ now }),
@@ -61,19 +64,29 @@ export default async function AdminPage({ searchParams }) {
 					<CardStat label="Emails sent" value={formatNumber(emails.sent)} detail="Last 30 days" />
 				</div>
 
-				<CardSettings title="Emails" action={<span className="text-xs text-muted-foreground">Customers, last 30 days</span>} stagger={1}>
-					<dl className="grid grid-cols-3 gap-px bg-border/60">
-						<Metric label="Bounces" value={emails.bounceRate} limit={LIMITS.pause.bounceRate} />
-						<Metric label="Spam complaints" value={emails.complaintRate} limit={LIMITS.pause.complaintRate} />
-						<div className="flex flex-col gap-1 bg-card px-4 py-3">
-							<dt className="text-xs text-muted-foreground">Sent, all time</dt>
-							<dd className="text-lg font-semibold tracking-tight tabular-nums">{formatNumber(emails.total)}</dd>
+				<div className="grid gap-8 lg:grid-cols-3">
+					<CardSettings
+						title="Emails"
+						action={<span className="text-xs text-muted-foreground">Customers, last 30 days</span>}
+						stagger={1}
+						className="min-w-0 lg:col-span-2"
+					>
+						<dl className="grid grid-cols-3 gap-px bg-border/60">
+							<Metric label="Bounces" value={emails.bounceRate} limit={LIMITS.pause.bounceRate} />
+							<Metric label="Spam complaints" value={emails.complaintRate} limit={LIMITS.pause.complaintRate} />
+							<div className="flex flex-col gap-1 bg-card px-4 py-3">
+								<dt className="text-xs text-muted-foreground">Sent, all time</dt>
+								<dd className="text-lg font-semibold tracking-tight tabular-nums">{formatNumber(emails.total)}</dd>
+							</div>
+						</dl>
+						<div className="px-4 pt-5 pb-4">
+							<ChartSendsDaily days={emails.days} />
 						</div>
-					</dl>
-					<div className="px-4 pt-5 pb-4">
-						<ChartSendsDaily days={emails.days} />
-					</div>
-				</CardSettings>
+					</CardSettings>
+					<Suspense fallback={<SkeletonSendingCapacity />}>
+						<CardSendingCapacity capacity={capacity} />
+					</Suspense>
+				</div>
 
 				<div style={{ "--stagger": 2 }} className="grid gap-8 animate-enter lg:grid-cols-3">
 					<section className="flex min-w-0 flex-col gap-3 lg:col-span-2">

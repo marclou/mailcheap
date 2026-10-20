@@ -42,7 +42,7 @@ export default async function ApiKeysPage() {
 			<HeaderPage title="API keys">
 				<Button asChild variant="outline">
 					<Link href="/docs">
-						Docs
+						API docs
 						<ArrowUpRight data-icon="inline-end" className="opacity-60" />
 					</Link>
 				</Button>
@@ -124,7 +124,7 @@ function CardAgents({ agents }) {
 					target="_blank"
 					className="relative -my-1 inline-flex items-center gap-1 py-1 text-sm text-muted-foreground transition-colors duration-150 after:absolute after:-inset-x-2 after:-inset-y-2 hover:text-foreground"
 				>
-					API docs
+					API reference
 					<ArrowUpRight className="size-3.5" />
 				</Link>
 			</div>

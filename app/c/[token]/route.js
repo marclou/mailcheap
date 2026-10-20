@@ -57,7 +57,7 @@ export async function GET(request, { params }) {
 
 	const userAgent = request.headers.get("user-agent") ?? "";
 	after(() =>
-		recordEngagement({ message, type: "Click", userAgent }).catch((error) =>
+		recordEngagement({ message, type: "Click", userAgent, url: link.url }).catch((error) =>
 			console.error("[tracking] Click not recorded:", error)
 		)
 	);

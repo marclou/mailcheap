@@ -3,9 +3,11 @@ import ButtonSigninGoogle from "@/components/ButtonSigninGoogle";
 import FormSignin from "@/components/FormSignin";
 import LayoutSplit from "@/components/LayoutSplit";
 import LogoWordmark from "@/components/LogoWordmark";
+import ScriptBotId from "@/components/ScriptBotId";
 import { SigninAside, SiteAnalytics } from "@/components/SiteExtensions";
 import { DELETION_GRACE_DAYS } from "@/lib/account-deletion";
 import { getSession, getSignupError, isGoogleEnabled } from "@/lib/auth";
+import { BOTID_SIGNIN, isBotIdEnabled } from "@/lib/bot-check";
 import { isCloud } from "@/lib/config";
 import { readOAuthRequest } from "@/lib/oauth";
 import { toSafeNextPath } from "@/lib/validation";
@@ -55,6 +57,7 @@ export default async function SigninPage({ searchParams }) {
 				</div>
 			</div>
 			{SiteAnalytics && <SiteAnalytics />}
+			{isBotIdEnabled() && <ScriptBotId protect={BOTID_SIGNIN} />}
 		</LayoutSplit>
 	);
 }

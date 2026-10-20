@@ -7,7 +7,8 @@ import {
 	Archive,
 	ArrowLeft,
 	ChevronDown,
-	EllipsisVertical,
+	Ellipsis,
+	Forward,
 	Mail,
 	Monitor,
 	Pencil,
@@ -20,6 +21,7 @@ import {
 	X,
 } from "lucide-react";
 import AvatarNewsletter from "@/components/AvatarNewsletter";
+import LogoGmail from "@/components/LogoGmail";
 import { Dialog, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
@@ -118,8 +120,8 @@ function Stage({ html, sender, subject, previewText, onClose }) {
 	);
 }
 
-// A mail app's reading pane: the window's bar, the message's header, then the email at the pane's whole width, where
-// it centers itself like inboxes show it. The phone shows the preview text, as an inbox's list does.
+// A mail app's reading pane: the window's bar, then the message's header scrolling with the email, which takes the
+// pane's whole width and centers itself like inboxes show it. The phone shows the preview text, as an inbox's list does.
 function FrameDesktop({ sender, subject, html }) {
 	return (
 		<div className="flex h-full flex-col overflow-hidden rounded-xl bg-white text-zinc-900 shadow-2xl ring-1 ring-black/10">
@@ -129,21 +131,23 @@ function FrameDesktop({ sender, subject, html }) {
 				))}
 				<p className="min-w-0 flex-1 truncate px-16 text-center text-xs font-medium text-zinc-500">{subject || "No subject"}</p>
 			</div>
-			<div className="shrink-0 border-b border-zinc-200 px-8 pt-6 pb-5">
-				<h2 className="truncate text-xl font-semibold tracking-tight">{subject || "No subject"}</h2>
-				<div className="mt-4 flex items-center gap-3 text-sm">
-					<AvatarNewsletter newsletter={sender} size={40} className="rounded-full bg-zinc-100 text-zinc-500" />
-					<div className="min-w-0 flex-1">
-						<p className="truncate">
-							<span className="font-semibold">{sender.fromName || sender.name}</span>{" "}
-							<span className="text-zinc-500">&lt;{sender.fromEmail}&gt;</span>
-						</p>
-						<p className="truncate text-zinc-500">to me</p>
+			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+				<div className="border-b border-zinc-200 px-8 pt-6 pb-5">
+					<h2 className="truncate text-xl font-semibold tracking-tight">{subject || "No subject"}</h2>
+					<div className="mt-4 flex items-center gap-3 text-sm">
+						<AvatarNewsletter newsletter={sender} size={40} className="rounded-full bg-zinc-100 text-zinc-500" />
+						<div className="min-w-0 flex-1">
+							<p className="truncate">
+								<span className="font-semibold">{sender.fromName || sender.name}</span>{" "}
+								<span className="text-zinc-500">&lt;{sender.fromEmail}&gt;</span>
+							</p>
+							<p className="truncate text-zinc-500">to me</p>
+						</div>
+						<span className="shrink-0 text-xs text-zinc-500">Now</span>
 					</div>
-					<span className="shrink-0 text-xs text-zinc-500">Now</span>
 				</div>
+				<FrameEmail html={html} />
 			</div>
-			<FrameEmail html={html} />
 		</div>
 	);
 }
@@ -223,7 +227,7 @@ function ScreenInbox({ sender, name, subject, snippet, rowRef, onOpen, isHidden 
 				</div>
 			</div>
 			<p className="shrink-0 px-4 pt-3 pb-1 text-xs font-medium text-zinc-500">Primary</p>
-			<ul className="min-h-0 flex-1 overflow-y-auto pb-28">
+			<ul className="min-h-0 flex-1 overflow-y-auto pb-28 [scrollbar-width:none]">
 				<li>
 					<button
 						ref={rowRef}
@@ -309,59 +313,77 @@ function ScreenEmail({ sender, name, subject, html, backRef, onBack, isHidden })
 					</span>
 				))}
 			</div>
-			<div className="shrink-0 px-4 pb-3">
-				<div className="flex items-start gap-3">
-					<p className="min-w-0 flex-1 text-xl leading-snug">
-						{subject}
-						<span className="ml-2 inline-block rounded bg-zinc-100 px-1.5 py-0.5 align-middle text-[11px] leading-none text-zinc-600">
-							Inbox
-						</span>
-					</p>
-					<Star aria-hidden="true" className="mt-1 size-5 shrink-0 text-zinc-500" />
-				</div>
-				<div className="mt-4 flex items-center gap-3">
-					<AvatarNewsletter newsletter={sender} size={40} className="rounded-full bg-zinc-100 text-zinc-500" />
-					<div className="min-w-0 flex-1">
-						<p className="truncate text-sm">
-							<span className="font-semibold">{name}</span> <span className="text-xs text-zinc-500">9:41 AM</span>
+			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none]">
+				<div className="px-4 pt-1 pb-3">
+					<div className="flex items-start gap-3">
+						<p className="min-w-0 flex-1 text-[22px] leading-snug">
+							{subject}
+							<span className="ml-2 inline-block rounded bg-zinc-100 px-1.5 py-0.5 align-middle text-[11px] leading-none text-zinc-600">
+								Inbox
+							</span>
 						</p>
-						<p className="flex items-center gap-0.5 text-xs text-zinc-500">
-							to me
-							<ChevronDown aria-hidden="true" className="size-3" />
-						</p>
+						<Star aria-hidden="true" className="mt-1.5 size-5 shrink-0 text-zinc-500" />
 					</div>
-					<Reply aria-hidden="true" className="size-5 shrink-0 text-zinc-600" />
-					<EllipsisVertical aria-hidden="true" className="size-5 shrink-0 text-zinc-600" />
+					<div className="mt-5 flex items-center gap-3">
+						<AvatarNewsletter newsletter={sender} size={40} className="rounded-full bg-zinc-100 text-zinc-500" />
+						<div className="min-w-0 flex-1">
+							<p className="flex items-baseline gap-1.5">
+								<span className="truncate text-[15px] font-semibold">{name}</span>
+								<span className="shrink-0 text-[13px] text-zinc-500">9:41 AM</span>
+							</p>
+							<p className="flex items-center gap-0.5 text-[13px] text-zinc-500">
+								to me
+								<ChevronDown aria-hidden="true" className="size-3.5" />
+							</p>
+						</div>
+						<Reply aria-hidden="true" className="size-5 shrink-0 text-zinc-600" />
+						<Ellipsis aria-hidden="true" className="size-5 shrink-0 text-zinc-600" />
+					</div>
+				</div>
+				<FrameEmail html={html} />
+				<div aria-hidden="true" className="flex gap-3 px-4 pt-6 pb-10">
+					{REPLIES.map(({ label, icon: Icon }) => (
+						<span
+							key={label}
+							className="flex h-10 flex-1 items-center justify-center gap-2 rounded-full border border-zinc-300 text-sm font-medium text-zinc-700"
+						>
+							<Icon className="size-4" />
+							{label}
+						</span>
+					))}
 				</div>
 			</div>
-			<FrameEmail html={html} />
 		</div>
 	);
 }
 
-function LogoGmail({ className }) {
-	return (
-		<svg viewBox="52 42 88 66" aria-hidden="true" className={className}>
-			<path fill="#4285f4" d="M58 108h14V74L52 59v43c0 3.32 2.69 6 6 6" />
-			<path fill="#34a853" d="M120 108h14c3.32 0 6-2.69 6-6V59l-20 15" />
-			<path fill="#fbbc04" d="M120 48v26l20-15v-8c0-7.42-8.47-11.65-14.4-7.2" />
-			<path fill="#ea4335" d="M72 74V48l24 18 24-18v26L96 92" />
-			<path fill="#c5221f" d="M52 51v8l20 15V48l-5.6-4.2c-5.94-4.45-14.4-.22-14.4 7.2" />
-		</svg>
-	);
-}
-
+// As tall as the email, so the screen around it scrolls the message's header away with the email, as mail apps do.
 function FrameEmail({ html }) {
-	// Without allow-scripts nothing in the email runs; same origin only lets Escape out (forwardEscape).
+	// Without allow-scripts nothing in the email runs; same origin only lets the frame be sized and Escape out.
 	return (
 		<iframe
 			title="Email preview"
 			sandbox="allow-same-origin"
 			srcDoc={html}
-			onLoad={(event) => forwardEscape(event.currentTarget)}
-			className="min-h-0 w-full flex-1 bg-white"
+			onLoad={(event) => {
+				forwardEscape(event.currentTarget);
+				fitToEmail(event.currentTarget);
+			}}
+			className="block h-160 w-full bg-white"
 		/>
 	);
+}
+
+// Measured collapsed first, for the email's own height whatever the frame's. Fonts and pictures that come later can
+// only add to it, so the screen never loses its scroll.
+function fitToEmail(frame) {
+	const email = frame.contentDocument;
+	if (!email) return;
+	const fit = () => (frame.style.height = `${email.documentElement.scrollHeight}px`);
+	frame.style.height = "0px";
+	fit();
+	email.fonts?.ready.then(fit);
+	email.addEventListener("load", fit, true);
 }
 
 // A click in the email puts the focus in its frame, whose key presses never reach the dashboard: Escape there is passed
@@ -399,7 +421,11 @@ const EMAIL_ACTIONS = [
 	{ name: "archive", icon: Archive },
 	{ name: "delete", icon: Trash2 },
 	{ name: "unread", icon: Mail },
-	{ name: "more", icon: EllipsisVertical },
+	{ name: "more", icon: Ellipsis },
+];
+const REPLIES = [
+	{ label: "Reply", icon: Reply },
+	{ label: "Forward", icon: Forward },
 ];
 // The phone's inbox around the issue.
 const INBOX = [

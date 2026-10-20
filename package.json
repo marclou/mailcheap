@@ -35,6 +35,7 @@
     "@upstash/redis": "^1.39.0",
     "@vercel/blob": "^2.8.0",
     "better-auth": "^1.7.7",
+    "botid": "^1.5.11",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
     "jose": "^6.2.12",

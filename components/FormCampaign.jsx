@@ -16,6 +16,7 @@ import {
 	MoreHorizontal,
 	Send,
 	Trash2,
+	UserRound,
 } from "lucide-react";
 import { duplicateCampaign, saveCampaign, sendTestCampaign } from "@/app/(app)/campaigns/actions";
 import AvatarNewsletter from "@/components/AvatarNewsletter";
@@ -40,8 +41,10 @@ import {
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { getCheckFix } from "@/lib/campaign-steps";
 import { markdownToHtml } from "@/lib/markdown";
+import { fillSampleName, firstNameTag } from "@/lib/merge-tags";
 import { getPresendChecks } from "@/lib/presend-checks";
 import { UNSUBSCRIBE_PLACEHOLDER, renderEmail, withResponsiveImages } from "@/lib/render-email";
+import { SEGMENT_DELETED } from "@/lib/segments";
 import { toast } from "@/lib/toast";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { usePaywall } from "@/lib/use-paywall";
@@ -51,6 +54,7 @@ import { useAutosave } from "@/lib/use-autosave";
 import { cn } from "@/lib/utils";
 
 const UPLOADING_MESSAGE = "Wait for images to finish uploading";
+const SUBJECT_MAX = 200;
 // Below lg, as the step bar's classes.
 const COMPACT_SCREEN = "(width < 64rem)";
 
@@ -58,6 +62,9 @@ export default function FormCampaign({
 	campaign,
 	newsletter,
 	audienceCount,
+	everyoneCount,
+	segments,
+	isSegmentDeleted,
 	senderProblem,
 	isSendingEnabled,
 	testEmail,
@@ -116,7 +123,7 @@ export default function FormCampaign({
 		[format, deferredValues, newsletter]
 	);
 	const previewHtml = useMemo(
-		() => withResponsiveImages(rendered.html.replaceAll(UNSUBSCRIBE_PLACEHOLDER, "#")),
+		() => withResponsiveImages(fillSampleName(rendered.html.replaceAll(UNSUBSCRIBE_PLACEHOLDER, "#"), { isHtml: true })),
 		[rendered.html]
 	);
 	const { checks } = getPresendChecks({
@@ -132,6 +139,7 @@ export default function FormCampaign({
 	const accountProblems = hasPlan ? reviewChecks.filter(({ isAccount, isOk }) => isAccount && !isOk) : [];
 	const blocking = [
 		...(isUploading ? [{ id: "uploading", message: UPLOADING_MESSAGE }] : []),
+		...(isSegmentDeleted ? [{ id: "segment", message: SEGMENT_DELETED }] : []),
 		...reviewChecks.filter(({ isOk, isWarning }) => !isOk && !isWarning),
 	];
 	const sending = useSendCampaign({
@@ -224,6 +232,22 @@ export default function FormCampaign({
 		return (event) => setValues((current) => ({ ...current, [key]: event.target.value }));
 	}
 
+	// {{first_name|there}} where the cursor is in the subject, or at its end (lib/merge-tags.js). The button keeps the
+	// focus in the subject, so its cursor is still there.
+	function insertFirstName() {
+		const input = subjectRef.current;
+		const tag = firstNameTag();
+		const isTyping = document.activeElement === input;
+		const start = isTyping ? input.selectionStart : input.value.length;
+		const end = isTyping ? input.selectionEnd : start;
+		const subject = `${input.value.slice(0, start)}${tag}${input.value.slice(end)}`.slice(0, SUBJECT_MAX);
+		setValues((current) => ({ ...current, subject }));
+		requestAnimationFrame(() => {
+			input.focus();
+			input.setSelectionRange(start + tag.length, start + tag.length);
+		});
+	}
+
 	const updateBody = useCallback((body) => setValues((current) => ({ ...current, body })), []);
 
 	const sendAction =
@@ -301,15 +325,29 @@ export default function FormCampaign({
 					<div className="overflow-hidden rounded-xl bg-card shadow-border animate-enter">
 						<div className="divide-y divide-border/60 border-b border-border/60">
 							<RowCampaign label="Subject">
-								<input
-									ref={subjectRef}
-									value={values.subject}
-									onChange={update("subject")}
-									placeholder="Subject"
-									aria-label="Subject"
-									maxLength={200}
-									className="h-11 w-full min-w-0 bg-transparent text-sm font-medium outline-none placeholder:font-normal placeholder:text-muted-foreground"
-								/>
+								<div className="flex min-w-0 items-center gap-1">
+									<input
+										ref={subjectRef}
+										value={values.subject}
+										onChange={update("subject")}
+										placeholder="Subject"
+										aria-label="Subject"
+										maxLength={SUBJECT_MAX}
+										className="h-11 w-full min-w-0 bg-transparent text-sm font-medium outline-none placeholder:font-normal placeholder:text-muted-foreground"
+									/>
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon-sm"
+										onMouseDown={(event) => event.preventDefault()}
+										onClick={insertFirstName}
+										aria-label="Insert first name"
+										title="Insert first name"
+										className="-mr-2 shrink-0 text-muted-foreground"
+									>
+										<UserRound />
+									</Button>
+								</div>
 							</RowCampaign>
 							<RowCampaign label="Preview text">
 								<input
@@ -380,7 +418,9 @@ export default function FormCampaign({
 						campaign={campaign}
 						newsletter={newsletter}
 						subject={values.subject}
-						audienceCount={audienceCount}
+						everyoneCount={everyoneCount}
+						segments={segments}
+						isSegmentDeleted={isSegmentDeleted}
 						emailsLeft={emailsLeft}
 						pace={pace}
 						newContacts={newContacts}
@@ -408,8 +448,8 @@ export default function FormCampaign({
 				}}
 				html={previewHtml}
 				sender={newsletter}
-				subject={deferredValues.subject}
-				previewText={deferredValues.previewText}
+				subject={fillSampleName(deferredValues.subject)}
+				previewText={fillSampleName(deferredValues.previewText)}
 			/>
 			<DialogDiscardCampaign
 				id={campaign._id}

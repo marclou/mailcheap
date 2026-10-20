@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://mailcheap.ai">Website</a> ·
-  <a href="https://mailcheap.ai/docs">Docs</a> ·
+  <a href="https://mailcheap.ai/docs">API docs</a> ·
   <a href="https://mailcheap.ai/signin">Sign up for MailCheap Cloud</a>
 </p>
 

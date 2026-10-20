@@ -64,15 +64,16 @@ function visitHost(slug, path) {
 	return m.proxy(new m.NextRequest(url, { headers: { host: new URL(url).host } }));
 }
 
-async function renderSettings(user) {
-	const page = await as(user, () => m.settingsPage.default());
-	return renderToStaticMarkup(createElement(m.TooltipProvider, null, page));
+async function renderSettings(user, page = m.settingsPage) {
+	const element = await as(user, () => page.default());
+	return renderToStaticMarkup(createElement(m.TooltipProvider, null, element));
 }
 
-// The confirm page's link to the website, shown once the reader is in.
+// The confirm page's link to the website, shown once the reader is in. The page also holds the newsletter's theme.
 async function confirmPageArchiveUrl(token) {
 	const page = await anonymous(() => m.confirmPage({ searchParams: Promise.resolve({ token }) }));
-	return page.props.children.props.archiveUrl;
+	const form = [page.props.children].flat().find((child) => child?.props && "archiveUrl" in child.props);
+	return form.props.archiveUrl;
 }
 
 function unsubscribe({ slug, id }, contact, body) {
@@ -85,7 +86,8 @@ before(async () => {
 	m = {
 		welcome: await import("../app/welcome/actions.js"),
 		newsletters: await import("../app/(app)/newsletters/actions.js"),
-		settingsPage: await import("../app/(app)/newsletters/page.js"),
+		settingsPage: await import("../app/(app)/newsletters/website/page.js"),
+		settingsOverview: await import("../app/(app)/newsletters/page.js"),
 		campaigns: await import("../app/(app)/campaigns/actions.js"),
 		contacts: await import("../app/(app)/contacts/actions.js"),
 		apiKeys: await import("../app/(app)/api-keys/actions.js"),
@@ -166,6 +168,7 @@ describe("the first issue", () => {
 		const settings = await renderSettings(user);
 		assert.match(settings, /Goes live after your first issue\./);
 		assert.doesNotMatch(settings, new RegExp(`href="${address}"`), "the address isn't a link yet");
+		assert.match(await renderSettings(user, m.settingsOverview), /Goes live after your first issue</, "the overview says so too");
 
 		const rows = [{ email: "first-reader@example.org", status: "active" }];
 		await as(user, () => m.contacts.importContacts({ newsletterId: newsletter.id, consent: true, rows }));
@@ -188,6 +191,7 @@ describe("the first issue", () => {
 		const live = await renderSettings(user);
 		assert.doesNotMatch(live, /Goes live after your first issue/);
 		assert.match(live, new RegExp(`href="${address}"`));
+		assert.match(await renderSettings(user, m.settingsOverview), new RegExp(`Live · live-notes\\.${SHARED_DOMAIN.replaceAll(".", "\\.")}<`));
 		const pending = await m.Contact.create({ accountId: user.accountId, newsletterId: newsletter.id, email: "later@example.org", status: "pending" });
 		assert.equal(await confirmPageArchiveUrl(createConfirmToken({ contactId: pending._id, newsletterId: newsletter.id })), `${address}/`);
 	});

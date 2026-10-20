@@ -23,6 +23,7 @@ const STUBS = {
 	"@upstash/qstash": stub("qstash.mjs"),
 	"@upstash/qstash/nextjs": stub("qstash-nextjs.mjs"),
 	"@better-auth/cimd/node": stub("cimd-node.mjs"),
+	"botid/server": stub("botid-server.mjs"),
 	"@/lib/ses": stub("ses.mjs"),
 	"@/lib/dns-check": stub("dns-check.mjs"),
 	"@/lib/mail-domains": stub("mail-domains.mjs"),

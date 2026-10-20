@@ -7,7 +7,7 @@ export default function FooterArchive({ newsletter, indexHref }) {
 		<footer className="border-t border-border/60">
 			<div className="mx-auto grid max-w-5xl gap-6 px-5 pt-10 pb-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
 				<div className="flex flex-col gap-3">
-					<a href={indexHref} className="flex items-center gap-2.5 font-medium tracking-tight">
+					<a href={indexHref} className="flex items-center gap-2.5 font-medium tracking-tight [font-family:var(--theme-font-heading)]">
 						<AvatarNewsletter newsletter={newsletter} size={28} />
 						{newsletter.name}
 					</a>

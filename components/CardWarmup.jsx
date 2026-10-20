@@ -1,4 +1,5 @@
 import IconWarmup from "@/components/IconWarmup";
+import LinkHelp from "@/components/LinkHelp";
 import ProgressWarmup from "@/components/ProgressWarmup";
 import { WARMUP } from "@/lib/config";
 import { formatCount, formatDate, formatNumber } from "@/lib/format";
@@ -23,7 +24,8 @@ export default function CardWarmup({ pace }) {
 				Up to {formatNumber(getPaceRoom(pace))} emails go out at once. A bigger send goes out over more hours, up to{" "}
 				{formatCount(WARMUP.maxHours / 24, "day")}, so mailbox providers like Gmail see your volume grow gradually and a problem with a
 				list shows up early. A day after each send with few bounces and complaints, that number grows: {WARMUP.growth.first} times your
-				largest send at first, {WARMUP.growth.last} times by {warmup.hasStarted ? formatDate(warmup.endsAt) : `day ${warmup.days}`}.
+				largest send at first, {WARMUP.growth.last} times by {warmup.hasStarted ? formatDate(warmup.endsAt) : `day ${warmup.days}`}.{" "}
+				<LinkHelp article="warm-up" />
 			</p>
 		</div>
 	);

@@ -14,7 +14,7 @@ export default function AvatarNewsletter({ newsletter, size = 20, className }) {
 				height={size}
 				unoptimized={!newsletter.imageUrl.startsWith("/")}
 				className={cn(
-					"shrink-0 object-cover outline -outline-offset-1 outline-black/10 dark:outline-white/10",
+					"shrink-0 object-cover outline -outline-offset-1 outline-foreground/10",
 					radius,
 					className
 				)}

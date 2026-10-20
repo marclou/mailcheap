@@ -84,7 +84,7 @@ describe("contact imports", () => {
 			contacts: await import("../app/(app)/contacts/actions.js"),
 			apiKeys: await import("../app/(app)/api-keys/actions.js"),
 			archive: await import("../app/archive/actions.js"),
-			core: await import("../lib/contact-import.js"),
+			jobs: await import("../lib/import-jobs.js"),
 			Account: (await import("../models/Account.js")).default,
 			Contact: (await import("../models/Contact.js")).default,
 			ContactImport: (await import("../models/ContactImport.js")).default,
@@ -140,7 +140,8 @@ describe("contact imports", () => {
 				],
 			})
 		);
-		assert.deepEqual({ created: second.created, existing: second.existing, importId: second.importId }, { created: 1, existing: 1, importId: first.importId });
+		// The answer counts the whole import so far.
+		assert.deepEqual({ created: second.created, existing: second.existing, importId: second.importId }, { created: 2, existing: 1, importId: first.importId });
 
 		const stored = await m.ContactImport.findOne({ accountId: user.accountId, _id: first.importId }).lean();
 		assert.equal(stored.consent, true);
@@ -171,16 +172,17 @@ describe("contact imports", () => {
 
 	test("the same checks run without the dashboard, for the API and MCP", async () => {
 		const account = await m.Account.findById(user.accountId).lean();
-		const result = await m.core.importContacts({
+		const { contactImport } = await m.jobs.startImport({ account, newsletterId: user.newsletterId, consent: true, source: "api" });
+		const { job } = await m.jobs.addImportRows({
 			account,
-			newsletterId: user.newsletterId,
-			consent: true,
-			source: "api",
+			importId: String(contactImport._id),
 			rows: [
 				{ email: "help@example.org", status: "active" },
 				{ email: "fay@example.org", status: "active" },
 			],
 		});
+		const result = m.jobs.toImportView(job);
+		assert.equal(result.status, "done");
 		assert.equal(result.created, 1);
 		assert.equal(result.dropped.role, 1);
 		assert.equal((await m.ContactImport.findOne({ accountId: user.accountId, _id: result.importId }).lean()).source, "api");

@@ -15,7 +15,9 @@ import {
 	Pilcrow,
 	RectangleHorizontal,
 	TextQuote,
+	UserRound,
 } from "lucide-react";
+import { firstNameTag } from "@/lib/merge-tags";
 import { cn } from "@/lib/utils";
 
 export default function MenuSlash({ items, command, ref }) {
@@ -146,5 +148,11 @@ const SLASH_ITEMS = [
 		keywords: "callout container update promo",
 		icon: RectangleHorizontal,
 		run: (chain) => chain.wrapIn("callout"),
+	},
+	{
+		title: "First name",
+		keywords: "name personalize merge tag hello",
+		icon: UserRound,
+		run: (chain) => chain.insertContent(firstNameTag()),
 	},
 ];

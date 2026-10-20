@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import Link from "next/link";
-import { ChevronsUpDown, CreditCard, LogOut, Moon, Sun, UserRound } from "lucide-react";
+import { ChevronsUpDown, CircleHelp, CreditCard, LogOut, Moon, Sun, UserRound } from "lucide-react";
 import { signOut } from "@/app/signin/actions";
 import AvatarUser from "@/components/AvatarUser";
 import { RadioGroupTheme } from "@/components/ButtonThemeToggle";
@@ -70,6 +70,12 @@ export default function MenuUser({ name, email, image, status, hasBilling }) {
 						</Link>
 					</DropdownMenuItem>
 				)}
+				<DropdownMenuItem asChild>
+					<a href="/help" target="_blank" rel="noopener">
+						<CircleHelp />
+						Help
+					</a>
+				</DropdownMenuItem>
 				<DropdownMenuSub>
 					<DropdownMenuSubTrigger>
 						<Sun className="dark:hidden" />

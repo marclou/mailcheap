@@ -38,6 +38,14 @@ export async function saveCampaign(id, values) {
 	return { ok: true };
 }
 
+// Who the draft goes to: a segment's ID, or null for every active contact. The page counts its audience again.
+export async function setCampaignSegment(id, segmentId) {
+	const { failure } = await runDashboardAction("update_campaign", { id: String(id), segment: segmentId ? String(segmentId) : null });
+	if (failure) return toFormError(failure);
+	revalidatePath(`/campaigns/${id}`);
+	return { ok: true };
+}
+
 export async function sendTestCampaign(id) {
 	const { failure } = await runDashboardAction("send_test_email", { id: String(id) });
 	revalidatePath(`/campaigns/${id}`);

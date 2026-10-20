@@ -8,8 +8,9 @@ import { cn } from "@/lib/utils";
 // A form's save bar, the form's last child: centered on the form's column at the bottom of the screen while the form
 // has unsaved changes, in the theme's inverted colors, with Discard and Save (or ⌘S, Ctrl+S), then Saved for a moment.
 // Its place stays at the end of the page, whose bottom padding it takes back (LayoutDashboard's), so the form's end
-// never hides under it. The get-started pill steps aside while it shows (app/globals.css). savedAt: the last save's
-// time, null after a discard.
+// never hides under it. Hidden, it drops no lower than its place: past the page's end, it would make the page scroll
+// further and push the sticky sidebar up. The get-started pill steps aside while it shows (app/globals.css). savedAt:
+// the last save's time, null after a discard.
 export default function BarSave({ isDirty, isSaving, savedAt, onDiscard, label = "Save" }) {
 	const slotRef = useRef(null);
 	const barRef = useRef(null);
@@ -64,13 +65,13 @@ export default function BarSave({ isDirty, isSaving, savedAt, onDiscard, label =
 						? isCued
 							? "duration-600 ease-settle"
 							: "duration-250 ease-[cubic-bezier(0.23,1,0.32,1)]"
-						: "translate-y-[calc(100%+var(--save-bar-bottom))] scale-96 opacity-0 duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:translate-y-0 motion-reduce:scale-100"
+						: "translate-y-(--save-bar-bottom) scale-96 opacity-0 duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:translate-y-0 motion-reduce:scale-100"
 				)}
 			>
 				<p aria-live="polite" className="flex min-w-0 flex-1 items-center gap-2.5 text-sm font-medium">
 					<span aria-hidden="true" className="flex size-4 shrink-0 items-center justify-center">
 						{isSaved ? (
-							<Check key={savedAt} className="size-4 text-emerald-400 animate-icon-in dark:text-emerald-600" />
+							<Check key={savedAt} className="size-4 text-emerald-500 animate-icon-in" />
 						) : (
 							<span className="relative size-2 rounded-full bg-amber-400 ring-4 ring-amber-400/20 dark:bg-amber-500 dark:ring-amber-500/25">
 								{isCued && (

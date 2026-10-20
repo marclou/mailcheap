@@ -46,7 +46,7 @@ export default function FormSubscribe({ newsletterSlug, className }) {
 					aria-label="Email"
 					className="h-9 min-w-0 flex-1 bg-transparent px-2.5 text-base outline-none placeholder:text-muted-foreground"
 				/>
-				<Button type="submit" disabled={isPending} className="h-9 min-w-24 rounded-[8px] px-4">
+				<Button type="submit" disabled={isPending} className="h-9 min-w-24 rounded-md px-4">
 					{isPending ? <Loader2 className="animate-spin" /> : "Subscribe"}
 				</Button>
 			</div>
@@ -59,26 +59,26 @@ export default function FormSubscribe({ newsletterSlug, className }) {
 	);
 }
 
-// Until they click the link, they get nothing: say so plainly and put their inbox one tap away.
+// Until they click the link, they get nothing: say so plainly and put their inbox one tap away. Amber over the page's
+// own color, so it reads on every newsletter theme.
 function CardConfirmEmail({ email, inbox, className }) {
 	return (
 		<div
 			role="status"
 			className={cn(
-				"w-full rounded-2xl bg-amber-50 p-5 text-left ring-1 ring-amber-500/30 animate-enter dark:bg-amber-500/10",
+				"w-full rounded-2xl bg-[color-mix(in_oklab,var(--color-amber-500)_12%,var(--background))] p-5 text-left ring-1 ring-amber-500/30 animate-enter",
 				className
 			)}
 		>
 			<div className="flex items-start gap-3.5">
 				<span className="relative grid size-10 shrink-0 place-items-center rounded-full bg-amber-500 text-white">
 					<MailOpen className="size-5 animate-icon-in" aria-hidden="true" />
-					<span className="absolute -top-0.5 -right-0.5 size-3 animate-pulse rounded-full bg-red-500 ring-2 ring-amber-50 dark:ring-transparent" />
+					<span className="absolute -top-0.5 -right-0.5 size-3 animate-pulse rounded-full bg-red-500 ring-2 ring-[color-mix(in_oklab,var(--color-amber-500)_12%,var(--background))]" />
 				</span>
 				<div className="min-w-0">
-					<p className="font-semibold text-amber-950 dark:text-amber-50">You&apos;re not subscribed yet</p>
-					<p className="mt-1 text-sm leading-relaxed text-pretty text-amber-950/75 dark:text-amber-50/75">
-						Click the link we just sent to{" "}
-						<strong className="font-semibold break-words text-amber-950 dark:text-amber-50">{email}</strong>.
+					<p className="font-semibold text-foreground">You&apos;re not subscribed yet</p>
+					<p className="mt-1 text-sm leading-relaxed text-pretty text-foreground/75">
+						Click the link we just sent to <strong className="font-semibold break-words text-foreground">{email}</strong>.
 						Until you do, you won&apos;t get a single issue.
 					</p>
 				</div>
@@ -90,9 +90,7 @@ function CardConfirmEmail({ email, inbox, className }) {
 					</a>
 				</Button>
 			)}
-			<p className="mt-3 text-xs text-amber-950/60 dark:text-amber-50/60">
-				Not in your inbox? Check Promotions or Spam.
-			</p>
+			<p className="mt-3 text-xs text-foreground/60">Not in your inbox? Check Promotions or Spam.</p>
 		</div>
 	);
 }

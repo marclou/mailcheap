@@ -1,58 +1,62 @@
-import { redirect } from "next/navigation";
-import FormNewsletter from "@/components/FormNewsletter";
+import { AtSign, BrushCleaning, CodeXml, Globe, Hand, MailCheck, Palette } from "lucide-react";
+import AvatarNewsletter from "@/components/AvatarNewsletter";
+import CardSettingsSection from "@/components/CardSettingsSection";
 import HeaderPage from "@/components/HeaderPage";
 import LayoutNarrow from "@/components/LayoutNarrow";
-import { scoped } from "@/lib/account-scope";
-import { getWelcomePauseNotice } from "@/lib/account-state";
-import { hasPublishedIssue } from "@/lib/archive-data";
-import { cleanupTotalsPipeline } from "@/lib/cleanup";
-import { getAppUrl, getArchiveCnameTarget, getSharedDomain, isSendingEnabled } from "@/lib/config";
-import { ADD_NEWSLETTER_PATH } from "@/lib/newsletters";
-import { findAccountDomains } from "@/lib/sender";
-import { getSelectedNewsletter } from "@/lib/selected-newsletter";
-import { serialize } from "@/lib/serialize";
-import { siteExtensions } from "@/lib/site-extensions";
-import { getUsage } from "@/lib/usage";
-import Contact from "@/models/Contact";
-import Newsletter from "@/models/Newsletter";
+import RedirectSettingsField from "@/components/RedirectSettingsField";
+import { DESIGN_SECTION, FORM_SECTION, SETTINGS_SECTIONS, getSectionPath } from "@/lib/newsletter-sections";
+import { getSettingsPage } from "@/lib/settings-page";
+import { getDesignSummary, getSettingsSummary } from "@/lib/settings-summary";
+import { getThemeSummary } from "@/lib/themes";
 
 export const metadata = { title: "Settings" };
 
-// The open newsletter's settings; /newsletters/<id> opens another one first. The form starts over for each
-// newsletter: its fields keep what they were given when it first rendered.
+// The open newsletter's settings at a glance, a card for each section's page; /newsletters/<id> opens another one first.
 export default async function SettingsPage() {
-	const { user, account, selected } = await getSelectedNewsletter();
-	if (!selected) redirect(ADD_NEWSLETTER_PATH);
-	const [newsletter, domains, cleanupTotals, usage, hasSentIssue] = await Promise.all([
-		Newsletter.findOne(scoped(account, { _id: selected._id })).lean(),
-		findAccountDomains(account._id),
-		getCleanupTotals(account, selected._id),
-		getUsage(account),
-		hasPublishedIssue({ accountId: account._id, _id: selected._id }),
-	]);
+	const page = await getSettingsPage();
+	const { newsletter } = page;
+	const summary = getSettingsSummary(page);
+	const design = getDesignSummary(getThemeSummary(newsletter));
 
 	return (
 		<LayoutNarrow>
+			<RedirectSettingsField />
 			<HeaderPage title="Settings" />
-			<FormNewsletter
-				key={String(newsletter._id)}
-				newsletter={serialize(newsletter)}
-				domains={serialize(domains)}
-				sharedDomain={getSharedDomain()}
-				appUrl={getAppUrl()}
-				hasArchiveHost={Boolean(getArchiveCnameTarget())}
-				hasSentIssue={hasSentIssue}
-				defaultPostalAddress={siteExtensions.defaultPostalAddress}
-				isSendingEnabled={isSendingEnabled()}
-				testEmail={user.email}
-				cleanupTotals={cleanupTotals}
-				welcomePause={usage.welcomeEmailsPaused ? getWelcomePauseNotice(usage) : null}
-			/>
+			<ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+				{SETTINGS_SECTIONS.map(({ id, label }, index) => (
+					<li key={id}>
+						<CardSettingsSection
+							href={getSectionPath(id)}
+							icon={ICONS[id]}
+							media={id === "general" ? <AvatarNewsletter newsletter={newsletter} size={40} /> : null}
+							label={label}
+							state={summary[id]}
+							stagger={index + 1}
+						/>
+					</li>
+				))}
+				<li>
+					<CardSettingsSection
+						href={getSectionPath(FORM_SECTION.id)}
+						icon={CodeXml}
+						label={FORM_SECTION.label}
+						state={summary.form}
+						stagger={SETTINGS_SECTIONS.length + 1}
+					/>
+				</li>
+				<li>
+					<CardSettingsSection
+						href={getSectionPath(DESIGN_SECTION.id)}
+						icon={Palette}
+						label={DESIGN_SECTION.label}
+						state={design}
+						swatches={design.swatches}
+						stagger={SETTINGS_SECTIONS.length + 2}
+					/>
+				</li>
+			</ul>
 		</LayoutNarrow>
 	);
 }
 
-async function getCleanupTotals(account, newsletterId) {
-	const [totals] = await Contact.aggregate(cleanupTotalsPipeline({ accountId: account._id, newsletterId }));
-	return { waiting: totals?.waiting ?? 0, kept: totals?.kept ?? 0, dormant: totals?.dormant ?? 0 };
-}
+const ICONS = { sender: AtSign, signups: MailCheck, welcome: Hand, cleanup: BrushCleaning, website: Globe };

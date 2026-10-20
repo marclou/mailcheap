@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { sendAlert } from "@/lib/alerts";
+import { isBotRequest } from "@/lib/bot-check";
 import { isSendingEnabled } from "@/lib/config";
 import { getSignupProblem, upsertContact } from "@/lib/contacts";
 import { connectDb } from "@/lib/db";
@@ -24,6 +25,8 @@ export async function subscribe(_state, formData) {
 	const email = normalizeEmail(formData.get("email"));
 	if (!email) return { error: "Enter a valid email" };
 
+	// Before the rate limit, so a script doesn't use up the signups of the network it shares with readers.
+	if (await isBotRequest("signup")) return { error: "Couldn't sign you up. Try again in a minute." };
 	if (await isRateLimited({ ...PER_IP, key: getClientIp(await headers()) })) {
 		return { error: "Too many signups from your network. Try again in a few minutes." };
 	}

@@ -8,3 +8,9 @@ alwaysApply: true
 Read `AGENTS.md` at the repository root: how the app is organized, MailCheap Cloud and self-hosting, the open source boundary, naming, code style and tests.
 
 In MailCheap Cloud's own repository, `AGENTS.cloud.md` is next to it: read it too, for what stays private, the sync to the open source, deploys and worktrees.
+
+Any change the people using MailCheap can see, or to how something works, updates the help center (`app/(site)/help`) in the same commit. Articles link to the dashboard pages they mention, with `LinkApp`.
+
+Every public content page ends on a call to action: the help center and the docs, and in MailCheap Cloud's repository the guides, comparisons, changelog and landing sections (AGENTS.md, and "Calls to action" in AGENTS.cloud.md).
+
+Every feature or significant change gets a security review before it ships: run the security-review subagent on its diff (split a large one), fix what it rates medium or higher first, and go through the checklist in AGENTS.md's "Security review".

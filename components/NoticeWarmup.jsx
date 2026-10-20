@@ -1,10 +1,12 @@
 import IconWarmup from "@/components/IconWarmup";
+import LinkHelp from "@/components/LinkHelp";
 import ProgressWarmup from "@/components/ProgressWarmup";
 import { formatCount, formatNumber } from "@/lib/format";
 import { getPaceHours, getPaceRoom } from "@/lib/send-spread";
 
-// In the send dialogs: how this send goes out while the account warms up, or when it's more than the account has
-// proven it can send (lib/send-spread.js). Nothing for a send at full speed past the warm-up.
+// In the send step and the send-more dialog: where the account is in its warm-up, and the hours a send goes out over
+// when it's more than the account has proven it can send (lib/send-spread.js). A send at full speed gets no title: it
+// goes out when the step above says. Nothing for a send at full speed past the warm-up.
 export default function NoticeWarmup({ pace, emails, newContacts = 0 }) {
 	const hours = getPaceHours(pace, { emails, newContacts });
 	const warmup = pace?.warmup;
@@ -15,10 +17,14 @@ export default function NoticeWarmup({ pace, emails, newContacts = 0 }) {
 			<div className="flex gap-2.5">
 				<IconWarmup className="mt-0.5 text-muted-foreground" />
 				<div className="flex flex-col gap-0.5 text-pretty tabular-nums">
-					<p className="font-medium">
-						{hours ? `Goes out over ${formatCount(hours, "hour")} while your account warms up${warmup ? "" : " to sends this size"}` : "Sends now"}
+					{hours > 0 && (
+						<p className="font-medium">
+							Goes out over {formatCount(hours, "hour")} while your account warms up{warmup ? "" : " to sends this size"}
+						</p>
+					)}
+					<p className="text-muted-foreground">
+						{describePace(pace, hours)} <LinkHelp article="warm-up" />
 					</p>
-					<p className="text-muted-foreground">{describePace(pace, hours)}</p>
 				</div>
 			</div>
 			{warmup?.hasStarted && <ProgressWarmup warmup={warmup} className="bg-background" />}

@@ -65,7 +65,8 @@ const SELF_HOSTED_FOOTER = {
 		{
 			title: "MailCheap",
 			links: [
-				{ href: "/docs", label: "Docs" },
+				{ href: "/help", label: "Help" },
+				{ href: "/docs", label: "API and MCP" },
 				{ href: SOURCE_URL, label: "Source code", isExternal: true },
 			],
 		},

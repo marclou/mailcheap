@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
-import { Check, ExternalLink, FlaskConical, Loader2, X } from "lucide-react";
+import { Check, CircleAlert, ExternalLink, FlaskConical, Loader2, X } from "lucide-react";
 import { checkSlug, saveNewsletter, sendWelcomeTest } from "@/app/(app)/newsletters/actions";
 import BarSave from "@/components/BarSave";
 import ButtonCopy from "@/components/ButtonCopy";
@@ -17,6 +17,7 @@ import { CLEANUP_LIMITS, LAST_CHANCE_DAYS, getCleanupSettings } from "@/lib/clea
 import { CONFIRM_URL_PLACEHOLDER } from "@/lib/confirmation-content";
 import { formatNumber } from "@/lib/format";
 import { KEEP_URL_PLACEHOLDER, getLastChanceContent } from "@/lib/last-chance-content";
+import { fillSampleName } from "@/lib/merge-tags";
 import {
 	getDraftConfirmation,
 	getDraftFromEmail,
@@ -37,13 +38,16 @@ import { prefillWelcome } from "@/lib/welcome-content";
 
 const IMAGE_PREVIEW_PATTERN = /^(https:\/\/\S+\.\S{2,}\/\S+|\/\S+\.\w{3,4})$/;
 
-// welcomePause: the notice to show while the month's emails are used up and welcome emails are skipped. It saves from
-// onSubmit, not a form action: React resets a form after its action, which turned the switches back to how the page
-// opened and dropped what an error refused. Discard goes back to what the newsletter has saved.
+// One section of the open newsletter's settings, on its own page (lib/newsletter-sections.js), which saves only that
+// section's fields. It saves from onSubmit, not a form action: React resets a form after its action, which turned the
+// switches back to how the page opened and dropped what an error refused. Discard goes back to what the newsletter has
+// saved. welcomePause: the notice to show while the month's emails are used up and welcome emails are skipped. isCloud:
+// MailCheap Cloud, whose plans count the confirmation and welcome emails among their monthly emails.
 // defaultPostalAddress: what its emails print until it has its own (lib/postal-address.js); the editor's checks link
 // to the field with #postal-address. hasArchiveHost: the server hosts websites on customers' own subdomains.
 // hasSentIssue: an issue went out, so the website can be live (lib/archive-data.js).
 export default function FormNewsletter({
+	section,
 	newsletter,
 	domains,
 	sharedDomain,
@@ -55,11 +59,8 @@ export default function FormNewsletter({
 	testEmail,
 	cleanupTotals,
 	welcomePause,
+	isCloud = false,
 }) {
-	const paywall = usePaywall();
-	const hasPlan = paywall?.hasPlan ?? true;
-	const slugId = useId();
-	const postalAddressRef = useRef(null);
 	const [draft, setDraft] = useState(() => getNewsletterDraft({ newsletter, domains, sharedDomain, defaultPostalAddress }));
 	const draftKey = getDraftKey(draft, { newsletter, sharedDomain });
 	const [savedKey, setSavedKey] = useState(draftKey);
@@ -67,60 +68,13 @@ export default function FormNewsletter({
 	// The image inputs keep their own URL: a discard starts them over.
 	const [discardCount, setDiscardCount] = useState(0);
 	const [isSaving, startSaving] = useTransition();
-	const [isTesting, startTesting] = useTransition();
-	const { name, description, slug, fromName, fromLocal, fromDomain, imageUrl, postalAddress, isConfirmationRequired, confirmationEdits, isWelcomeEnabled, welcome, isArchiveEnabled, isCleanupEnabled, cleanup } = draft;
-	const savedCleanup = getCleanupSettings(newsletter);
-	const deferredWelcome = useDeferredValue(welcome);
-	const deferredPostalAddress = useDeferredValue(postalAddress);
-	const sharedAddress = sharedDomain ? getSharedAddress(slug || "slug", sharedDomain) : null;
 	const fromEmail = getDraftFromEmail(draft, sharedDomain);
-	const isDirty = draftKey !== savedKey;
-	const savedSlug = newsletter?.slug ?? "";
-	const archiveHost = newsletter?.archiveHost;
-	const websiteAddress = getWebsiteAddress({ slug: savedSlug || slug || "slug", archiveHost }, { sharedDomain, appUrl });
-	const slugCheck = useSlugCheck({ slug, savedSlug, newsletterId: newsletter?._id });
-
-	useEffect(() => {
-		if (window.location.hash === `#${POSTAL_ADDRESS_ID}`) postalAddressRef.current?.focus();
-	}, []);
-
-	const welcomeHtml = useMemo(
-		() =>
-			renderEmail({
-				markdown: deferredWelcome.markdown,
-				subject: deferredWelcome.subject,
-				previewText: deferredWelcome.previewText,
-				newsletter: { name, postalAddress: deferredPostalAddress },
-			}).html.replaceAll(UNSUBSCRIBE_PLACEHOLDER, "#"),
-		[deferredWelcome, name, deferredPostalAddress]
-	);
-
-	const confirmation = useMemo(
-		() => getDraftConfirmation({ name, description, confirmationEdits }, newsletter),
-		[name, description, confirmationEdits, newsletter]
-	);
-	const deferredConfirmation = useDeferredValue(confirmation);
-	const confirmationHtml = useMemo(
-		() =>
-			renderEmail({ ...deferredConfirmation, newsletter: { name, postalAddress: deferredPostalAddress } })
-				.html.replaceAll(UNSUBSCRIBE_PLACEHOLDER, "#")
-				.replaceAll(CONFIRM_URL_PLACEHOLDER, "#"),
-		[deferredConfirmation, name, deferredPostalAddress]
-	);
-
-	const lastChance = useMemo(() => {
-		const content = getLastChanceContent({ name, fromEmail });
-		const { html } = renderEmail({ ...content, newsletter: { name, postalAddress: deferredPostalAddress } });
-		return {
-			...content,
-			html: html.replaceAll(UNSUBSCRIBE_PLACEHOLDER, "#").replaceAll(KEEP_URL_PLACEHOLDER, "#"),
-		};
-	}, [name, fromEmail, deferredPostalAddress]);
-
-	const previewImageUrl = IMAGE_PREVIEW_PATTERN.test(imageUrl) ? imageUrl : "";
-	const isShared = Boolean(sharedDomain) && fromDomain === sharedDomain;
-	const isDomainUnverified = !isShared && domains.some(({ domain, verified }) => domain === fromDomain && !verified);
-	const fromHint = getFromHint({ isShared, isDomainUnverified, fromDomain, hasDomains: domains.length > 0 });
+	const sender = {
+		name: draft.name,
+		fromName: draft.fromName,
+		fromEmail,
+		imageUrl: IMAGE_PREVIEW_PATTERN.test(draft.imageUrl) ? draft.imageUrl : "",
+	};
 
 	function set(key, value) {
 		setDraft((current) => ({ ...current, [key]: value }));
@@ -128,35 +82,6 @@ export default function FormNewsletter({
 
 	function update(key) {
 		return (event) => set(key, event.target.value);
-	}
-
-	function updateConfirmation(key) {
-		return (event) => {
-			const { value } = event.target;
-			setDraft((current) => ({ ...current, confirmationEdits: { ...(current.confirmationEdits ?? confirmation), [key]: value } }));
-		};
-	}
-
-	function updateWelcome(key) {
-		return (event) => {
-			const { value } = event.target;
-			setDraft((current) => ({ ...current, welcome: { ...current.welcome, [key]: value } }));
-		};
-	}
-
-	function switchWelcome(isEnabled) {
-		setDraft((current) => ({
-			...current,
-			isWelcomeEnabled: isEnabled,
-			welcome: isEnabled ? prefillWelcome(current.welcome, { name: current.name, description: current.description }) : current.welcome,
-		}));
-	}
-
-	function updateCleanup(key) {
-		return (event) => {
-			const { value } = event.target;
-			setDraft((current) => ({ ...current, cleanup: { ...current.cleanup, [key]: value } }));
-		};
 	}
 
 	function save(event) {
@@ -178,6 +103,328 @@ export default function FormNewsletter({
 		setDiscardCount((count) => count + 1);
 	}
 
+	const form = { draft, setDraft, set, update, newsletter, sender, discardCount, isCloud };
+
+	return (
+		<form onSubmit={save} className="flex flex-col gap-4">
+			<input type="hidden" name="id" value={newsletter._id} />
+			<input type="hidden" name="section" value={section} />
+			{section === "general" && <SectionGeneral {...form} sharedDomain={sharedDomain} appUrl={appUrl} />}
+			{section === "sender" && (
+				<SectionSender
+					{...form}
+					domains={domains}
+					sharedDomain={sharedDomain}
+					fromEmail={fromEmail}
+					defaultPostalAddress={defaultPostalAddress}
+				/>
+			)}
+			{section === "signups" && <SectionSignups {...form} />}
+			{section === "welcome" && (
+				<SectionWelcome {...form} isSendingEnabled={isSendingEnabled} testEmail={testEmail} welcomePause={welcomePause} />
+			)}
+			{section === "cleanup" && <SectionCleanup {...form} fromEmail={fromEmail} totals={cleanupTotals} />}
+			{section === "website" && (
+				<SectionWebsite
+					{...form}
+					sharedDomain={sharedDomain}
+					appUrl={appUrl}
+					hasArchiveHost={hasArchiveHost}
+					hasSentIssue={hasSentIssue}
+				/>
+			)}
+			<BarSave isDirty={draftKey !== savedKey} isSaving={isSaving} savedAt={savedAt} onDiscard={discard} />
+		</form>
+	);
+}
+
+function SectionGeneral({ draft, setDraft, set, newsletter, sharedDomain, appUrl, discardCount }) {
+	const slugId = useId();
+	const { name, slug, imageUrl } = draft;
+	const savedSlug = newsletter.slug ?? "";
+	const slugCheck = useSlugCheck({ slug, savedSlug, newsletterId: newsletter._id });
+	const isShared = Boolean(sharedDomain) && draft.fromDomain === sharedDomain;
+
+	return (
+		<Section stagger={1}>
+			<Field label="Name">
+				<Input
+					name="name"
+					value={name}
+					required
+					placeholder="Field notes"
+					onChange={(event) => {
+						const { value } = event.target;
+						setDraft((current) => ({ ...current, name: value, ...(!current.isSlugEdited && { slug: slugify(value) }) }));
+					}}
+				/>
+			</Field>
+			<Field label="Slug" htmlFor={slugId}>
+				<span className="relative flex">
+					<Input
+						id={slugId}
+						name="slug"
+						value={slug}
+						required
+						placeholder="field-notes"
+						aria-invalid={slugCheck.message ? true : undefined}
+						aria-describedby={slugCheck.status === "saved" ? undefined : `${slugId}-check`}
+						className="pr-9 font-mono"
+						onChange={(event) => {
+							const { value } = event.target;
+							setDraft((current) => ({ ...current, slug: value, isSlugEdited: true }));
+						}}
+					/>
+					<IconSlugCheck status={slugCheck.status} />
+				</span>
+				{slugCheck.status !== "saved" && (
+					<span id={`${slugId}-check`} className="flex flex-col gap-2">
+						<span aria-live="polite" className={cn("text-xs", slugCheck.message ? "text-red-600 dark:text-red-400" : "sr-only")}>
+							{slugCheck.message ?? (slugCheck.status === "available" ? `${slug.trim().toLowerCase()} is available` : "")}
+						</span>
+						<ListSlugChanges
+							changes={getSlugChanges({
+								slug: slug.trim().toLowerCase(),
+								savedSlug,
+								archiveHost: newsletter.archiveHost,
+								isShared,
+								sharedDomain,
+								appUrl,
+							})}
+						/>
+					</span>
+				)}
+			</Field>
+			<Field label="Image" hint="Square logo, 128×128 or larger">
+				<InputImage
+					key={discardCount}
+					name="imageUrl"
+					defaultValue={imageUrl}
+					label="newsletter image"
+					onChange={(value) => set("imageUrl", value)}
+				/>
+			</Field>
+		</Section>
+	);
+}
+
+function SectionSender({ draft, set, update, domains, sharedDomain, fromEmail, defaultPostalAddress }) {
+	const postalAddressRef = useRef(null);
+	const { slug, fromName, fromLocal, fromDomain, postalAddress } = draft;
+	const sharedAddress = sharedDomain ? getSharedAddress(slug || "slug", sharedDomain) : null;
+	const isShared = Boolean(sharedDomain) && fromDomain === sharedDomain;
+	const isDomainUnverified = !isShared && domains.some(({ domain, verified }) => domain === fromDomain && !verified);
+	const fromHint = getFromHint({ isShared, isDomainUnverified, fromDomain, hasDomains: domains.length > 0 });
+
+	useEffect(() => {
+		if (window.location.hash === `#${POSTAL_ADDRESS_ID}`) postalAddressRef.current?.focus();
+	}, []);
+
+	return (
+		<Section stagger={1}>
+			<Field label="From name">
+				<Input name="fromName" value={fromName} placeholder="Jane Doe" onChange={update("fromName")} />
+			</Field>
+			<Field label="From email" hint={fromHint} isWarning={isDomainUnverified}>
+				<span className="flex flex-wrap items-center gap-2">
+					<span className="flex items-center gap-2">
+						<Input
+							value={isShared ? sharedAddress.split("@")[0] : fromLocal}
+							readOnly={isShared}
+							required
+							aria-label="From email name"
+							placeholder="hi"
+							className={cn("w-32 font-mono", isShared && "text-muted-foreground")}
+							onChange={(event) => set("fromLocal", event.target.value.trim())}
+						/>
+						<span className="text-sm text-muted-foreground">@</span>
+					</span>
+					{/* The shared domain has the slug in it, so it can be wider than the column. */}
+					<Select value={fromDomain} onValueChange={(value) => set("fromDomain", value)}>
+						<SelectTrigger
+							className="min-h-9 min-w-0 flex-auto py-1.5 text-left font-mono whitespace-normal wrap-anywhere data-[size=default]:h-auto *:data-[slot=select-value]:line-clamp-none"
+							aria-label="From domain"
+						>
+							<SelectValue placeholder="Add a domain first" />
+						</SelectTrigger>
+						<SelectContent className="max-w-[calc(100vw-20px)] wrap-anywhere">
+							{sharedDomain && <SelectItem value={sharedDomain}>{sharedAddress.split("@")[1]}</SelectItem>}
+							{domains.map(({ domain }) => (
+								<SelectItem key={domain} value={domain}>
+									{domain}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</span>
+				<input type="hidden" name="fromEmail" value={fromEmail} />
+			</Field>
+			<Field label="Reply-to">
+				<Input name="replyTo" type="email" value={draft.replyTo} placeholder="Optional" onChange={update("replyTo")} />
+			</Field>
+			<Field
+				label="Postal address"
+				htmlFor={POSTAL_ADDRESS_ID}
+				hint={
+					defaultPostalAddress && postalAddress === defaultPostalAddress ? (
+						"MailCheap's address is used by default. Replace it with yours anytime."
+					) : postalAddress.trim() ? (
+						"Shown in the footer of every email. Anti-spam laws require one."
+					) : (
+						<>
+							Shown in the footer of every email. Anti-spam laws require one, so sending waits for it.
+							{defaultPostalAddress && (
+								<>
+									{" "}
+									<button
+										type="button"
+										onClick={() => set("postalAddress", defaultPostalAddress)}
+										className="font-medium text-foreground underline decoration-foreground/30 underline-offset-2 transition-colors duration-150 hover:decoration-foreground"
+									>
+										Use MailCheap&apos;s address
+									</button>
+								</>
+							)}
+						</>
+					)
+				}
+			>
+				<Textarea
+					ref={postalAddressRef}
+					id={POSTAL_ADDRESS_ID}
+					name="postalAddress"
+					value={postalAddress}
+					rows={2}
+					placeholder="Company name, street, city, country"
+					className="scroll-mt-28"
+					onChange={update("postalAddress")}
+				/>
+			</Field>
+		</Section>
+	);
+}
+
+// Until it's edited, the built-in confirmation email follows the name and the description. Turned on while the welcome
+// email goes out, it says that saving turns the welcome email off (readSettingsForm sends both).
+function SectionSignups({ draft, setDraft, set, newsletter, sender, isCloud }) {
+	const { name, description, confirmationEdits, isConfirmationRequired, postalAddress } = draft;
+	const isWelcomeReplaced = isConfirmationRequired && !newsletter.requireConfirmation && Boolean(newsletter.welcome?.enabled);
+	const confirmation = useMemo(
+		() => getDraftConfirmation({ name, description, confirmationEdits }, newsletter),
+		[name, description, confirmationEdits, newsletter]
+	);
+	const deferredConfirmation = useDeferredValue(confirmation);
+	const html = useMemo(
+		() =>
+			fillSampleName(
+				renderEmail({ ...deferredConfirmation, newsletter: { name, postalAddress, theme: newsletter.theme } })
+					.html.replaceAll(UNSUBSCRIBE_PLACEHOLDER, "#")
+					.replaceAll(CONFIRM_URL_PLACEHOLDER, "#"),
+				{ isHtml: true }
+			),
+		[deferredConfirmation, name, postalAddress, newsletter.theme]
+	);
+
+	function updateConfirmation(key) {
+		return (event) => {
+			const { value } = event.target;
+			setDraft((current) => ({ ...current, confirmationEdits: { ...(current.confirmationEdits ?? confirmation), [key]: value } }));
+		};
+	}
+
+	return (
+		<Section
+			title="Double opt-in"
+			stagger={1}
+			action={
+				<Switch
+					name="requireConfirmation"
+					checked={isConfirmationRequired}
+					onCheckedChange={(isChecked) => set("isConfirmationRequired", isChecked)}
+					aria-label="Double opt-in"
+				/>
+			}
+		>
+			<p className="px-4 py-3 text-sm text-pretty text-muted-foreground">
+				New subscribers get an email and only join once they click its button, so fake and mistyped addresses never reach
+				the list.{isConfirmationRequired && " It's the only email they get: say what comes next."}
+				{isCloud && " Confirmation emails count toward your plan's monthly emails."}
+			</p>
+			{isWelcomeReplaced && <NoticeSwitch>Saving turns off the welcome email: new subscribers get this email instead.</NoticeSwitch>}
+			{isConfirmationRequired && (
+				<>
+					<Field label="Subject">
+						<Input name="confirmationSubject" value={confirmation.subject} required onChange={updateConfirmation("subject")} />
+					</Field>
+					<Field label="Preview text">
+						<Input
+							name="confirmationPreviewText"
+							value={confirmation.previewText}
+							placeholder="Optional"
+							onChange={updateConfirmation("previewText")}
+						/>
+					</Field>
+					<Field label="Content" hint={`Markdown. Keep the button: its ${CONFIRM_URL_PLACEHOLDER} becomes each subscriber's link.`}>
+						<Textarea
+							name="confirmationMarkdown"
+							value={confirmation.markdown}
+							onChange={updateConfirmation("markdown")}
+							className="min-h-48 font-mono text-[13px] leading-6"
+						/>
+					</Field>
+					<div className="p-3">
+						<PreviewEmail
+							html={html}
+							sender={sender}
+							subject={deferredConfirmation.subject}
+							previewText={deferredConfirmation.previewText}
+							fit="content"
+						/>
+					</div>
+				</>
+			)}
+		</Section>
+	);
+}
+
+// Its switch works while signups confirm too: turned on, it says that saving turns double opt-in off (readSettingsForm
+// sends both).
+function SectionWelcome({ draft, setDraft, newsletter, sender, isSendingEnabled, testEmail, welcomePause, isCloud }) {
+	const paywall = usePaywall();
+	const hasPlan = paywall?.hasPlan ?? true;
+	const [isTesting, startTesting] = useTransition();
+	const { name, postalAddress, isWelcomeEnabled, welcome } = draft;
+	const isConfirmationOn = Boolean(newsletter.requireConfirmation);
+	const deferredWelcome = useDeferredValue(welcome);
+	const html = useMemo(
+		() =>
+			fillSampleName(
+				renderEmail({
+					markdown: deferredWelcome.markdown,
+					subject: deferredWelcome.subject,
+					previewText: deferredWelcome.previewText,
+					newsletter: { name, postalAddress, theme: newsletter.theme },
+				}).html.replaceAll(UNSUBSCRIBE_PLACEHOLDER, "#"),
+				{ isHtml: true }
+			),
+		[deferredWelcome, name, postalAddress, newsletter.theme]
+	);
+
+	function updateWelcome(key) {
+		return (event) => {
+			const { value } = event.target;
+			setDraft((current) => ({ ...current, welcome: { ...current.welcome, [key]: value } }));
+		};
+	}
+
+	function switchWelcome(isEnabled) {
+		setDraft((current) => ({
+			...current,
+			isWelcomeEnabled: isEnabled,
+			welcome: isEnabled ? prefillWelcome(current.welcome, { name: current.name, description: current.description }) : current.welcome,
+		}));
+	}
+
 	function sendTest() {
 		if (!hasPlan) return paywall.open("test");
 		startTesting(async () => {
@@ -188,333 +435,144 @@ export default function FormNewsletter({
 	}
 
 	return (
-		<form onSubmit={save} className="flex flex-col gap-4">
-			{newsletter && <input type="hidden" name="id" value={newsletter._id} />}
-
-			<Section title="General" stagger={0}>
-				<Field label="Name">
-					<Input
-						name="name"
-						value={name}
-						required
-						placeholder="Field notes"
-						onChange={(event) => {
-							const { value } = event.target;
-							setDraft((current) => ({ ...current, name: value, ...(!current.isSlugEdited && { slug: slugify(value) }) }));
-						}}
+		<Section
+			title="Send to new subscribers"
+			stagger={1}
+			action={<Switch name="welcomeEnabled" checked={isWelcomeEnabled} onCheckedChange={switchWelcome} aria-label="Welcome email" />}
+		>
+			<p className="px-4 py-3 text-sm text-pretty text-muted-foreground">
+				{isConfirmationOn && !isWelcomeEnabled
+					? "Double opt-in is on, so new subscribers get the confirmation email instead. Turning this on turns double opt-in off."
+					: "Each new subscriber gets it when they join."}
+				{isCloud && " Welcome emails count toward your plan's monthly emails."}
+			</p>
+			{isConfirmationOn && isWelcomeEnabled && (
+				<NoticeSwitch>Saving turns off double opt-in: new subscribers join right away, without confirming their address.</NoticeSwitch>
+			)}
+			{welcomePause && isWelcomeEnabled && <NoticeWelcomePaused {...welcomePause} className="px-4 py-3" />}
+			<Field label="Subject">
+				<Input name="welcomeSubject" value={welcome.subject} onChange={updateWelcome("subject")} />
+			</Field>
+			<Field label="Preview text">
+				<Input name="welcomePreviewText" value={welcome.previewText} placeholder="Optional" onChange={updateWelcome("previewText")} />
+			</Field>
+			<Field label="Content" hint="Markdown">
+				<Textarea
+					name="welcomeMarkdown"
+					value={welcome.markdown}
+					onChange={updateWelcome("markdown")}
+					className="min-h-48 font-mono text-[13px] leading-6"
+				/>
+			</Field>
+			{deferredWelcome.markdown.trim() && (
+				<div className="p-3">
+					<PreviewEmail
+						html={html}
+						sender={sender}
+						subject={deferredWelcome.subject}
+						previewText={deferredWelcome.previewText}
+						fit="content"
 					/>
-				</Field>
-				<Field label="Slug" htmlFor={slugId}>
-					<span className="relative flex">
-						<Input
-							id={slugId}
-							name="slug"
-							value={slug}
-							required
-							placeholder="field-notes"
-							aria-invalid={slugCheck.message ? true : undefined}
-							aria-describedby={slugCheck.status === "saved" ? undefined : `${slugId}-check`}
-							className="pr-9 font-mono"
-							onChange={(event) => {
-								const { value } = event.target;
-								setDraft((current) => ({ ...current, slug: value, isSlugEdited: true }));
-							}}
-						/>
-						<IconSlugCheck status={slugCheck.status} />
-					</span>
-					{slugCheck.status !== "saved" && (
-						<span id={`${slugId}-check`} className="flex flex-col gap-2">
-							<span aria-live="polite" className={cn("text-xs", slugCheck.message ? "text-red-600 dark:text-red-400" : "sr-only")}>
-								{slugCheck.message ?? (slugCheck.status === "available" ? `${slug.trim().toLowerCase()} is available` : "")}
-							</span>
-							{newsletter && (
-								<ListSlugChanges
-									changes={getSlugChanges({
-										slug: slug.trim().toLowerCase(),
-										savedSlug,
-										archiveHost,
-										isShared,
-										sharedDomain,
-										appUrl,
-									})}
-								/>
-							)}
-						</span>
-					)}
-				</Field>
-				<Field label="Image" hint="Square logo, 128×128 or larger">
-					<InputImage
-						key={discardCount}
-						name="imageUrl"
-						defaultValue={imageUrl}
-						label="newsletter image"
-						onChange={(value) => set("imageUrl", value)}
-					/>
-				</Field>
-			</Section>
-
-			<Section title="Sender" stagger={1}>
-				<Field label="From name">
-					<Input name="fromName" value={fromName} placeholder="Jane Doe" onChange={update("fromName")} />
-				</Field>
-				<Field label="From email" hint={fromHint} isWarning={isDomainUnverified}>
-					<span className="flex flex-wrap items-center gap-2">
-						<span className="flex items-center gap-2">
-							<Input
-								value={isShared ? sharedAddress.split("@")[0] : fromLocal}
-								readOnly={isShared}
-								required
-								aria-label="From email name"
-								placeholder="hi"
-								className={cn("w-32 font-mono", isShared && "text-muted-foreground")}
-								onChange={(event) => set("fromLocal", event.target.value.trim())}
-							/>
-							<span className="text-sm text-muted-foreground">@</span>
-						</span>
-						{/* The shared domain has the slug in it, so it can be wider than the column. */}
-						<Select value={fromDomain} onValueChange={(value) => set("fromDomain", value)}>
-							<SelectTrigger
-								className="min-h-9 min-w-0 flex-auto py-1.5 text-left font-mono whitespace-normal wrap-anywhere data-[size=default]:h-auto *:data-[slot=select-value]:line-clamp-none"
-								aria-label="From domain"
-							>
-								<SelectValue placeholder="Add a domain first" />
-							</SelectTrigger>
-							<SelectContent className="max-w-[calc(100vw-20px)] wrap-anywhere">
-								{sharedDomain && <SelectItem value={sharedDomain}>{sharedAddress.split("@")[1]}</SelectItem>}
-								{domains.map(({ domain }) => (
-									<SelectItem key={domain} value={domain}>
-										{domain}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</span>
-					<input type="hidden" name="fromEmail" value={fromEmail} />
-				</Field>
-				<Field label="Reply-to">
-					<Input name="replyTo" type="email" value={draft.replyTo} placeholder="Optional" onChange={update("replyTo")} />
-				</Field>
-				<Field
-					label="Postal address"
-					htmlFor={POSTAL_ADDRESS_ID}
-					hint={
-						defaultPostalAddress && postalAddress === defaultPostalAddress ? (
-							"MailCheap's address is used by default. Replace it with yours anytime."
-						) : postalAddress.trim() ? (
-							"Shown in the footer of every email. Anti-spam laws require one."
-						) : (
-							<>
-								Shown in the footer of every email. Anti-spam laws require one, so sending waits for it.
-								{defaultPostalAddress && (
-									<>
-										{" "}
-										<button
-											type="button"
-											onClick={() => set("postalAddress", defaultPostalAddress)}
-											className="font-medium text-foreground underline decoration-foreground/30 underline-offset-2 transition-colors duration-150 hover:decoration-foreground"
-										>
-											Use MailCheap&apos;s address
-										</button>
-									</>
-								)}
-							</>
-						)
-					}
-				>
-					<Textarea
-						ref={postalAddressRef}
-						id={POSTAL_ADDRESS_ID}
-						name="postalAddress"
-						value={postalAddress}
-						rows={2}
-						placeholder="Company name, street, city, country"
-						className="scroll-mt-28"
-						onChange={update("postalAddress")}
-					/>
-				</Field>
-			</Section>
-
-			<Section
-				title="Confirm new signups"
-				stagger={2}
-				action={
-					<Switch
-						name="requireConfirmation"
-						checked={isConfirmationRequired}
-						onCheckedChange={(isChecked) => set("isConfirmationRequired", isChecked)}
-						aria-label="Confirm new signups"
-					/>
-				}
-			>
-				<p className="px-4 py-3 text-sm text-pretty text-muted-foreground">
-					New subscribers get this email and only join once they click its button, so fake and mistyped
-					addresses never reach the list. It&apos;s the only email they get: say what comes next.
+				</div>
+			)}
+			<div className="flex items-center justify-between gap-3 px-4 py-3">
+				<p className="text-xs wrap-anywhere text-muted-foreground">
+					{isSendingEnabled || !hasPlan ? `Sends the saved version to ${testEmail}` : "Sending is off"}
 				</p>
-				{isConfirmationRequired && (
-					<>
-						<Field label="Subject">
-							<Input
-								name="confirmationSubject"
-								value={confirmation.subject}
-								required
-								onChange={updateConfirmation("subject")}
-							/>
-						</Field>
-						<Field label="Preview text">
-							<Input
-								name="confirmationPreviewText"
-								value={confirmation.previewText}
-								placeholder="Optional"
-								onChange={updateConfirmation("previewText")}
-							/>
-						</Field>
-						<Field
-							label="Content"
-							hint={`Markdown. Keep the button: its ${CONFIRM_URL_PLACEHOLDER} becomes each subscriber's link.`}
-						>
-							<Textarea
-								name="confirmationMarkdown"
-								value={confirmation.markdown}
-								onChange={updateConfirmation("markdown")}
-								className="min-h-48 font-mono text-[13px] leading-6"
-							/>
-						</Field>
-						<div className="p-3">
-							<PreviewEmail
-								html={confirmationHtml}
-								sender={{ name, fromName, fromEmail, imageUrl: previewImageUrl }}
-								subject={deferredConfirmation.subject}
-								previewText={deferredConfirmation.previewText}
-								fit="content"
-							/>
-						</div>
-					</>
-				)}
-			</Section>
+				<Button type="button" variant="outline" size="sm" onClick={sendTest} disabled={(hasPlan && !isSendingEnabled) || isTesting}>
+					{isTesting ? <Loader2 className="animate-spin" /> : <FlaskConical />}
+					Send test
+				</Button>
+			</div>
+		</Section>
+	);
+}
 
-			<Section
-				title="Welcome email"
-				stagger={3}
-				collapsedNote={
-					isConfirmationRequired &&
-					"Not sent while new signups confirm, since the confirmation email replaces it. Its content is kept."
-				}
-				action={
-					<Switch
-						name="welcomeEnabled"
-						checked={isWelcomeEnabled}
-						onCheckedChange={switchWelcome}
-						aria-label="Welcome email"
-					/>
-				}
-			>
-				{welcomePause && isWelcomeEnabled && <NoticeWelcomePaused {...welcomePause} className="px-4 py-3" />}
-				<Field label="Subject">
-					<Input name="welcomeSubject" value={welcome.subject} onChange={updateWelcome("subject")} />
-				</Field>
-				<Field label="Preview text">
-					<Input
-						name="welcomePreviewText"
-						value={welcome.previewText}
-						placeholder="Optional"
-						onChange={updateWelcome("previewText")}
-					/>
-				</Field>
-				<Field label="Content" hint="Markdown">
-					<Textarea
-						name="welcomeMarkdown"
-						value={welcome.markdown}
-						onChange={updateWelcome("markdown")}
-						className="min-h-48 font-mono text-[13px] leading-6"
-					/>
-				</Field>
-				{deferredWelcome.markdown.trim() && (
-					<div className="p-3">
-						<PreviewEmail
-							html={welcomeHtml}
-							sender={{ name, fromName, fromEmail, imageUrl: previewImageUrl }}
-							subject={deferredWelcome.subject}
-							previewText={deferredWelcome.previewText}
-							fit="content"
-						/>
-					</div>
-				)}
-				{newsletter && (
-					<div className="flex items-center justify-between gap-3 px-4 py-3">
-						<p className="text-xs wrap-anywhere text-muted-foreground">
-							{isSendingEnabled || !hasPlan ? `Sends the saved version to ${testEmail}` : "Sending is off"}
-						</p>
-						<Button type="button" variant="outline" size="sm" onClick={sendTest} disabled={(hasPlan && !isSendingEnabled) || isTesting}>
-							{isTesting ? <Loader2 className="animate-spin" /> : <FlaskConical />}
-							Send test
-						</Button>
-					</div>
-				)}
-			</Section>
+function SectionCleanup({ draft, setDraft, set, newsletter, sender, fromEmail, totals }) {
+	const { name, postalAddress, isCleanupEnabled, cleanup } = draft;
+	const savedCleanup = getCleanupSettings(newsletter);
+	const lastChance = useMemo(() => {
+		const content = getLastChanceContent({ name, fromEmail });
+		const { html } = renderEmail({ ...content, newsletter: { name, postalAddress, theme: newsletter.theme } });
+		return { ...content, html: html.replaceAll(UNSUBSCRIBE_PLACEHOLDER, "#").replaceAll(KEEP_URL_PLACEHOLDER, "#") };
+	}, [name, fromEmail, postalAddress, newsletter.theme]);
 
-			<Section
-				title="List cleanup"
-				stagger={4}
-				action={
-					<Switch
-						name="cleanupEnabled"
-						checked={isCleanupEnabled}
-						onCheckedChange={(isChecked) => set("isCleanupEnabled", isChecked)}
-						aria-label="List cleanup"
-					/>
-				}
-			>
-				<p className="px-4 py-3 text-sm text-pretty text-muted-foreground">
-					Stops sending to contacts who stopped opening, unless they answer a last-chance email. Each time you send an
-					issue, contacts who ignored the last {cleanup.issues || savedCleanup.issues} issues and showed no sign of life
-					for {cleanup.days || savedCleanup.days} days get this email instead. A click
-					on its button keeps them. Anyone who doesn&apos;t answer by a send{" "}
-					{LAST_CHANCE_DAYS} days later becomes dormant: not unsubscribed, not deleted, and back if they sign up again.
-				</p>
-				<Field label="Ignored issues" hint="In a row, counting from the first issue MailCheap sent">
+	function updateCleanup(key) {
+		return (event) => {
+			const { value } = event.target;
+			setDraft((current) => ({ ...current, cleanup: { ...current.cleanup, [key]: value } }));
+		};
+	}
+
+	return (
+		<Section
+			title="Clean up at each send"
+			stagger={1}
+			action={
+				<Switch
+					name="cleanupEnabled"
+					checked={isCleanupEnabled}
+					onCheckedChange={(isChecked) => set("isCleanupEnabled", isChecked)}
+					aria-label="List cleanup"
+				/>
+			}
+		>
+			<p className="px-4 py-3 text-sm text-pretty text-muted-foreground">
+				Stops sending to contacts who stopped opening, unless they answer a last-chance email. Each time you send an
+				issue, contacts who ignored the last {cleanup.issues || savedCleanup.issues} issues and showed no sign of life
+				for {cleanup.days || savedCleanup.days} days get this email instead. A click on its button keeps them. Anyone who
+				doesn&apos;t answer by a send {LAST_CHANCE_DAYS} days later becomes dormant: not unsubscribed, not deleted, and
+				back if they sign up again.
+			</p>
+			<Field label="Ignored issues" hint="In a row, counting from the first issue MailCheap sent">
+				<Input
+					name="cleanupIssues"
+					type="number"
+					inputMode="numeric"
+					min={CLEANUP_LIMITS.minIssues}
+					max={CLEANUP_LIMITS.maxIssues}
+					value={cleanup.issues}
+					onChange={updateCleanup("issues")}
+					className="w-28 tabular-nums"
+				/>
+			</Field>
+			<Field label="Quiet for" hint="Days since the last open, click or signup">
+				<span className="flex items-center gap-2">
 					<Input
-						name="cleanupIssues"
+						name="cleanupDays"
 						type="number"
 						inputMode="numeric"
-						min={CLEANUP_LIMITS.minIssues}
-						max={CLEANUP_LIMITS.maxIssues}
-						value={cleanup.issues}
-						onChange={updateCleanup("issues")}
+						min={CLEANUP_LIMITS.minDays}
+						max={CLEANUP_LIMITS.maxDays}
+						value={cleanup.days}
+						onChange={updateCleanup("days")}
 						className="w-28 tabular-nums"
 					/>
-				</Field>
-				<Field label="Quiet for" hint="Days since the last open, click or signup">
-					<span className="flex items-center gap-2">
-						<Input
-							name="cleanupDays"
-							type="number"
-							inputMode="numeric"
-							min={CLEANUP_LIMITS.minDays}
-							max={CLEANUP_LIMITS.maxDays}
-							value={cleanup.days}
-							onChange={updateCleanup("days")}
-							className="w-28 tabular-nums"
-						/>
-						<span className="text-sm text-muted-foreground">days</span>
-					</span>
-				</Field>
-				{cleanupTotals && <CleanupTotals totals={cleanupTotals} />}
-				{isCleanupEnabled && (
-					<div className="p-3">
-						<PreviewEmail
-							html={lastChance.html}
-							sender={{ name, fromName, fromEmail, imageUrl: previewImageUrl }}
-							subject={lastChance.subject}
-							previewText={lastChance.previewText}
-							fit="content"
-						/>
-					</div>
-				)}
-			</Section>
+					<span className="text-sm text-muted-foreground">days</span>
+				</span>
+			</Field>
+			{totals && <CleanupTotals totals={totals} />}
+			{isCleanupEnabled && (
+				<div className="p-3">
+					<PreviewEmail html={lastChance.html} sender={sender} subject={lastChance.subject} previewText={lastChance.previewText} fit="content" />
+				</div>
+			)}
+		</Section>
+	);
+}
 
+function SectionWebsite({ draft, set, update, newsletter, sharedDomain, appUrl, hasArchiveHost, hasSentIssue, discardCount }) {
+	const paywall = usePaywall();
+	const hasPlan = paywall?.hasPlan ?? true;
+	const { isArchiveEnabled } = draft;
+	const archiveHost = newsletter.archiveHost;
+	const websiteAddress = getWebsiteAddress({ slug: newsletter.slug || draft.slug || "slug", archiveHost }, { sharedDomain, appUrl });
+
+	return (
+		<>
 			<Section
-				title="Website"
-				stagger={5}
+				title="Publish a website"
+				stagger={1}
 				action={
 					<Switch
 						name="archiveEnabled"
@@ -547,13 +605,13 @@ export default function FormNewsletter({
 									Pick a plan
 								</button>
 							</>
-						) : !newsletter?.archiveEnabled ? (
+						) : !newsletter.archiveEnabled ? (
 							"It goes online when you save."
 						) : null
 					}
 				>
 					<span className="flex min-w-0 items-center gap-1.5 sm:min-h-9">
-						{isArchiveEnabled && hasSentIssue && hasPlan && newsletter?.archiveEnabled ? (
+						{isArchiveEnabled && hasSentIssue && hasPlan && newsletter.archiveEnabled ? (
 							<a
 								href={websiteAddress}
 								target="_blank"
@@ -569,10 +627,12 @@ export default function FormNewsletter({
 						<ButtonCopy value={websiteAddress} label="Copy address" />
 					</span>
 				</Field>
+			</Section>
+			<Section title="Profile" stagger={2}>
 				<Field label="Description" hint="One sentence under the name and in the subscribe popup">
 					<Textarea
 						name="description"
-						value={description}
+						value={draft.description}
 						rows={2}
 						maxLength={MAX_DESCRIPTION_LENGTH}
 						placeholder="One idea about building things, every Sunday."
@@ -608,28 +668,35 @@ export default function FormNewsletter({
 					/>
 				</Field>
 			</Section>
-
-			<BarSave isDirty={isDirty} isSaving={isSaving} savedAt={savedAt} onDiscard={discard} label={newsletter ? "Save" : "Create"} />
-		</form>
+		</>
 	);
 }
 
-// With a collapsedNote, the note stands in for the action and the fields, which aren't sent with the form.
-function Section({ title, action, stagger, collapsedNote, children }) {
+// A card of fields. A title gets a row on top with the action on its right.
+export function Section({ title, action, stagger, children }) {
 	return (
 		<section style={{ "--stagger": stagger }} className="rounded-xl bg-card shadow-border animate-enter">
-			<div className="flex h-12 items-center justify-between gap-3 px-4">
-				<h2 className="text-sm font-medium">{title}</h2>
-				{!collapsedNote && action}
-			</div>
-			{collapsedNote ? (
-				<p className="border-t border-border/60 px-4 py-3 text-sm text-pretty text-muted-foreground">
-					{collapsedNote}
-				</p>
-			) : (
-				children && <div className="divide-y divide-border/60 border-t border-border/60">{children}</div>
+			{title && (
+				<div className="flex h-12 items-center justify-between gap-3 px-4">
+					<h2 className="text-sm font-medium">{title}</h2>
+					{action}
+				</div>
 			)}
+			{children && <div className={cn("divide-y divide-border/60", title && "border-t border-border/60")}>{children}</div>}
 		</section>
+	);
+}
+
+// What saving also changes in another section, said before it's saved.
+function NoticeSwitch({ children }) {
+	return (
+		<p
+			role="status"
+			className="flex items-start gap-2 bg-amber-50 px-4 py-3 text-sm text-pretty text-amber-900 animate-enter dark:bg-amber-500/10 dark:text-amber-200"
+		>
+			<CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+			{children}
+		</p>
 	);
 }
 
@@ -660,7 +727,7 @@ function getFromHint({ isShared, isDomainUnverified, fromDomain, hasDomains }) {
 
 // The whole row is the field's label, unless it holds more than the field (buttons, a list): then only its name is,
 // for htmlFor, and as="div" has no field to name.
-function Field({ label, hint, isWarning, htmlFor, as, children }) {
+export function Field({ label, hint, isWarning, htmlFor, as, children }) {
 	const Row = htmlFor || as === "div" ? "div" : "label";
 	const Name = htmlFor ? "label" : "span";
 	return (

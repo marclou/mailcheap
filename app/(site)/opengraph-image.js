@@ -6,7 +6,7 @@ import { getAppHost } from "@/lib/config";
 
 // The docs' card on every server: what they cover and the server's own address. MailCheap Cloud's marketing pages
 // have their own card.
-export const alt = "MailCheap docs: the REST API and the MCP server";
+export const alt = "The MailCheap REST API and MCP server, documented";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

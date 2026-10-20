@@ -10,6 +10,14 @@ const contactSchema = new mongoose.Schema(
 		email: { type: String, required: true, lowercase: true, trim: true },
 		status: { type: String, enum: CONTACT_STATUSES, default: "active" },
 		source: { type: String, trim: true },
+		// Signed up with the form on the owner's site (source "embed"): that site's host, as the browser named it.
+		sourceDomain: { type: String, trim: true },
+		// What {{first_name}} prints in its emails (lib/merge-tags.js).
+		firstName: { type: String, trim: true },
+		// Values for the account's own fields (Account.contactFields), by key: text, a number or a date (lib/contact-fields.js).
+		fields: { type: mongoose.Schema.Types.Mixed },
+		// Lowercase labels, many per contact, for segments and the contacts list.
+		tags: { type: [String], default: undefined },
 		importId: { type: mongoose.Schema.Types.ObjectId, ref: "ContactImport" },
 		// Added by hand on the dashboard: the user who said this person agreed to get the newsletter, and when.
 		consent: {
@@ -29,6 +37,24 @@ const contactSchema = new mongoose.Schema(
 		lastChanceAt: { type: Date },
 		// Bounced without a send of this account: a send skipped it, on the never-email list (lib/global-suppressions.js).
 		undeliverableAt: { type: Date },
+		// The last status changes made by hand or through the API and MCP (lib/contact-status.js): who made each, from
+		// where, and whether it came with the person's consent.
+		statusChanges: {
+			type: [
+				{
+					_id: false,
+					from: { type: String },
+					to: { type: String },
+					at: { type: Date },
+					via: { type: String },
+					userId: { type: mongoose.Schema.Types.ObjectId },
+					apiKeyId: { type: mongoose.Schema.Types.ObjectId },
+					connectionId: { type: String },
+					consent: { type: Boolean },
+				},
+			],
+			default: undefined,
+		},
 		stats: {
 			sent: { type: Number, default: 0 },
 			opens: { type: Number, default: 0 },
@@ -55,6 +81,10 @@ contactSchema.index({ accountId: 1, subscribedAt: -1, _id: -1 });
 contactSchema.index({ accountId: 1, status: 1, subscribedAt: -1, _id: -1 });
 contactSchema.index({ newsletterId: 1, subscribedAt: -1, _id: -1 });
 contactSchema.index({ newsletterId: 1, status: 1, subscribedAt: -1, _id: -1 });
+// Segments on opens (lib/segments.js) read a range of it instead of every active contact of a large list.
+contactSchema.index({ newsletterId: 1, status: 1, lastOpenAt: -1 });
+// A tag's contacts, newest first, for the list's tag filter and segments on tags, and the newsletter's tags.
+contactSchema.index({ newsletterId: 1, tags: 1, subscribedAt: -1, _id: -1 });
 // The list cleanup totals in newsletter settings.
 contactSchema.index({ newsletterId: 1, lastChanceAt: 1 }, { partialFilterExpression: { lastChanceAt: { $exists: true } } });
 // An admin taking an address off the never-email list finds the contacts it stopped, in every account.

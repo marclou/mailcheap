@@ -8,7 +8,7 @@ export default function NavDocs({ pages, groups }) {
 	const pathname = usePathname();
 
 	return (
-		<nav aria-label="Docs" className="flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] md:flex-col md:gap-6 md:overflow-visible md:pb-0">
+		<nav aria-label="API and MCP" className="flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] md:flex-col md:gap-6 md:overflow-visible md:pb-0">
 			<ul className="flex shrink-0 gap-1 md:flex-col md:gap-0.5">
 				{pages.map(({ href, title }) => {
 					const isActive = pathname === href;

@@ -1,10 +1,11 @@
 import NavDocs from "@/components/NavDocs";
-import { getAppUrl } from "@/lib/config";
+import { ArticleUpsell } from "@/components/SiteExtensions";
+import { getAppUrl, isCloud } from "@/lib/config";
 import { DOC_PAGES } from "@/lib/docs/llms";
 import { getEndpointGroups } from "@/lib/docs/reference";
 
 export const metadata = {
-	title: { default: "Docs", template: "%s · MailCheap docs" },
+	title: { default: "API and MCP", template: "%s · MailCheap API and MCP" },
 	description: "The MailCheap REST API and MCP server: every action of the dashboard, from code or an AI assistant.",
 };
 
@@ -19,7 +20,10 @@ export default function DocsLayout({ children }) {
 			<aside className="min-w-0 md:sticky md:top-24 md:self-start">
 				<NavDocs pages={DOC_PAGES} groups={groups} />
 			</aside>
-			<main className="min-w-0 pb-24">{children}</main>
+			<main className="min-w-0 pb-24">
+				{children}
+				{isCloud() && ArticleUpsell && <ArticleUpsell />}
+			</main>
 		</div>
 	);
 }

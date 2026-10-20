@@ -402,7 +402,8 @@ describe("contacts", () => {
 		const unsubscribed = await api(user.key, "PATCH", "/contacts/person0%40example.org", { status: "unsubscribed" });
 		assert.equal(unsubscribed.body.status, "unsubscribed");
 		assert.equal((await api(user.key, "PATCH", "/contacts/person0%40example.org", { status: "unsubscribed" })).status, 200, "safe to repeat");
-		assertError(await api(user.key, "PATCH", "/contacts/person0%40example.org", { status: "active" }), 409, "conflict");
+		assertError(await api(user.key, "PATCH", "/contacts/person0%40example.org", { status: "active" }), 400, "validation_failed");
+		assertError(await api(user.key, "PATCH", "/contacts/person0%40example.org", { status: "dormant", consent: true }), 409, "conflict");
 
 		const exported = await api(user.key, "GET", "/contacts/export?status=active");
 		assert.equal(exported.body.count, 4);

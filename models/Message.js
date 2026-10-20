@@ -33,6 +33,8 @@ const messageSchema = new mongoose.Schema(
 		deliveredAt: Date,
 		openedAt: Date,
 		clickedAt: Date,
+		// The links its reader clicked, by lib/link-stats.js key, so each counts them once (models/CampaignLink.js).
+		clickedLinks: { type: [String], default: undefined },
 		bouncedAt: Date,
 		complainedAt: Date,
 	},

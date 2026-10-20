@@ -1,23 +1,26 @@
 import { isValidObjectId } from "mongoose";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import CampaignReport from "@/components/CampaignReport";
 import FormCampaign from "@/components/FormCampaign";
 import { scoped } from "@/lib/account-scope";
 import { getAccountSendProblem, hasActiveSubscription, isBlocked } from "@/lib/account-state";
 import { getArchiveUrls } from "@/lib/archive-hosts";
-import { countNewContacts, getSendVolumes, sendTimesPipeline } from "@/lib/campaign-queries";
+import { findCampaignLinks } from "@/lib/campaign-links";
+import { getCampaignActivity, getCampaignComparison } from "@/lib/campaign-report";
+import { countNewContacts, countRemainingContacts, getSendVolumes, sendTimesPipeline } from "@/lib/campaign-queries";
 import { isSendingEnabled } from "@/lib/config";
-import { MESSAGE_STATS_GROUP } from "@/lib/message-stats";
 import { getPostalAddress } from "@/lib/postal-address";
+import { countAudience, countSegmentCards, findCampaignSegmentFilter, listLiveSegments } from "@/lib/segment-queries";
+import { compileSegment, describeSegment } from "@/lib/segments";
 import { getSelectedNewsletter, openNewsletter } from "@/lib/selected-newsletter";
 import { getPace } from "@/lib/send-spread";
 import { serialize } from "@/lib/serialize";
 import { loadSender } from "@/lib/sender";
 import { siteExtensions } from "@/lib/site-extensions";
+import { TIME_ZONE_COOKIE, resolveTimeZone } from "@/lib/time-zone";
 import { countEmailsInFlight, getUsage } from "@/lib/usage";
 import Campaign from "@/models/Campaign";
-import Contact from "@/models/Contact";
-import Message from "@/models/Message";
 import Newsletter from "@/models/Newsletter";
 
 export const metadata = { title: "Campaign" };
@@ -37,18 +40,30 @@ export default async function CampaignPage({ params }) {
 	const plan = await getPlanState(account);
 
 	if (!["draft", "scheduled"].includes(campaign.status)) {
-		const [providers, remainingCount] = await Promise.all([
-			getProviderBreakdown(campaign),
-			countRemaining(campaign),
+		const [{ providers, timeline }, comparison, remainingCount, links, cookieStore] = await Promise.all([
+			getCampaignActivity(campaign),
+			getCampaignComparison(campaign),
+			countRemainingContacts(campaign),
+			findCampaignLinks(campaign),
+			cookies(),
 		]);
 		// Only a next step needs them, for what its dialog says.
 		const [volumes, newContacts] =
-			remainingCount > 0 ? await Promise.all([getSendVolumes(account), countNewContacts(account, newsletter._id)]) : [];
+			remainingCount > 0
+				? await Promise.all([
+						getSendVolumes(account),
+						countNewContacts(account, newsletter._id, await findCampaignSegmentFilter(campaign)),
+					])
+				: [];
 		return (
 			<CampaignReport
 				campaign={serialize(campaign)}
 				newsletter={serialize(newsletter)}
 				providers={providers}
+				links={serialize(links)}
+				timeline={timeline}
+				comparison={comparison}
+				timeZone={resolveTimeZone(cookieStore.get(TIME_ZONE_COOKIE)?.value)}
 				remainingCount={remainingCount}
 				emailsLeft={plan.emailsLeft}
 				isBlocked={isBlocked(account)}
@@ -58,19 +73,30 @@ export default async function CampaignPage({ params }) {
 		);
 	}
 
-	const [audienceCount, sender, sendTimes, volumes, newContacts] = await Promise.all([
-		Contact.countDocuments(scoped(account, { newsletterId: newsletter._id, status: "active" })),
+	// A draft whose segment was deleted goes to nobody until it gets another one.
+	const segments = await listLiveSegments(account, newsletter._id);
+	const segment = campaign.segmentId ? segments.find(({ _id }) => _id.equals(campaign.segmentId)) : null;
+	const isSegmentDeleted = Boolean(campaign.segmentId && !segment);
+	const [audience, everyone, sender, sendTimes, volumes] = await Promise.all([
+		isSegmentDeleted ? { contacts: 0, neverMailed: 0 } : countAudience(account, newsletter._id, segment && compileSegment(segment)),
+		campaign.segmentId ? countSegmentCards(account, newsletter._id, []) : null,
 		loadSender(account, newsletter),
 		getSendTimes(campaign),
 		getSendVolumes(account),
-		countNewContacts(account, newsletter._id),
 	]);
 
 	return (
 		<FormCampaign
 			campaign={serialize(campaign)}
 			newsletter={serialize(newsletter)}
-			audienceCount={audienceCount}
+			audienceCount={audience.contacts}
+			everyoneCount={everyone?.everyone ?? audience.contacts}
+			segments={segments.map(({ _id, name, match, conditions }) => ({
+				id: String(_id),
+				name,
+				description: describeSegment({ match, conditions }, account.contactFields ?? []),
+			}))}
+			isSegmentDeleted={isSegmentDeleted}
 			senderProblem={sender.problem ?? null}
 			isSendingEnabled={isSendingEnabled()}
 			testEmail={user.email}
@@ -79,7 +105,7 @@ export default async function CampaignPage({ params }) {
 			planProblem={plan.problem}
 			emailsLeft={plan.emailsLeft}
 			pace={getPace(account, volumes)}
-			newContacts={newContacts}
+			newContacts={audience.neverMailed}
 		/>
 	);
 }
@@ -113,26 +139,4 @@ async function getSendTimes(campaign) {
 		history: rows.map(({ at }) => at.toISOString()),
 		taken: own.filter(({ status }) => status === "scheduled").map(({ at }) => at.toISOString()),
 	};
-}
-
-// Only a send capped to the most engaged has a next step. Close enough for the dialog: contacts who
-// left after receiving it make this a little low, and the send itself skips everyone who has it.
-async function countRemaining(campaign) {
-	if (campaign.status !== "sent" || !campaign.audienceLimit) return 0;
-	const active = await Contact.countDocuments({
-		accountId: campaign.accountId,
-		newsletterId: campaign.newsletterId,
-		status: "active",
-	});
-	const reached = (campaign.stats?.recipients ?? 0) + (campaign.lastChance?.recipients ?? 0);
-	return Math.max(0, active - reached);
-}
-
-async function getProviderBreakdown(campaign) {
-	const rows = await Message.aggregate([
-		{ $match: { accountId: campaign.accountId, campaignId: campaign._id, kind: "campaign" } },
-		{ $group: { _id: { $ifNull: ["$provider", "other"] }, ...MESSAGE_STATS_GROUP } },
-		{ $sort: { sent: -1 } },
-	]);
-	return rows.filter(({ sent }) => sent > 0).map(({ _id, ...row }) => ({ provider: _id, ...row }));
 }

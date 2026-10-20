@@ -188,3 +188,19 @@ test("needs a look: customers' paused campaigns with their reason, blocked accou
 	assert.equal("Account blocked" in alerts, true, "from the block earlier");
 	assert.equal("QStash refused a job" in alerts, false, "8 days old");
 });
+
+test("needs a look never names the email provider, in alert titles or pause reasons", async () => {
+	const now = new Date();
+	await mongoose.connection.db.collection("campaigns").insertOne({ accountId: customer.accountId, newsletterId: new mongoose.Types.ObjectId(), subject: "Refused one", status: "paused", pauseReason: "Refused by PostShiba: 550 sending disabled", updatedAt: now });
+	await mongoose.connection.db.collection("alerts").insertMany([
+		{ key: "postshiba-cap:BuLk01", title: "PostShiba cluster at its cap", lastSentAt: now },
+		{ key: "tenant-create:x", title: "Amazon SES tenant not created", lastSentAt: now },
+	]);
+
+	const attention = await m.stats.listAttention({ now });
+	assert.equal(attention.pausedCampaigns.find(({ subject }) => subject === "Refused one").reason, "Refused by the email provider: 550 sending disabled");
+	const titles = attention.alerts.map(({ title }) => title);
+	assert.ok(titles.includes("Email provider cluster at its cap"));
+	assert.ok(titles.includes("Email provider tenant not created"));
+	assert.doesNotMatch(JSON.stringify(attention), /PostShiba|\bSES\b/);
+});

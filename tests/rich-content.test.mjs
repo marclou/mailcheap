@@ -51,6 +51,21 @@ test("editor issues get inline styles in emails", () => {
 	assert.match(text, /Startups I built/);
 });
 
+test("a picture placed left or right stays there in the email and on the archive; anything else is centered", () => {
+	const image = (align) => `<img src="https://cdn.example.com/${align}.png" alt="" width="240" height="120" data-align="${align}">`;
+	const html = ["left", "right", "center", "top"].map(image).join("");
+	const cleaned = cleanRichHtml(html);
+	assert.ok(cleaned.includes('data-align="left"') && cleaned.includes('data-align="right"') && cleaned.includes('data-align="center"'));
+	assert.ok(cleaned.includes('<img src="https://cdn.example.com/top.png" alt="" width="240" height="120">'), "an unknown alignment is dropped");
+
+	const email = renderEmail({ format: "rich", html, subject: "Pictures", newsletter: { name: "Field notes" } }).html;
+	const margins = Object.fromEntries([...email.matchAll(/margin:([^;]+);border-radius:8px;" src="https:\/\/cdn\.example\.com\/(\w+)\.png"/g)].map(([, margin, name]) => [name, margin]));
+	assert.deepEqual(margins, { left: "24px auto 24px 0", right: "24px 0 24px auto", center: "24px auto", top: "24px auto" });
+	assert.ok(!email.includes("data-align"), "emails carry the alignment in their styles");
+
+	assert.ok(renderIssueBody({ format: "rich", html }).html.includes('data-align="right"'), "the archive styles it from the attribute");
+});
+
 test("editor issues use the archive layout", () => {
 	const { kind, html } = renderIssueBody({ format: "rich", html: editorHtml });
 	assert.equal(kind, "article");

@@ -3,6 +3,7 @@ import { ArrowRight, ArrowUpRight, Check, ChevronRight } from "lucide-react";
 import ButtonNewCampaign from "@/components/ButtonNewCampaign";
 import IconBrand, { AGENTS } from "@/components/IconBrand";
 import IconWarmup from "@/components/IconWarmup";
+import LinkHelp from "@/components/LinkHelp";
 import ShellGetStarted from "@/components/ShellGetStarted";
 import { Button } from "@/components/ui/button";
 import { WARMUP, isCloud } from "@/lib/config";
@@ -76,7 +77,7 @@ function ItemStep({ step, number, isNext, link, newsletterId }) {
 								<IconWarmup className="mt-0.5" />
 								<span>
 									It starts your account&apos;s {WARMUP.days}-day warm-up: up to {WARMUP.quickEmails} emails go out at once, bigger sends
-									over hours.
+									over hours. <LinkHelp article="warm-up" />
 								</span>
 							</p>
 						)}

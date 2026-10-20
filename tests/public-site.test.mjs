@@ -77,6 +77,11 @@ function importFile(path) {
 	return import(pathToFileURL(join(ROOT, path)).href);
 }
 
+// The help center's index and the articles this server has (lib/help.js).
+function helpPaths() {
+	return [m.help.HELP_PATH, ...m.help.getHelpArticles().map(({ slug }) => m.help.getHelpHref(slug))];
+}
+
 // Each page of app/(site) with the paths it renders: route groups leave no trace in a path, and a [slug] folder
 // stands for any one segment. Static folders come first, as Next.js matches them.
 async function listSitePages() {
@@ -134,6 +139,7 @@ before(async () => {
 		config: await import("../lib/config.js"),
 		docs: await import("../lib/docs/llms.js"),
 		format: await import("../lib/format.js"),
+		help: await import("../lib/help.js"),
 		plans: await import("../lib/plans.js"),
 		site: await import("../lib/site.js"),
 		siteExtensions: (await import("@/lib/site-extensions")).siteExtensions,
@@ -168,10 +174,11 @@ describe("/", () => {
 });
 
 describe("public pages", () => {
-	test("the marketing site's pages, the docs, the sitemap, robots.txt, the share image and the llms files open without a session", async () => {
+	test("the marketing site's pages, the docs, the help center, the sitemap, robots.txt, the share image and the llms files open without a session", async () => {
 		const paths = [
 			...m.siteExtensions.publicPages.filter((path) => path !== "/"),
 			...m.docs.DOC_PAGES.map(({ href }) => href),
+			...helpPaths(),
 			"/sitemap.xml",
 			"/robots.txt",
 			"/opengraph-image-12o0cb",
@@ -268,7 +275,7 @@ describe("copy", () => {
 		const files = ["app/(site)/opengraph-image.js", "components/HeaderSite.jsx", "components/FooterSite.jsx", "components/ListPricing.jsx", "components/SliderPricing.jsx", "lib/site.js"];
 		for (const file of files) assert.doesNotMatch(await readFile(join(ROOT, file), "utf8"), PROVIDERS, file);
 
-		const intro = m.docs.getLlmsIndex(SITE_URL).split("## Docs")[0];
+		const intro = m.docs.getLlmsIndex(SITE_URL).split("## API and MCP")[0];
 		assert.match(intro, /^> The affordable newsletter for the agentic era: a newsletter app where you pay for the emails you send, not for dormant subscribers,/m);
 		assert.doesNotMatch(intro, /autopilot/);
 		assert.doesNotMatch(intro, PROVIDERS);
@@ -342,10 +349,11 @@ describe("header", () => {
 });
 
 describe("search engines", () => {
-	test("the sitemap lists the marketing site's pages, then the docs", () => {
+	test("the sitemap lists the marketing site's pages, then the docs, then the help center", () => {
 		const urls = withSiteUrl(() => m.sitemap()).map(({ url }) => url);
 		const docs = m.docs.DOC_PAGES.map(({ href }) => `${SITE_URL}${href}`);
-		assert.deepEqual(urls, [...m.siteExtensions.publicPages.map((path) => (path === "/" ? SITE_URL : `${SITE_URL}${path}`)), ...docs]);
+		const help = helpPaths().map((path) => `${SITE_URL}${path}`);
+		assert.deepEqual(urls, [...m.siteExtensions.publicPages.map((path) => (path === "/" ? SITE_URL : `${SITE_URL}${path}`)), ...docs, ...help]);
 	});
 
 	test("robots.txt keeps crawlers out of every dashboard page, the admin and the APIs, and points at the sitemap", async () => {
@@ -363,7 +371,7 @@ describe("search engines", () => {
 		for (const path of [...folders, "/admin", "/api/", "/mcp", "/welcome", "/oauth/"]) assert.ok(rules.disallow.includes(path), `${path} is crawlable`);
 
 		// Sign-in stays crawlable, so search engines that follow the public pages' links to it read its noindex.
-		const publicPaths = [...m.siteExtensions.publicPages, ...m.docs.DOC_PAGES.map(({ href }) => href), "/signin"];
+		const publicPaths = [...m.siteExtensions.publicPages, ...m.docs.DOC_PAGES.map(({ href }) => href), ...helpPaths(), "/signin"];
 		for (const path of publicPaths) {
 			assert.ok(!rules.disallow.some((rule) => path.startsWith(rule)), `${path} is blocked`);
 		}
@@ -375,7 +383,7 @@ describe("search engines", () => {
 	});
 
 	test("every public page has a title, a description and a canonical URL of its own", async () => {
-		const paths = [...m.siteExtensions.publicPages, ...m.docs.DOC_PAGES.map(({ href }) => href)];
+		const paths = [...m.siteExtensions.publicPages, ...m.docs.DOC_PAGES.map(({ href }) => href), ...helpPaths()];
 		const titles = new Set();
 		const descriptions = new Set();
 		for (const path of paths) {

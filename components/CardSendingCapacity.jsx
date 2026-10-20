@@ -80,4 +80,5 @@ function Meter({ label, used, cap }) {
 const ERRORS = {
 	unconfigured: "No email provider set up yet",
 	unreadable: "Unavailable right now",
+	unreported: "The email provider doesn't report it",
 };

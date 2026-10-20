@@ -13,7 +13,7 @@ function render(theme, options = {}) {
 test("MailCheap's theme, saved or not, sends the email it always did: system fonts, no web fonts", () => {
 	const plain = render(null);
 	assert.equal(render({ preset: "mailcheap" }).html, plain.html);
-	assert.doesNotMatch(plain.html, /@font-face|\[if mso\]><style/);
+	assert.doesNotMatch(plain.html, /@font-face|font-family: [^;]*!important/);
 	assert.match(plain.html, /font-family:-apple-system,BlinkMacSystemFont,'Segoe UI'/);
 	assert.match(plain.html, /<div style="margin:24px 0;padding:24px 24px 8px;border-radius:12px;background:#f4f4f5;">/);
 });

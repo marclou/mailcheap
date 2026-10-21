@@ -34,7 +34,7 @@ Next.js App Router in JavaScript, Tailwind CSS with shadcn/ui, MongoDB through M
 
 ## MailCheap Cloud and self-hosting
 
-`isCloud()` in `lib/config.js` is `MAILCHEAP_CLOUD === "true"`, what mailcheap.ai runs with: open sign-up, plans and Stripe billing. Anything else is a self-hosted server: only the allowlist (`ADMIN_EMAILS`, `ALLOWED_EMAILS`) signs in, there's no billing and no limits. Both run from the same files, so a change has to work in both modes.
+`isCloud()` in `lib/config.js` is `MAILCHEAP_CLOUD === "true"`, what mailcheap.ai runs with: open sign-up, plans and Stripe billing. Anything else is a self-hosted server: only the allowlist (`ADMIN_EMAILS`, `ALLOWED_EMAILS`) signs in; there's no billing and no limits. Both run from the same files, so a change has to work in both modes.
 
 MailCheap Cloud's marketing site, analytics and support chat aren't part of the open source. Shared code reaches them only through the site extensions, `lib/site-extensions.js` and `components/SiteExtensions.jsx`, whose defaults add nothing: never import cloud-only code anywhere else.
 

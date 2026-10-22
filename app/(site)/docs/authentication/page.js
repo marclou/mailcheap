@@ -146,7 +146,32 @@ export default function AuthenticationPage() {
 					</p>
 				)}
 			</Section>
-		</>
+			<Section title="AgentOnboard tokens" stagger={6}>
+			<p>
+				An agent holding an AgentOnboard key mints a five-minute token for this server&apos;s bare hostname (that of {appUrl}); MailCheap
+				verifies it against AgentOnboard&apos;s public keys on every request and runs it as the account of the verified email the token
+				carries, exactly as that person&apos;s full access key would. Possessing a valid token for an email counts as owning that inbox:
+				for its five minutes, the token is that person. The token goes on the same header and the same {REQUESTS_PER_KEY.limit}{" "}
+				requests {formatWindow(REQUESTS_PER_KEY.window)} count for it.
+			</p>
+			<p>
+				An agent reads <Link href="/auth.md">auth.md</Link> — the audience, the endpoints, the error handling — and calls the same action
+				routes under <Code>{"/api/v1/agents"}</Code>, each failure answering <Code>&#123;&#123; &quot;code&quot;: … &#125;&#125;</Code>.{" "}
+				{isCloud() ? (
+					<>
+						An accountless identity answers <Code>403 ACCOUNT_REQUIRED</Code>, and opens an account at{" "}
+						<Code>POST {"/api/v1/agents/signup"}</Code> with the same token: the human signup rules apply, and the owner gets an email
+						saying it happened.
+					</>
+				) : (
+					<>
+						An accountless identity answers <Code>403 ACCOUNT_REQUIRED</Code>: the allow list decides, so the human signs in once at the
+						server&apos;s sign-in page, then the agent retries once.
+					</>
+				)}
+			</p>
+		</Section>
+	</>
 	);
 }
 

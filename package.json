@@ -15,6 +15,7 @@
     "test": "node --import ./tests/setup/register.mjs --test \"tests/**/*.test.mjs\""
   },
   "dependencies": {
+    "@agentonboard/sdk": "^0.3.0",
     "@aws-sdk/client-cloudfront": "^3.1146.0",
     "@aws-sdk/client-s3": "^3.1146.0",
     "@aws-sdk/client-sesv2": "^3.1146.0",

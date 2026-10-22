@@ -33,6 +33,27 @@ export default function ApiAndAiPage() {
 				like a full access key, until you disconnect it.
 			</p>
 
+			<h2 id="agents">An agent working on its own</h2>
+			<p>
+				An AI agent that runs a task without you at the keyboard gets in through AgentOnboard instead of an API key: the agent holds
+				one key of yours there, and mints a short-lived token each time it calls MailCheap. The token carries your verified email, so
+				MailCheap hands it your account, nothing more to set up.
+			</p>
+			{isCloud() && (
+				<p>
+					On MailCheap Cloud an agent can open your account itself: its first call answers that there&apos;s no account, it creates one
+					at the signup endpoint it&apos;s told about, and you get an email saying so. If that wasn&apos;t you, delete the account on the{" "}
+					<LinkApp href="/account">account page</LinkApp>. An agent opens up an account with the same rules as you would: no throwaway
+					inboxes, and no more than three a day from one address.
+				</p>
+			)}
+			<p>
+				The agent reads <code>auth.md</code> at the server&apos;s address to find all of this — the agent hostnames, the endpoints under{" "}
+				<code>/api/v1/agents</code>, what each error means — and then calls the same actions as the <Link href="/docs/api">REST API</Link>{" "}
+				runs, with every plan, rate limit and sending check on them. Nothing lasts: each token is good for five minutes, and turning the
+				agent&apos;s AgentOnboard key off stops any new ones.
+			</p>
+
 			<h2 id="api-keys">API keys</h2>
 			<p>
 				Create keys on the <LinkApp href="/api-keys">API keys page</LinkApp>. A key is shown once: copy it then, since MailCheap only

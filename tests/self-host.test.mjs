@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
+import { SignJWT } from "jose";
 import mongoose from "mongoose";
 import { addVerifiedDomain, as, callApi, catchRedirect, form, jsonRequest, mockStripe, platformEmails, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
 import { flushAfter } from "./stubs/next-server.mjs";
@@ -347,5 +348,83 @@ describe("public pages", () => {
 		const help = ["/help", ...m.help.HELP_ARTICLES.filter(({ isCloudOnly }) => !isCloudOnly).map(({ slug }) => `/help/${slug}`)];
 		assert.deepEqual(urls, [...m.docs.DOC_PAGES.map(({ href }) => href), ...help].map((path) => `http://localhost:3000${path}`));
 		assert.ok(!urls.some((url) => url.endsWith("/help/warm-up") || url.endsWith("/help/plans")));
+	});
+});
+
+describe("agents", () => {
+	const ISSUER = "https://agentonboard.example";
+	let agentonboard;
+	let privateKey;
+	let counter = 0;
+
+	before(async () => {
+		agentonboard = await import("../lib/agentonboard.js");
+		const { exportJWK, generateKeyPair } = await import("jose");
+		const { publicKey, privateKey: key } = await generateKeyPair("RS256");
+		privateKey = key;
+		const jwk = { ...(await exportJWK(publicKey)), kid: "aon-self-host", alg: "RS256", use: "sig" };
+		agentonboard.setAgentonboardJwksForTests({ keys: [jwk] });
+		process.env.AON_ISSUER = ISSUER;
+	});
+
+	// A request to /api/v1/agents through its route handler, as Next.js routes it.
+	async function callAgent(method, path, token) {
+		const route = await import("../app/api/v1/agents/[...path]/route.js");
+		const request = jsonRequest(`/api/v1/agents${path}`, { method, headers: token && { authorization: `Bearer ${token}` } });
+		const segments = path.replace(/^\//, "").split("/").filter(Boolean);
+		const response = await route[method](request, { params: Promise.resolve({ path: segments }) });
+		return { status: response.status, body: await response.json().catch(() => null) };
+	}
+
+	async function callSignup(token) {
+		const route = await import("../app/api/v1/agents/signup/route.js");
+		const request = jsonRequest("/api/v1/agents/signup", { method: "POST", headers: token && { authorization: `Bearer ${token}` } });
+		const response = await route.POST(request);
+		return { status: response.status, body: await response.json().catch(() => null) };
+	}
+
+	test("an allowed identity runs as its account, with no plan ever needed", async () => {
+		await signIn("owner@example.com");
+		const token = await new SignJWT({ email: "owner@example.com", sub: "owner@example.com", jti: `self-${++counter}` })
+			.setProtectedHeader({ alg: "RS256", kid: "aon-self-host" })
+			.setIssuer(ISSUER)
+			.setAudience(agentonboard.getAgentAudience())
+			.setExpirationTime(Math.floor(Date.now() / 1000) + 120)
+			.sign(privateKey);
+		const campaigns = await callAgent("GET", "/campaigns", token);
+		assert.equal(campaigns.status, 200, JSON.stringify(campaigns.body));
+	});
+
+	test("an identity off the allowlist is 403, pointing the agent at sign-in", async () => {
+		const token = await new SignJWT({ email: "nobody@gmail.com", sub: "nobody@gmail.com", jti: `self-${++counter}` })
+			.setProtectedHeader({ alg: "RS256", kid: "aon-self-host" })
+			.setIssuer(ISSUER)
+			.setAudience(agentonboard.getAgentAudience())
+			.setExpirationTime(Math.floor(Date.now() / 1000) + 120)
+			.sign(privateKey);
+		const response = await callAgent("GET", "/campaigns", token);
+		assert.equal(response.status, 403);
+		assert.equal(response.body.code, "ACCOUNT_REQUIRED");
+		assert.match(response.body.error, /\/signin/);
+	});
+
+	test("there is no agent signup: agents can't open accounts", async () => {
+		const token = await new SignJWT({ email: "nobody@gmail.com", sub: "nobody@gmail.com", jti: `self-${++counter}` })
+			.setProtectedHeader({ alg: "RS256", kid: "aon-self-host" })
+			.setIssuer(ISSUER)
+			.setAudience(agentonboard.getAgentAudience())
+			.setExpirationTime(Math.floor(Date.now() / 1000) + 120)
+			.sign(privateKey);
+		const response = await callSignup(token);
+		assert.equal(response.status, 404);
+		assert.equal(response.body.code, "not_found");
+	});
+
+	test("auth.md sends the agent to sign-in instead of the signup endpoint", async () => {
+		const route = await import("../app/auth.md/route.js");
+		const text = await (await route.GET()).text();
+		assert.ok(!text.includes("/api/v1/agents/signup"), "no signup advertised");
+		assert.ok(text.includes("http://localhost:3000/signin"), "the sign-in page instead");
+		assert.ok(!text.includes("signup_not_allowed"), "no cloud refusals to handle");
 	});
 });

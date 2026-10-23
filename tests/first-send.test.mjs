@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { getFirstSendProblem, getFirstSendSlice } from "../lib/first-send.js";
 import { activate, as, catchRedirect, form, jsonRequest, platformEmails, proveVolume, signIn, startTestApp } from "./helpers/app.mjs";
-import { published } from "./stubs/qstash.mjs";
+import { published, state as qstash } from "./stubs/qstash.mjs";
 
 test("the first slice is 5% of never-mailed contacts, between 200 and 2,000", () => {
 	assert.equal(getFirstSendSlice(150), null, "small lists go at once");
@@ -169,6 +169,27 @@ describe("first sends in steps", () => {
 		assert.equal(resumed.status, "sending");
 		assert.ok(resumed.ratesAcceptedAt instanceof Date, "the owner took the rates as they are");
 		assert.equal(await count(user, "held"), 0);
+		skipPublished();
+	});
+
+	test("a clean slice whose rest QStash refuses pauses the send; resuming sends the rest", async () => {
+		const user = await setup("refused-rest@example.com", { neverMailed: 2500 });
+		await as(user, () => m.campaigns.sendCampaign(user.campaignId, {}));
+		await runJobs();
+
+		qstash.failNext = new Error("quota exceeded");
+		const [check] = await runJobs({ checks: true });
+		assert.deepEqual([check.result.released, check.result.paused], [2300, true]);
+		const paused = await campaignOf(user);
+		assert.equal(paused.status, "paused", "not left sending with no batch for the rest");
+		assert.equal(paused.pauseReason, "queueing failed: quota exceeded");
+		assert.equal(await count(user, "queued"), 2300);
+
+		const before = published.length;
+		assert.deepEqual(await as(user, () => m.campaigns.resumeCampaign(user.campaignId)), { ok: true });
+		const batches = published.slice(before).filter(({ url }) => url.endsWith("send-batch"));
+		assert.equal(batches.reduce((sum, { body }) => sum + body.messageIds.length, 0), 2300);
+		assert.equal((await campaignOf(user)).status, "sending");
 		skipPublished();
 	});
 

@@ -163,6 +163,19 @@ describe("SES tenants", () => {
 		assert.deepEqual(await as(user, () => m.campaigns.sendTestCampaign(id)), { ok: true });
 		assert.equal(sent.at(-1).tenantName, `mc-${user.accountId}`);
 	});
+
+	test("an account's first domain sets up its tenant, then joins it once SES has the identity", async () => {
+		const user = await signIn("first-domain@example.com");
+		await activate(user);
+		const name = `mc-${user.accountId}`;
+		assert.equal(state.tenants.has(name), false, "no tenant yet, as on a self-hosted server");
+
+		await addVerifiedDomain(user, "first-domain.example.com");
+		const { ses } = await m.Account.findById(user.accountId).lean();
+		assert.ok(ses.provisionedAt);
+		assert.deepEqual([...state.associations.get(name)].sort(), [`configuration-set/${name}`, "identity/first-domain.example.com"]);
+		assert.ok(await m.Domain.exists({ accountId: user.accountId, domain: "first-domain.example.com" }));
+	});
 });
 
 describe("from addresses", () => {

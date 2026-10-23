@@ -13,7 +13,7 @@ function render(theme, options = {}) {
 test("MailCheap's theme, saved or not, sends the email it always did: system fonts, no web fonts", () => {
 	const plain = render(null);
 	assert.equal(render({ preset: "mailcheap" }).html, plain.html);
-	assert.doesNotMatch(plain.html, /@font-face|\[if mso\]/);
+	assert.doesNotMatch(plain.html, /@font-face|font-family: [^;]*!important/);
 	assert.match(plain.html, /font-family:-apple-system,BlinkMacSystemFont,'Segoe UI'/);
 	assert.match(plain.html, /<div style="margin:24px 0;padding:24px 24px 8px;border-radius:12px;background:#f4f4f5;">/);
 });
@@ -46,7 +46,7 @@ test("the confirmation button takes the accent, its readable label and the theme
 
 test("editor pictures take the theme's corners; designed HTML emails keep their own look", () => {
 	const rich = renderEmail({ format: "rich", html: '<p>Hi</p><img src="https://cdn.example.com/a.png" alt="">', subject: "Hi", newsletter: { name: "N", theme: { preset: "swiss" } } });
-	assert.match(rich.html, /<img style="display:block;max-width:100%;height:auto;margin:24px auto;border-radius:0px;"/);
+	assert.match(rich.html, /<img width="600" style="display:block;width:auto;max-width:100%;height:auto;margin:24px auto;border-radius:0px;"/);
 	const designed = { format: "html", html: "<html><body><p>Hi</p></body></html>", subject: "Hi" };
 	assert.equal(renderEmail({ ...designed, newsletter: { name: "N", theme: { preset: "midnight" } } }).html, renderEmail({ ...designed, newsletter: { name: "N" } }).html);
 });

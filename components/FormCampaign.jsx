@@ -26,6 +26,8 @@ import CardTips from "@/components/CardTips";
 import DialogDiscardCampaign from "@/components/DialogDiscardCampaign";
 import DialogPreviewEmail from "@/components/DialogPreviewEmail";
 import EditorRich from "@/components/EditorRich";
+import EditorSms from "@/components/EditorSms";
+import SmartphonePreview from "@/components/SmartphonePreview";
 import IconField from "@/components/IconField";
 import LinkHelpFields from "@/components/LinkHelpFields";
 import ListChecks from "@/components/ListChecks";
@@ -101,6 +103,8 @@ export default function FormCampaign({
 		subject: campaign.subject,
 		previewText: campaign.previewText,
 		body: initialBody,
+		channel: campaign.channel || "email",
+		smsText: campaign.smsText || "",
 	});
 	const save = useCallback((snapshot) => saveCampaign(campaign._id, { ...snapshot, format }), [campaign._id, format]);
 	const { isDirty, isSaving, savedAt, error, flush } = useAutosave(values, save);
@@ -383,51 +387,93 @@ export default function FormCampaign({
 				)}
 
 				<section aria-label="Write" hidden={step !== "write"}>
-					<div className="overflow-hidden rounded-xl bg-card shadow-border animate-enter">
-						<div className="divide-y divide-border/60 border-b border-border/60">
-							<RowCampaign label="Subject">
-								<div className="flex min-w-0 items-center gap-1">
-									<input
-										ref={subjectRef}
-										value={values.subject}
-										onChange={update("subject")}
-										onSelect={(event) => (subjectSelectionRef.current = [event.target.selectionStart, event.target.selectionEnd])}
-										placeholder="Subject"
-										aria-label="Subject"
-										maxLength={SUBJECT_MAX}
-										className="h-11 w-full min-w-0 bg-transparent text-sm font-medium outline-none placeholder:font-normal placeholder:text-muted-foreground"
-									/>
-									<ButtonInsertTag contactFields={contactFields} onInsert={insertTag} />
-								</div>
-							</RowCampaign>
-							<RowCampaign label="Preview text">
-								<input
-									ref={previewTextRef}
-									value={values.previewText}
-									onChange={update("previewText")}
-									placeholder="Shown after the subject in inboxes"
-									aria-label="Preview text"
-									maxLength={300}
-									className="h-11 w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-								/>
-							</RowCampaign>
+					<div className="mb-4 flex items-center justify-between">
+						<div className="flex items-center gap-1 rounded-lg bg-muted p-1 text-xs">
+							<button
+								type="button"
+								onClick={() => setValues((v) => ({ ...v, channel: "email" }))}
+								className={cn(
+									"rounded-md px-3 py-1 font-medium transition-colors",
+									values.channel === "email" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+								)}
+							>
+								Email
+							</button>
+							<button
+								type="button"
+								onClick={() => setValues((v) => ({ ...v, channel: "sms" }))}
+								className={cn(
+									"rounded-md px-3 py-1 font-medium transition-colors",
+									values.channel === "sms" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+								)}
+							>
+								SMS
+							</button>
 						</div>
-						{isHtml ? (
-							<div className="relative">
-								<span className="pointer-events-none absolute top-3 right-4 text-xs text-muted-foreground">HTML</span>
-								<textarea
-									value={values.body}
-									onChange={update("body")}
-									placeholder="<html>"
-									spellCheck={false}
-									aria-label="Content"
-									className="block min-h-[560px] w-full resize-none bg-transparent px-4 py-4 font-mono text-[13px] leading-6 outline-none [field-sizing:content] placeholder:text-muted-foreground"
+					</div>
+
+					{values.channel === "sms" ? (
+						<div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr,300px]">
+							<div className="overflow-hidden rounded-xl bg-card shadow-border animate-enter">
+								<EditorSms
+									value={values.smsText}
+									onChange={(smsText) => setValues((v) => ({ ...v, smsText }))}
 								/>
 							</div>
-						) : (
-							<EditorRich content={initialBody} onChange={updateBody} contactFields={contactFields} newsletter={newsletter} />
-						)}
-					</div>
+							<div className="hidden lg:block">
+								<SmartphonePreview
+									message={values.smsText}
+									senderName={newsletter.name || "MailCheap"}
+								/>
+							</div>
+						</div>
+					) : (
+						<div className="overflow-hidden rounded-xl bg-card shadow-border animate-enter">
+							<div className="divide-y divide-border/60 border-b border-border/60">
+								<RowCampaign label="Subject">
+									<div className="flex min-w-0 items-center gap-1">
+										<input
+											ref={subjectRef}
+											value={values.subject}
+											onChange={update("subject")}
+											onSelect={(event) => (subjectSelectionRef.current = [event.target.selectionStart, event.target.selectionEnd])}
+											placeholder="Subject"
+											aria-label="Subject"
+											maxLength={SUBJECT_MAX}
+											className="h-11 w-full min-w-0 bg-transparent text-sm font-medium outline-none placeholder:font-normal placeholder:text-muted-foreground"
+										/>
+										<ButtonInsertTag contactFields={contactFields} onInsert={insertTag} />
+									</div>
+								</RowCampaign>
+								<RowCampaign label="Preview text">
+									<input
+										ref={previewTextRef}
+										value={values.previewText}
+										onChange={update("previewText")}
+										placeholder="Shown after the subject in inboxes"
+										aria-label="Preview text"
+										maxLength={300}
+										className="h-11 w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+									/>
+								</RowCampaign>
+							</div>
+							{isHtml ? (
+								<div className="relative">
+									<span className="pointer-events-none absolute top-3 right-4 text-xs text-muted-foreground">HTML</span>
+									<textarea
+										value={values.body}
+										onChange={update("body")}
+										placeholder="<html>"
+										spellCheck={false}
+										aria-label="Content"
+										className="block min-h-[560px] w-full resize-none bg-transparent px-4 py-4 font-mono text-[13px] leading-6 outline-none [field-sizing:content] placeholder:text-muted-foreground"
+									/>
+								</div>
+							) : (
+								<EditorRich content={initialBody} onChange={updateBody} contactFields={contactFields} newsletter={newsletter} />
+							)}
+						</div>
+					)}
 				</section>
 
 				<section aria-label="Review" hidden={step !== "review"} className="flex flex-col gap-6">

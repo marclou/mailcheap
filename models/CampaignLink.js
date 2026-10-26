@@ -10,6 +10,7 @@ const campaignLinkSchema = new mongoose.Schema(
 		url: { type: String, required: true },
 		clicks: { type: Number, default: 0 },
 		clickers: { type: Number, default: 0 },
+		shortCode: { type: String, index: true, unique: true, sparse: true },
 	},
 	{ timestamps: true }
 );

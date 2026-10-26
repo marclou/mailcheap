@@ -4,6 +4,7 @@ import { AUDIENCE_SORT } from "../lib/audience.js";
 
 // pending: signed up to a newsletter that asks new subscribers to confirm, and hasn't yet.
 export const CONTACT_STATUSES = ["active", "pending", "unsubscribed", "bounced", "complained", "dormant"];
+export const SMS_STATUSES = ["none", "active", "unsubscribed", "bounced"];
 
 const contactSchema = new mongoose.Schema(
 	{
@@ -20,6 +21,19 @@ const contactSchema = new mongoose.Schema(
 		firstName: { type: String, trim: true },
 		// Values for the account's own fields (Account.contactFields), by key: text, a number or a date (lib/contact-fields.js).
 		fields: { type: mongoose.Schema.Types.Mixed },
+		// International E.164 phone number, e.g. "+33612345678"
+		phone: { type: String, trim: true, index: true },
+		phoneCountry: { type: String, trim: true },
+		smsStatus: { type: String, enum: SMS_STATUSES, default: "none", index: true },
+		smsConsent: {
+			userId: { type: mongoose.Schema.Types.ObjectId },
+			source: { type: String, trim: true },
+			at: { type: Date },
+		},
+		smsSubscribedAt: { type: Date },
+		smsUnsubscribedAt: { type: Date },
+		lastSmsSentAt: { type: Date },
+		lastSmsClickAt: { type: Date },
 		// Lowercase labels, many per contact, for segments and the contacts list.
 		tags: { type: [String], default: undefined },
 		importId: { type: mongoose.Schema.Types.ObjectId, ref: "ContactImport" },
@@ -82,6 +96,7 @@ const contactSchema = new mongoose.Schema(
 
 contactSchema.plugin(accountScoped);
 contactSchema.index({ newsletterId: 1, email: 1 }, { unique: true });
+contactSchema.index({ newsletterId: 1, smsStatus: 1, phone: 1 });
 contactSchema.index({ newsletterId: 1, status: 1, createdAt: -1 });
 // Bounces and complaints change every contact with the address in the account.
 contactSchema.index({ accountId: 1, email: 1 });

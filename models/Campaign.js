@@ -4,6 +4,7 @@ import { contentReviewSchema } from "../lib/content-review-schema.js";
 import { PUBLISH_TARGETS } from "../lib/publish-to.js";
 
 export const CAMPAIGN_STATUSES = ["draft", "scheduled", "sending", "paused", "sent", "canceled"];
+export const CAMPAIGN_CHANNELS = ["email", "sms"];
 
 const counter = { type: Number, default: 0 };
 
@@ -18,6 +19,10 @@ const campaignSchema = new mongoose.Schema(
 		markdown: { type: String, default: "" },
 		html: { type: String, default: "" },
 		status: { type: String, enum: CAMPAIGN_STATUSES, default: "draft" },
+		channel: { type: String, enum: CAMPAIGN_CHANNELS, default: "email", index: true },
+		smsText: { type: String, default: "", trim: true },
+		smsSegments: { type: Number, default: 1, min: 1 },
+		smsEncoding: { type: String, enum: ["GSM-7", "UCS-2"], default: "GSM-7" },
 		// By email and on the website, by email only, or on the website only (lib/publish-to.js). Web only sends nothing:
 		// it goes straight to sent, with no messages.
 		publishTo: { type: String, enum: PUBLISH_TARGETS, default: "both" },

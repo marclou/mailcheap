@@ -33,6 +33,8 @@ export async function saveCampaign(id, values) {
 		previewText: String(values?.previewText ?? "").slice(0, MAX_PREVIEW_TEXT_LENGTH),
 		content: String(values?.body ?? ""),
 		...(values?.format && { format: values.format }),
+		...(values?.channel && { channel: values.channel }),
+		...(values?.smsText !== undefined && { smsText: String(values.smsText) }),
 	});
 	if (failure) return toFormError(failure);
 	revalidatePath("/campaigns");

@@ -50,6 +50,7 @@
     "react": "19.2.9",
     "react-dom": "19.2.9",
     "react-hot-toast": "^2.6.1",
+    "resend": "^6.35.0",
     "sanitize-html": "^2.18.0",
     "server-only": "^0.0.1",
     "stripe": "^23.0.0",

@@ -3,7 +3,7 @@ import { FIELD_TYPE_IDS } from "../lib/contact-fields.js";
 import { INTERVALS, PLAN_IDS } from "../lib/plans.js";
 
 export const ACCOUNT_STATUSES = ["active", "paused"];
-export const BLOCK_SOURCES = ["admin", "rates", "campaign", "slice", "trap", "ses", "postshiba", "gmail"];
+export const BLOCK_SOURCES = ["admin", "rates", "campaign", "slice", "trap", "ses", "postshiba", "groundmail", "gmail"];
 
 const accountSchema = new mongoose.Schema(
 	{
@@ -35,7 +35,7 @@ const accountSchema = new mongoose.Schema(
 		pausedAt: { type: Date },
 		pauseReason: { type: String, trim: true },
 		// admin: by hand. rates: the 7-day check (lib/account-health.js). campaign: a send's own rates. slice: a first
-		// send's slice (lib/first-send.js). trap: a bounce from a spam trap. ses, postshiba: the provider stopped the
+		// send's slice (lib/first-send.js). trap: a bounce from a spam trap. ses, postshiba, groundmail: the provider stopped the
 		// account's tenant. gmail: Gmail's spam rate in Google Postmaster Tools (lib/postmaster.js).
 		pausedBy: { type: String, enum: BLOCK_SOURCES },
 		// The last time an admin unblocked it: Gmail's data on the days up to then doesn't block it again.
@@ -73,6 +73,16 @@ const accountSchema = new mongoose.Schema(
 				credentialId: { type: String },
 				clusterId: { type: String },
 			},
+		},
+		// The account's Groundmail tenant (external id mc-<accountId>), created when its plan starts
+		// (lib/email-provider/groundmail.js). None while the Groundmail account has no tenants: it sends as that account.
+		groundmail: {
+			tenantId: { type: String },
+			externalId: { type: String },
+			// active, paused (with the account's block) or held (Groundmail paused it).
+			tenantStatus: { type: String },
+			tenantStatusAt: { type: Date },
+			provisionedAt: { type: Date },
 		},
 		// The last account-level check on recent sends.
 		health: {

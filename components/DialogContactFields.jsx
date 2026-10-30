@@ -35,9 +35,6 @@ export default function DialogContactFields({ isOpen, onOpenChange, onCloseAutoF
 						<span className="text-xs text-muted-foreground">{SAMPLE_FIRST_NAME} gets</span>
 						<span className="truncate">Hi {SAMPLE_FIRST_NAME},</span>
 					</div>
-					<p className="text-sm text-pretty text-muted-foreground">
-						Fill them in on a contact&apos;s page, from a CSV import or through the API.
-					</p>
 					<LinkHelpFields className="self-start text-sm" />
 				</DialogHeader>
 

@@ -5,6 +5,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import sharp from "sharp";
 import NoticePace from "../components/NoticePace.jsx";
 import { HELP_ARTICLES, getHelpArticles } from "../lib/help.js";
 import { listAppPages } from "./helpers/app-pages.mjs";
@@ -65,6 +66,26 @@ test("every link into the help center opens one of its articles, at a section th
 		);
 		if (section) assert.ok((await readSource(`${HELP_DIR}/${slug}/page.js`)).includes(`id="${section}"`), `${file} links to /help/${slug}#${section}`);
 	}
+});
+
+test("every screenshot is a 1600×1000 WebP in its article's folder of public/help, with its alt and caption, and none is left over", async () => {
+	const figures = [];
+	for (const { slug } of HELP_ARTICLES) {
+		const page = await readSource(`${HELP_DIR}/${slug}/page.js`);
+		for (const [tag] of page.matchAll(/<FigureHelp\b[^>]*\/>/g)) {
+			figures.push({ slug, ...Object.fromEntries([...tag.matchAll(/(\w+)="([^"]*)"/g)].map(([, name, value]) => [name, value])) });
+		}
+	}
+	assert.ok(figures.length > 0);
+	for (const { slug, src, alt, caption } of figures) {
+		assert.match(src, new RegExp(`^/help/${slug}/[a-z-]+\\.webp$`), `${slug}: ${src}`);
+		assert.ok(alt?.endsWith("."), `${src}: its alt is a sentence`);
+		assert.ok(caption, `${src}: it has a caption`);
+		const { format, width, height } = await sharp(join(ROOT, "public", src)).metadata();
+		assert.deepEqual({ format, width, height }, { format: "webp", width: 1600, height: 1000 }, src);
+	}
+	const files = (await readdir(join(ROOT, "public/help"), { recursive: true })).filter((file) => /\.\w+$/.test(file));
+	assert.deepEqual(files.map((file) => `/help/${file}`).sort(), figures.map(({ src }) => src).sort(), "each image in public/help shows once");
 });
 
 test("every list of the contact fields, and the dialog that makes them, links to how to add them", async () => {

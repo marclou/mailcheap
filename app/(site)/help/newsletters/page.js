@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ArticleHelp from "@/components/ArticleHelp";
+import FigureHelp from "@/components/FigureHelp";
 import LinkApp from "@/components/LinkApp";
 import { CLEANUP_LIMITS, getCleanupDefaults } from "@/lib/cleanup";
 import { getArchiveCnameTarget, getSharedDomain, isCloud } from "@/lib/config";
@@ -29,6 +30,11 @@ export default function NewslettersPage() {
 				where it stands, like double opt-in on or the website&apos;s address. A card opens its section&apos;s page, like Settings /
 				General, whose back arrow returns to the overview. Once you change something there, a bar offers to save or discard it.
 			</p>
+			<FigureHelp
+				src="/help/newsletters/settings.webp"
+				alt="The settings overview: general, sender, confirm signups, welcome email, list cleanup, website, form for your site and design, each with where it stands."
+				caption="The settings overview"
+			/>
 
 			<h2 id="general">General</h2>
 			<ul>
@@ -126,6 +132,11 @@ export default function NewslettersPage() {
 					</>
 				)}
 			</p>
+			<FigureHelp
+				src="/help/newsletters/welcome-email.webp"
+				alt="The welcome email page with its switch on and a note that saving turns off double opt-in."
+				caption="The welcome email"
+			/>
 			{isCloud() && (
 				<p>
 					Welcome emails count toward your plan&apos;s emails. Once the month&apos;s emails are used up, they pause until your emails
@@ -148,6 +159,11 @@ export default function NewslettersPage() {
 				you preview it, set its button and placeholder, copy its code, and list the sites it works on.{" "}
 				<Link href={getHelpHref("website", "form-on-your-site")}>A signup form on your own site</Link>
 			</p>
+			<FigureHelp
+				src="/help/newsletters/signup-form.webp"
+				alt="The Form for your site page with its switch on, and the signup form previewed as a card."
+				caption="The form for your site"
+			/>
 
 			<h2 id="design">Design</h2>
 			<p>
@@ -165,6 +181,11 @@ export default function NewslettersPage() {
 						against the week before, your total, new subscribers over the last {SUMMARY_BARS.weekly} weeks, and your latest
 						issue&apos;s opens and clicks against your average, with its most clicked link.
 					</p>
+					<FigureHelp
+						src="/help/newsletters/summary-email.webp"
+						alt="A weekly summary email: 46 new subscribers, the total, the unsubscribes and 8 weeks of new subscribers."
+						caption="A weekly summary email"
+					/>
 					<p>
 						Each newsletter has its own summary: pick Weekly, Daily for yesterday&apos;s numbers every morning, which skips the days
 						with no news, or Off. Preview there shows the next one. The link at the bottom of each summary changes it without signing

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ArticleHelp from "@/components/ArticleHelp";
+import FigureHelp from "@/components/FigureHelp";
 import LinkApp from "@/components/LinkApp";
 import { TRIAL_CONTACTS } from "@/lib/actions/contacts";
 import { isCloud } from "@/lib/config";
@@ -84,6 +85,11 @@ export default function ContactsPage() {
 				The cross on a filter clears it, and Clear clears them all. The filters stay in the page&apos;s address, so a bookmark keeps
 				them. Export and Delete, in the <strong>⋯</strong> menu at the top, follow the search and the filters.
 			</p>
+			<FigureHelp
+				src="/help/contacts/contacts-page.webp"
+				alt="The Contacts page: a search and filters for status, signup date, source and tag, then each contact with their tags, status, opens and clicks."
+				caption="The Contacts page"
+			/>
 
 			<h2 id="contact-page">Each contact&apos;s page</h2>
 			<p>
@@ -106,6 +112,11 @@ export default function ContactsPage() {
 					tags.
 				</li>
 			</ul>
+			<FigureHelp
+				src="/help/contacts/contact-page.webp"
+				alt="A contact's page: their country lit on a globe, 3 emails received, 67% opened and 33% clicked, then their activity."
+				caption="A contact's page"
+			/>
 			<p>
 				At the top right, the first button changes their status, and the <strong>⋯</strong> menu next to it has Edit fields, Edit
 				tags and Delete contact. Click an issue to open its report, a tag to list everyone who has it, and a segment to open its page.
@@ -168,6 +179,11 @@ export default function ContactsPage() {
 				you&apos;ve given other contacts: they&apos;re listed under the field, the most used first, each with how many contacts
 				have it. Click one, or use the arrow keys then Enter. Click × on a tag to take it off, then save.
 			</p>
+			<FigureHelp
+				src="/help/contacts/tags.webp"
+				alt="The Edit tags dialog for a contact, with their tag and the tags already used, each with how many contacts have it."
+				caption="Tagging a contact"
+			/>
 			<p>
 				To tag many contacts at once, tag everyone an import adds, or use the{" "}
 				<Link href={getHelpHref("api-and-ai")}>API and AI assistants</Link>, which can also tag people as they sign up from your own
@@ -179,6 +195,11 @@ export default function ContactsPage() {
 				Fields keep what you know about each reader besides their address: a last name, a birthday, a favorite color, the plan
 				they&apos;re on. Every contact already has a first name and tags, so those need no field.
 			</p>
+			<FigureHelp
+				src="/help/contacts/fields.webp"
+				alt="The Contact fields dialog: how a field prints each reader's own value, then six fields with their tags to copy, and a new field's name and type."
+				caption="Your contact fields"
+			/>
 			<ol>
 				<li>
 					<strong>Make your fields.</strong> Click Fields at the top of the <LinkApp href="/contacts">Contacts page</LinkApp>.
@@ -263,6 +284,11 @@ export default function ContactsPage() {
 				search and filters of the Contacts page. Edit changes its name and conditions, and the <strong>⋯</strong> menu exports its
 				contacts, deletes them, or deletes the segment, whose contacts stay.
 			</p>
+			<FigureHelp
+				src="/help/contacts/segment.webp"
+				alt="A segment's page: its active contacts, opens and clicks next to the whole list and campaigns, then its contacts filtered by status."
+				caption="A segment's page"
+			/>
 			<p>
 				Counts are of active contacts, the ones an issue goes to. Conditions on dates count back from now, so &ldquo;opened in the last
 				30 days&rdquo; follows time, and a send reads its segment when it goes out. A segment that a scheduled or sending issue goes to,

@@ -78,7 +78,8 @@ export default function ArticleHelp({ slug, children }) {
 
 const LINK_CLASS = "font-medium text-foreground underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground";
 
-// The articles are plain HTML elements: headings, paragraphs, lists, links, keys and tables.
+// The articles are plain HTML elements: headings, paragraphs, lists, links, keys and tables. Screenshots are FigureHelp,
+// styled on their own.
 const PROSE = [
 	"text-[15px] leading-7 text-pretty text-foreground/80 [&>:first-child]:mt-0",
 	"[&_h2]:mt-12 [&_h2]:mb-3 [&_h2]:scroll-mt-24 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:text-foreground",

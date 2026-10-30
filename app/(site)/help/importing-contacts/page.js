@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import ArticleHelp from "@/components/ArticleHelp";
+import FigureHelp from "@/components/FigureHelp";
 import LinkApp from "@/components/LinkApp";
 import { FIRST_SEND, isCloud } from "@/lib/config";
 import { MAX_CONTACT_FIELDS } from "@/lib/contact-fields";
@@ -71,6 +72,11 @@ export default function ImportingContactsPage() {
 				and fields), with the number of rows. Below, every column shows a few of its values and where they go, in plain words:
 				Email, First name, Status, Signup date, Tags, one of your fields, a new field, or Don&apos;t import.
 			</p>
+			<FigureHelp
+				src="/help/importing-contacts/check.webp"
+				alt="The import dialog: a beehiiv file's first contacts as they'll be in the list, then its columns."
+				caption="Checking a file before it's imported"
+			/>
 			<p>
 				Columns MailCheap recognized are folded under Recognized, still yours to change. Under Needs a look are the columns going
 				into a new field (each custom field, and where readers came from: beehiiv&apos;s acquisition source, channel, campaign and
@@ -137,6 +143,11 @@ export default function ImportingContactsPage() {
 				addresses, which hurts your deliverability, but people do sign up with them, like a business with its info@ address. Click
 				Bring back next to the ones you know signed up: each is added with what its row had, as the import would have.
 			</p>
+			<FigureHelp
+				src="/help/importing-contacts/left-out.webp"
+				alt="An import's Left out on the Contacts page: the count for each reason, then role addresses and throwaway inboxes, each with Bring back."
+				caption="What an import left out"
+			/>
 			<p>
 				The others stay out, since your emails wouldn&apos;t reach someone who wants them: misspelled domains, spam traps and spam
 				domains, domains that can&apos;t receive email, and people who unsubscribed, bounced or complained before. Invalid addresses,

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ArticleHelp from "@/components/ArticleHelp";
+import FigureHelp from "@/components/FigureHelp";
 import LinkApp from "@/components/LinkApp";
 import { getHelpHref, getHelpPageMetadata } from "@/lib/help";
 import { THEME_FONTS } from "@/lib/theme-fonts";
@@ -22,6 +23,11 @@ export default function DesignPage() {
 				There are {THEME_PRESETS.length}: {mailcheap.name}, the black and white look newsletters start with, then{" "}
 				{presets.map(({ name }) => name).join(", ")}.
 			</p>
+			<FigureHelp
+				src="/help/design/themes.webp"
+				alt="The Design page's themes, each showing the newsletter's website and an email in it, with MailCheap in use."
+				caption="Themes on the Design page"
+			/>
 
 			<h2 id="customize">Changing a theme</h2>
 			<p>Customize, on the theme you use, changes it with your website and an email shown as you go:</p>

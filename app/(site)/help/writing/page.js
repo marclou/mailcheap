@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ArticleHelp from "@/components/ArticleHelp";
+import FigureHelp from "@/components/FigureHelp";
 import LinkApp from "@/components/LinkApp";
 import { isCloud } from "@/lib/config";
 import { getHelpHref, getHelpPageMetadata } from "@/lib/help";
@@ -59,6 +60,11 @@ export default function WritingPage() {
 					list or <code>&gt;</code> for a quote.
 				</li>
 			</ul>
+			<FigureHelp
+				src="/help/writing/slash-menu.webp"
+				alt="The slash menu under a paragraph: text, three headings, bullets, numbers, a quote, a divider, an image, a button, a box and HTML, then a section and the contact fields, with Add a field."
+				caption="The slash menu"
+			/>
 
 			<h2 id="pictures">Pictures</h2>
 			<p>
@@ -71,6 +77,11 @@ export default function WritingPage() {
 				screen, tap the picture): place it on the left, in the center or on the right, add its alt text, or delete it. Emails and your
 				website keep it where you put it.
 			</p>
+			<FigureHelp
+				src="/help/writing/picture-toolbar.webp"
+				alt="A picture in the editor with its toolbar: align left, center and right, Alt and delete."
+				caption="A picture and its toolbar"
+			/>
 			<p>
 				Alt text describes the picture in a few words, for readers who can&apos;t see it, inboxes that block images and search
 				engines reading your website. Click Alt and type it: it saves as you type, and <kbd>Enter</kbd> closes it. The Alt button
@@ -86,6 +97,11 @@ export default function WritingPage() {
 				<Link href={getHelpHref("writing", "deleting-blocks")}>undo</Link>. Click its link, or press <kbd>⌘ K</kbd>, to change it.
 				Names and fields work in its text and its link.
 			</p>
+			<FigureHelp
+				src="/help/writing/button.webp"
+				alt="A button in the editor in the newsletter's green, its text written on it, with the bar above it that places it, shows its link and deletes it."
+				caption="A button and the bar above it"
+			/>
 			<p>
 				Buttons take your newsletter&apos;s <Link href={getHelpHref("design", "customize")}>theme</Link>: its accent color, with text
 				that reads on it, and its corners, in your emails and on your website. Change them in{" "}
@@ -100,6 +116,11 @@ export default function WritingPage() {
 				you&apos;re finished: the block then shows what readers get, in your newsletter&apos;s email design. Click it to change it
 				again, and <Link href={getHelpHref("writing", "preview")}>Preview</Link> shows it in the whole email.
 			</p>
+			<FigureHelp
+				src="/help/writing/html-block.webp"
+				alt="Two HTML blocks in the editor: a sponsor's card as readers get it, and a sign-off open with its code in color."
+				caption="Two HTML blocks, the second one open"
+			/>
 			<p>
 				To delete a block, click it, then the bin next to Done. It goes at once, and{" "}
 				<Link href={getHelpHref("writing", "deleting-blocks")}>Undo</Link> brings it back.
@@ -130,6 +151,11 @@ export default function WritingPage() {
 				<kbd>⌘ Shift ↓</kbd> (<kbd>Ctrl</kbd> instead of <kbd>⌘</kbd> on Windows) move the block the cursor is in. Moves undo like any
 				other change.
 			</p>
+			<FigureHelp
+				src="/help/writing/moving-blocks.webp"
+				alt="A paragraph dragged by its grip, with the line where it will land."
+				caption="Dragging a block by its grip"
+			/>
 
 			<h2 id="deleting-blocks">Deleting blocks</h2>
 			<p>
@@ -145,6 +171,11 @@ export default function WritingPage() {
 				that leaves a gap for readers without one, an HTML block whose tags don&apos;t match up, or text left from a template, like
 				Lorem ipsum. Red is something to fix before the issue can go out, like a button without its link.
 			</p>
+			<FigureHelp
+				src="/help/writing/problems.webp"
+				alt="A draft with amber and red dots beside its blocks, one saying its link goes to example.com, a placeholder address."
+				caption="Dots beside what may look broken"
+			/>
 			<p>
 				Point at a dot to read what&apos;s wrong, or click it to go there: the words in question are selected, a button opens its link
 				and an HTML block its HTML, with what&apos;s wrong under it. The{" "}
@@ -166,6 +197,11 @@ export default function WritingPage() {
 				You can also type them. After <kbd>{"{{"}</kbd>, the editor suggests the first name and your fields, narrowing them as you
 				type: press <kbd>Enter</kbd> or click one to finish its tag, or keep typing to ignore them. <kbd>Esc</kbd> hides them.
 			</p>
+			<FigureHelp
+				src="/help/writing/fields.webp"
+				alt="The editor suggesting the first name and the account's fields as a tag is typed: company, plan, points and birthday."
+				caption="Fields suggested as you type"
+			/>
 			<p>
 				Your own <Link href={getHelpHref("contacts", "fields")}>contact fields</Link> work the same way, by their key:{" "}
 				<code>{"{{birthday}}"}</code>, <code>{"{{plan|free}}"}</code>. The slash menu shows them after the first name, and typing a
@@ -214,6 +250,11 @@ export default function WritingPage() {
 				the opposite section right under it, for the readers this one leaves out, like a thank you for your VIPs and an invitation
 				for everyone else. Remove the section, keep its content puts its blocks back in the issue for everyone.
 			</p>
+			<FigureHelp
+				src="/help/writing/section.webp"
+				alt="A section in the editor with its settings open: only readers tagged member, in emails only, which 12 of the issue's 48 readers see."
+				caption="A section and who sees it"
+			/>
 			<p>
 				Each reader&apos;s sections are decided as their email goes out, with their tags and segments then. A section can hold{" "}
 				<Link href={getHelpHref("writing", "html")}>HTML blocks</Link> but not another section, and an HTML block&apos;s HTML
@@ -247,6 +288,11 @@ export default function WritingPage() {
 				has no tags and is in no segment. How to add names and fields to contacts, at the bottom of the list, opens{" "}
 				<Link href={getHelpHref("contacts", "fields")}>Adding fields, step by step</Link>.
 			</p>
+			<FigureHelp
+				src="/help/writing/preview.webp"
+				alt="The email preview as Lena gets an issue: her Pro plan, the 1,250 trees she planted and the day she joined, filled in from her fields."
+				caption="The preview as one of your contacts"
+			/>
 			<p>
 				Send a test email, in the same menu, sends the email as saved to your account&apos;s address, with [Test] before the subject,
 				and every section an email of it can have. Nobody else gets it.{isCloud() && " It counts toward your plan's emails."} The

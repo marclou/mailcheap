@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ArticleHelp from "@/components/ArticleHelp";
+import FigureHelp from "@/components/FigureHelp";
 import LinkApp from "@/components/LinkApp";
 import { FIRST_SEND, LIMITS, isCloud } from "@/lib/config";
 import { CLASSIFIER_CHECKS } from "@/lib/content-review-codes";
@@ -38,6 +39,11 @@ export default function SendingPage() {
 					<Link href={getHelpHref("sender-addresses", "dns-checks")}>When a record changes</Link>
 				</li>
 			</ul>
+			<FigureHelp
+				src="/help/sending/review.webp"
+				alt="The review step's checklist, every check passed, then sending a test email and the preview."
+				caption="The review step"
+			/>
 			<p>
 				It also warns about a subject over 70 characters, which inboxes cut off, a missing preview text and a missing test email,
 				and about what may look broken to your readers:
@@ -98,6 +104,11 @@ export default function SendingPage() {
 				never shows there, in its sitemap or in search engines, and its emails have no Read online link. Web only puts it on the
 				website without sending any email, so it uses none of your plan&apos;s emails, and its button says Publish now.
 			</p>
+			<FigureHelp
+				src="/help/sending/where.webp"
+				alt="The send step's Where it goes card, with Email and web, Email only and Web only."
+				caption="Email, web or both"
+			/>
 			<p>
 				Web only needs the website on. A web-only issue can be scheduled like any other
 				{isCloud() ? ", and the content check reads it before it goes live" : ""}. Its page counts views instead of opens and clicks.
@@ -110,6 +121,11 @@ export default function SendingPage() {
 				out of all of them. New segment makes one without leaving the step, like your most engaged contacts.{" "}
 				<Link href={getHelpHref("contacts", "segments")}>Segments</Link>
 			</p>
+			<FigureHelp
+				src="/help/sending/who.webp"
+				alt="The send step's To menu, with everyone and two segments to pick from."
+				caption="Picking who gets it"
+			/>
 			<p>
 				A draft whose segment was deleted waits until you pick another.
 				{isCloud() && " A send can't go over what your plan has left this month: pick a smaller segment, or upgrade."} Who gets
@@ -128,6 +144,11 @@ export default function SendingPage() {
 				itself, up to a year ahead; the checks and{isCloud() ? " your plan's limits" : " limits"} run when you schedule it and again
 				when it goes out. Unschedule turns it back into a draft.
 			</p>
+			<FigureHelp
+				src="/help/sending/schedule.webp"
+				alt="The send step's calendar and times under Schedule, starting at the time of the last issue."
+				caption="Scheduling an issue"
+			/>
 			{isCloud() && (
 				<p>
 					Most issues go out at once. From a new domain, Gmail&apos;s readers can get the issue the next day.{" "}
@@ -231,6 +252,11 @@ export default function SendingPage() {
 				Outlook, where you also see how many were marked as spam; and Website, for an issue on your website, its page&apos;s views
 				and its address, which you can change there.
 			</p>
+			<FigureHelp
+				src="/help/sending/report.webp"
+				alt="A sent issue's report: delivered, opened and clicked with their difference from the average, then opens and clicks hour by hour."
+				caption="A sent issue's report"
+			/>
 			<p>
 				Preview, in the <strong>⋯</strong> menu at the top of the page, shows the email as it went out, in a mail app or in Gmail
 				on a phone, as a sample reader or as one of your contacts.
@@ -259,6 +285,11 @@ export default function SendingPage() {
 				many contacts clicked it and its share. Point at one to outline its link. A link the email has twice shows its clicks on
 				both, counted together. Clicks, at its top, hides them.
 			</p>
+			<FigureHelp
+				src="/help/sending/click-map.webp"
+				alt="An issue in the click map, with how many contacts clicked each link and its share next to it."
+				caption="The click map"
+			/>
 			<p>
 				A web-only issue&apos;s page shows its views on the website instead, once per reader a day, and when it went live. Web-only
 				issues don&apos;t count in the comparison with your last issues.
@@ -272,6 +303,11 @@ export default function SendingPage() {
 				someone is there. People come in the order they joined your list, and each one opens their contact&apos;s page. An
 				unsubscribe counts for the latest issue they got, and a contact you deleted shows without their address.
 			</p>
+			<FigureHelp
+				src="/help/sending/recipients.webp"
+				alt="A sent issue's recipients under filters with their counts, each with what they did, when, and the links they clicked."
+				caption="Who opened and clicked"
+			/>
 			<p>
 				Opens there are an estimate too: Gmail and some other inboxes load an email&apos;s images as it arrives, so an open within
 				seconds of it reaching them can be their inbox rather than them. Link scanners&apos; visits don&apos;t count as clicks. The API

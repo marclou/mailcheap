@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ArticleHelp from "@/components/ArticleHelp";
+import FigureHelp from "@/components/FigureHelp";
 import LinkApp from "@/components/LinkApp";
 import { isCloud } from "@/lib/config";
 import { getHelpHref, getHelpPageMetadata } from "@/lib/help";
@@ -16,6 +17,11 @@ export default function NotificationsPage() {
 				Its red badge counts the new ones. Opening it marks what it shows as read, so the badge goes away, and the new ones stay
 				highlighted until you close it.
 			</p>
+			<FigureHelp
+				src="/help/notifications/bell.webp"
+				alt="The notifications open beside the sidebar's Notifications section: an import, a sent campaign and an issue under review marked new, above a paused campaign."
+				caption="Your notifications"
+			/>
 			<p>
 				Click one to open the page it&apos;s about: the campaign that paused or was sent, the{" "}
 				<LinkApp href="/contacts">Contacts page</LinkApp> of the newsletter an import went to, or the{" "}

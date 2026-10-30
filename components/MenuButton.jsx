@@ -19,7 +19,15 @@ export default function MenuButton({ editor, isEditingLink, onEditLink }) {
 	const menuRef = useRef(null);
 	const button = useEditorState({ editor, selector: ({ editor: current }) => readButton(current.state) });
 	const options = useMemo(
-		() => ({ placement: "top", offset: 8, flip: true, shift: { padding: 8 }, onHide: () => onEditLink(false) }),
+		() => ({
+			placement: "top",
+			offset: 8,
+			flip: true,
+			shift: { padding: 8 },
+			// A link field opened while the toolbar was hidden, as the review step's fix does, takes the focus once it shows.
+			onShow: () => focusField(menuRef.current?.querySelector("input")),
+			onHide: () => onEditLink(false),
+		}),
 		[onEditLink]
 	);
 	// Above the button itself, rather than the caret moving along its text.
@@ -90,10 +98,10 @@ export default function MenuButton({ editor, isEditingLink, onEditLink }) {
 				{isEditingLink ? (
 					<form onSubmit={applyLink} className="flex items-center gap-0.5">
 						<input
+							ref={focusField}
 							name="href"
 							type="text"
 							inputMode="url"
-							autoFocus
 							defaultValue={button?.href ?? ""}
 							placeholder="Paste a link"
 							aria-label="Button link"
@@ -166,6 +174,12 @@ function shouldShowMenu({ editor, element, view, state }) {
 // The editor's card clips its overflow, which would cut the toolbar off at the top of the content.
 function getBody() {
 	return document.body;
+}
+
+// Without scrolling: the toolbar shows where it last was, at first the end of the page, before it's placed above its
+// button, which is in view.
+function focusField(input) {
+	input?.focus({ preventScroll: true });
 }
 
 // A press on the toolbar leaves the focus in the button's text, so only the link field takes it.

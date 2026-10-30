@@ -4,83 +4,117 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import LinkHelpFields from "../components/LinkHelpFields.jsx";
 import MenuSlash, { getSlashItems } from "../components/MenuSlash.jsx";
-import { fitMenu, getSlashMenu, listSlashOptions } from "../lib/editor-slash-menu.js";
+import { SLASH_ADD_FIELD, fitMenu, getSlashMenu, listSlashOptions, moveInSlashMenu } from "../lib/editor-slash-menu.js";
 
-// The editor's slash menu (components/MenuSlash.jsx, lib/editor-slash-menu.js): the blocks first, the contact fields
-// behind one entry, a search that reaches both, how to add fields at the end of their list, and where the menu shows.
-// Its links into the help center: tests/help.test.mjs.
+// The editor's slash menu (components/MenuSlash.jsx, lib/editor-slash-menu.js): the blocks as tiles, then what's
+// personal to each reader, a section and the fields with a way to add one, all in view; the arrow keys through them,
+// a search that reaches all of it, and where the menu shows. Its links into the help center: tests/help.test.mjs.
 const FIELDS = [
 	{ key: "plan", label: "Plan", type: "text" },
 	{ key: "stripe_customer_id", label: "Stripe customer ID", type: "text" },
 	{ key: "campaign_channel", label: "Campaign channel", type: "text" },
 	{ key: "birthday", label: "Birthday", type: "date" },
 ];
-const BLOCKS = ["Text", "Heading 1", "Heading 2", "Heading 3", "Bulleted list", "Numbered list", "Image", "Quote", "Divider", "Box", "Button", "HTML", "Section"];
+// Four tiles a row.
+const BLOCKS = ["Text", "Heading 1", "Heading 2", "Heading 3", "Bulleted list", "Numbered list", "Quote", "Divider", "Image", "Button", "Box", "HTML"];
+const ADD = SLASH_ADD_FIELD.id;
 
-// What the arrows go through, in order: items by title, the menu's own rows by id (the entry to the fields, back from
-// them, and how to add them).
-function rows(query, { view = "blocks", fields = FIELDS } = {}) {
-	return listSlashOptions(getSlashMenu(getSlashItems(fields), { query, view })).map((option) => (option.run ? option.title : option.id));
+// What the arrows go through, in order: items by title, Add a field by its id.
+function rows(query, { fields = FIELDS, inSection = false } = {}) {
+	return listSlashOptions(menuFor(query, { fields, inSection })).map((option) => (option.isAddField ? option.id : option.title));
+}
+
+function menuFor(query, { fields = FIELDS, inSection = false } = {}) {
+	const items = getSlashItems(fields).filter((item) => !inSection || !item.isSection);
+	return getSlashMenu(items, { query });
 }
 
 function render(query, fields = FIELDS) {
 	return renderToStaticMarkup(createElement(MenuSlash, { items: getSlashItems(fields), query, command: () => {} }));
 }
 
-test("the blocks come first, and the contact fields wait behind one entry under them", () => {
-	assert.deepEqual(rows(""), [...BLOCKS, "fields"]);
-	assert.deepEqual(rows("", { fields: [] }), [...BLOCKS, "fields"], "the first name is behind it too");
+test("all in view: the blocks as tiles, then a section, the first name and the fields, and a way to add one", () => {
+	assert.deepEqual(rows(""), [...BLOCKS, "Section", "First name", "Plan", "Stripe customer ID", "Campaign channel", "Birthday", ADD]);
+	assert.deepEqual(rows("", { fields: [] }), [...BLOCKS, "Section", "First name", ADD], "without fields of the account's own");
+	assert.deepEqual(rows("", { inSection: true }), [...BLOCKS, "First name", "Plan", "Stripe customer ID", "Campaign channel", "Birthday", ADD], "no section in a section");
+
 	const html = render("");
-	assert.match(html, />Contact fields<\/span><span[^>]*>Filled in for each reader</);
-	assert.ok(html.indexOf(">Box<") < html.indexOf(">Contact fields<"));
-	for (const title of ["First name", "Plan", "Stripe customer ID", "Campaign channel", "Birthday"]) assert.ok(!html.includes(`>${title}<`), title);
+	assert.match(html, /aria-label="Bulleted list"[^>]*>.*?>Bullets<\/span>/, "a tile has a shorter name, and its whole one for screen readers");
+	assert.ok(html.indexOf(">HTML<") < html.indexOf(">Personalize<"));
+	assert.match(html, />Section<\/span><span[^>]*>Only some readers see it</);
+	assert.match(html, /title="\{\{plan\}\}"[^>]*>Plan<\/button>/, "a field is a pill with its tag");
+	assert.ok(html.indexOf(">Birthday<") < html.indexOf("Add a field"));
+	assert.doesNotMatch(html, /How to add names and fields|Each reader gets/, "the fields' dialog says how they work");
 });
 
-test("inside the entry: back, the first name, each field, then how to add them", () => {
-	assert.deepEqual(rows("", { view: "fields" }), ["back", "First name", "Plan", "Stripe customer ID", "Campaign channel", "Birthday", "help"]);
-	assert.deepEqual(rows("", { view: "fields", fields: [] }), ["back", "First name", "help"], "without fields of the account's own");
-	assert.deepEqual(rows("bir", { view: "fields" }), ["back", "Birthday", "help"], "typing narrows the fields");
-	assert.deepEqual(rows("pl", { view: "fields" }), ["back", "Plan", "help"], "and leaves the blocks out");
-	assert.deepEqual(rows("zzz", { view: "fields" }), ["back", "help"], "nothing found keeps the way back");
-	const menu = getSlashMenu(getSlashItems(FIELDS), { view: "fields" });
-	assert.equal(menu.header.id, "back");
-	assert.equal(menu.footer.id, "help");
+test("the arrow keys go across the tiles and on to the next row, and down by rows to the section and the fields", () => {
+	const menu = menuFor("");
+	const last = listSlashOptions(menu).length - 1;
+	const go = (index, ...keys) => keys.reduce((at, key) => moveInSlashMenu(menu, at, key), index);
+	assert.equal(go(0, "ArrowRight"), 1);
+	assert.equal(go(3, "ArrowRight"), 4, "from the end of a row to the start of the next");
+	assert.equal(go(0, "ArrowLeft"), last, "round to Add a field");
+	assert.equal(go(0, "ArrowDown", "ArrowDown"), 8);
+	assert.equal(go(8, "ArrowDown"), 12, "from the last row to the section");
+	assert.equal(go(10, "ArrowDown"), 12, "from any tile of it");
+	assert.equal(go(12, "ArrowDown"), 13, "then the first name");
+	assert.equal(go(13, "ArrowDown"), 0, "and back to the top");
+	assert.equal(go(12, "ArrowUp"), 8);
+	assert.equal(go(15, "ArrowUp"), 12, "from a field to the section");
+	assert.equal(go(1, "ArrowUp"), last, "up from the top to the fields");
+	assert.equal(go(13, "ArrowRight", "ArrowRight"), 15, "across the fields");
+	assert.equal(moveInSlashMenu(menu, 0, "Enter"), null, "only the arrows");
+
+	const inSection = menuFor("", { inSection: true });
+	assert.equal(moveInSlashMenu(inSection, 9, "ArrowDown"), 12, "without a section, down to the fields");
+	assert.equal(moveInSlashMenu(inSection, 12, "ArrowUp"), 8);
+
+	const found = menuFor("pl");
+	assert.equal(moveInSlashMenu(found, 0, "ArrowDown"), 1);
+	assert.equal(moveInSlashMenu(found, 1, "ArrowDown"), 0);
+	assert.equal(moveInSlashMenu(found, 0, "ArrowRight"), null, "a search's list leaves ← and → to the caret");
 });
 
-test("what's typed after the slash finds fields by name or key, in a group of their own under the blocks", () => {
+test("what's typed after the slash finds blocks and what's personal to each reader, a group each", () => {
 	assert.deepEqual(rows("pl"), ["Image", "Plan"], "Image's keywords have upload");
 	assert.deepEqual(rows("plan"), ["Plan"]);
 	assert.deepEqual(rows("PLAN"), ["Plan"]);
 	assert.deepEqual(rows("stripe"), ["Stripe customer ID"]);
 	assert.deepEqual(rows("campaign_ch"), ["Campaign channel"], "by key");
 	assert.deepEqual(rows("first"), ["First name"]);
-	assert.deepEqual(rows("field"), ["First name", "Plan", "Stripe customer ID", "Campaign channel", "Birthday"]);
+	assert.deepEqual(rows("field"), ["First name", "Plan", "Stripe customer ID", "Campaign channel", "Birthday", ADD]);
+	assert.deepEqual(rows("add"), [ADD]);
+	assert.deepEqual(rows("some readers"), ["Section"]);
+	assert.deepEqual(rows("some readers", { inSection: true }), []);
 	assert.deepEqual(rows("quote"), ["Quote"]);
 	assert.deepEqual(rows("zzz"), []);
 
-	const { groups, footer } = getSlashMenu(getSlashItems(FIELDS), { query: "pl" });
+	const { groups } = menuFor("pl");
 	assert.deepEqual(
 		groups.map(({ label, items }) => [label, items.map(({ title }) => title)]),
 		[
-			[undefined, ["Image"]],
-			["Contact fields", ["Plan"]],
+			["Blocks", ["Image"]],
+			["Personalize", ["Plan"]],
 		]
 	);
-	assert.equal(footer, null, "a search shows the fields themselves, not the entry");
 
 	const html = render("pl");
-	assert.match(html, /role="group" aria-labelledby="([^"]+)"><p id="\1"[^>]*>Contact fields<\/p>/);
-	assert.ok(html.indexOf(">Image<") < html.indexOf(">Contact fields<"));
-	assert.ok(html.indexOf(">Contact fields<") < html.indexOf(">Plan<"));
+	assert.match(html, /role="group" aria-labelledby="([^"]+)"><p id="\1"[^>]*>Personalize<\/p>/);
+	assert.ok(html.indexOf(">Blocks<") < html.indexOf(">Image<"));
+	assert.ok(html.indexOf(">Image<") < html.indexOf(">Personalize<"));
+	assert.match(html, />Plan<\/span><span[^>]*>plan<\/span>/, "a field with its key");
 	assert.equal(render("zzz"), "", "nothing found, no menu");
 });
 
-test("a field inserts its tag, and the first name its tag with a fallback", () => {
+test("a field inserts its tag, the first name its tag with a fallback, and Add a field only takes the slash's place", () => {
 	const items = getSlashItems(FIELDS);
 	const insert = (title) => items.find((item) => item.title === title).run({ insertContent: (content) => content });
 	assert.equal(insert("Plan"), "{{plan}}");
 	assert.equal(insert("Stripe customer ID"), "{{stripe_customer_id}}");
 	assert.equal(insert("First name"), "{{first_name|there}}");
+	const chain = {};
+	assert.equal(SLASH_ADD_FIELD.run(chain), chain);
+	assert.equal(SLASH_ADD_FIELD.isAddField, true);
 });
 
 test("how to add names and fields opens the contacts article's steps in a new tab", () => {

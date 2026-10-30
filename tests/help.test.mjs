@@ -68,8 +68,10 @@ test("every link into the help center opens one of its articles, at a section th
 });
 
 test("every list of the contact fields, and the dialog that makes them, links to how to add them", async () => {
-	const lists = ["components/MenuSlash.jsx", "components/FormCampaign.jsx", "components/PickerReader.jsx", "components/DialogContactFields.jsx"];
+	const lists = ["components/FormCampaign.jsx", "components/PickerReader.jsx", "components/DialogContactFields.jsx"];
 	for (const file of lists) assert.match(await readSource(file), /<LinkHelpFields\b/, file);
+	assert.match(await readSource("components/MenuSlash.jsx"), /<ChipAddField\b/, "the slash menu's end on Add a field");
+	assert.match(await readSource("components/EditorRich.jsx"), /<DialogContactFields\b/, "which opens the dialog");
 	const dialog = await readSource("components/DialogContactFields.jsx");
 	assert.match(dialog, /between\s+double\s+braces/, "the dialog says how an email prints a field");
 	assert.match(dialog, /<ButtonMergeTag tag=\{fieldTag\(field\.key\)\}/, "and shows each field's own, to copy");

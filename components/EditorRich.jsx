@@ -7,12 +7,14 @@ import { Placeholder } from "@tiptap/extensions";
 import StarterKit from "@tiptap/starter-kit";
 import { HtmlBlock, editHtmlBlock } from "@/components/BlockHtml";
 import { Section, SectionsContext } from "@/components/BlockSection";
+import DialogContactFields from "@/components/DialogContactFields";
 import DialogImagePicker from "@/components/DialogImagePicker";
 import GutterProblems from "@/components/GutterProblems";
 import MenuButton from "@/components/MenuButton";
 import MenuFormat from "@/components/MenuFormat";
 import MenuImage from "@/components/MenuImage";
 import { MergeTagSuggestion, SlashCommand } from "@/components/MenuSlash";
+import ProviderContactOptions from "@/components/ProviderContactOptions";
 import TooltipMergeTag from "@/components/TooltipMergeTag";
 import { isButtonLink } from "@/lib/buttons";
 import { BlockHandle } from "@/lib/editor-block-handle";
@@ -20,25 +22,40 @@ import { ButtonBlock, findButton } from "@/lib/editor-button";
 import { Callout } from "@/lib/editor-callout";
 import { findWords } from "@/lib/editor-find";
 import { ImageAligned } from "@/lib/editor-image";
-import { MergeTags } from "@/lib/editor-merge-tags";
+import { MergeTags, setEditorFields } from "@/lib/editor-merge-tags";
 import { Problems, findDocProblems, findProblem, revealProblem, setProblemSegments } from "@/lib/editor-problems";
 import { UndoDelete } from "@/lib/editor-undo-delete";
+import { fieldTag } from "@/lib/merge-tags";
 import { toast } from "@/lib/toast";
 import { IMAGE_TYPES, IMAGE_TYPE_ERROR, getDisplaySize, prepareImage, uploadImage } from "@/lib/upload-image";
 import { useFileDropGuard } from "@/lib/use-file-drop";
 
 const MIN_HEIGHT = "min-h-[560px]";
+const NO_FIELDS = [];
+const NO_TAGS = [];
 
-// contactFields: the account's fields, whose tags the editor draws as placeholders and its slash menu inserts.
+// contactFields: the account's fields, whose tags the editor draws as placeholders and its slash menu inserts. Add a
+// field, in the slash menu, opens them to add one, which goes where the slash was: onContactFieldsChange(fields) gives
+// them back as they are after one is added or deleted there.
 // newsletter: whose email design HTML blocks preview in, and whose button colors and corners buttons show.
 // ref: reveal({ id, message, words }), which goes to a review step's warning or check (lib/campaign-steps.js), else to
 // the first place the issue has the words, and says whether it found it. gutterRef: the positioned element around the
 // editor's card, whose problems' dots sit beside it in the page's margin (components/GutterProblems.jsx). sections: what
 // the issue's sections pick from (components/BlockSection.jsx), its segments a section without one is marked by.
-export default function EditorRich({ ref, gutterRef, content, onChange, contactFields = [], newsletter = null, sections = null }) {
+export default function EditorRich({
+	ref,
+	gutterRef,
+	content,
+	onChange,
+	contactFields = NO_FIELDS,
+	onContactFieldsChange = () => {},
+	newsletter = null,
+	sections = null,
+}) {
 	const [isEditingLink, setIsEditingLink] = useState(false);
 	const [isEditingButtonLink, setIsEditingButtonLink] = useState(false);
 	const [isPickingImage, setIsPickingImage] = useState(false);
+	const [isAddingField, setIsAddingField] = useState(false);
 	// The block whose dot says what it's about, once brought into view.
 	const [pinned, setPinned] = useState(null);
 	const unpin = useCallback(() => setPinned(null), []);
@@ -80,7 +97,7 @@ export default function EditorRich({ ref, gutterRef, content, onChange, contactF
 				onDrop: (current, files, position) => insertImages(current, files, position),
 				onPaste: (current, files) => insertImages(current, files),
 			}),
-			SlashCommand.configure({ onPickImage: () => setIsPickingImage(true), contactFields }),
+			SlashCommand.configure({ onPickImage: () => setIsPickingImage(true), onAddField: () => setIsAddingField(true), contactFields }),
 			MergeTagSuggestion.configure({ contactFields }),
 		],
 		editorProps: {
@@ -129,6 +146,10 @@ export default function EditorRich({ ref, gutterRef, content, onChange, contactF
 		if (editor && !editor.isDestroyed) setProblemSegments(editor, segmentIds);
 	}, [editor, segmentIds]);
 
+	useEffect(() => {
+		if (editor && !editor.isDestroyed) setEditorFields(editor, contactFields);
+	}, [editor, contactFields]);
+
 	if (!editor) return <div className={MIN_HEIGHT} />;
 
 	return (
@@ -150,6 +171,22 @@ export default function EditorRich({ ref, gutterRef, content, onChange, contactF
 				onOpenChange={setIsPickingImage}
 				onSelect={(image) => insertImage(editor, image)}
 			/>
+			<ProviderContactOptions fields={contactFields} tags={NO_TAGS}>
+				<DialogContactFields
+					isOpen={isAddingField}
+					onOpenChange={setIsAddingField}
+					onAdded={(field) => {
+						setIsAddingField(false);
+						onContactFieldsChange([...contactFields, field]);
+						editor.chain().focus().insertContent(fieldTag(field.key)).run();
+					}}
+					onDeleted={(key) => onContactFieldsChange(contactFields.filter((field) => field.key !== key))}
+					onCloseAutoFocus={(event) => {
+						event.preventDefault();
+						editor.commands.focus();
+					}}
+				/>
+			</ProviderContactOptions>
 		</SectionsContext>
 	);
 }

@@ -186,7 +186,8 @@ export default function ContactsPage() {
 					contact&apos;s page, Add a field opens the same list, under their fields or in Edit fields. Type a name, like Birthday,
 					pick its type (text, a number or a date) and click the plus. Its key, like <code>birthday</code>, is
 					what imports, segments and the API call it, and between double braces, like <code>{"{{birthday}}"}</code> next to it,
-					it prints each reader&apos;s own value in your emails: click it to copy it. An import can make fields for you too, as
+					it prints each reader&apos;s own value in your emails: click it to copy it. While writing an issue, type <kbd>/</kbd>{" "}
+					and pick Add a field to make one there, which goes where you typed the slash. An import can make fields for you too, as
 					below.
 				</li>
 				<li>
@@ -218,7 +219,7 @@ export default function ContactsPage() {
 					</ul>
 				</li>
 				<li>
-					<strong>Use them in your emails.</strong> In an issue, type <kbd>/</kbd> and pick a field under Contact fields, or click the
+					<strong>Use them in your emails.</strong> In an issue, type <kbd>/</kbd> and pick a field under Personalize, or click the
 					person icon at the end of the subject, to add its tag, like <code>{"{{birthday}}"}</code>. Each reader gets their own
 					value, and a fallback after a bar, like <code>{"{{plan|free}}"}</code>, shows for readers without one. Pick a contact in
 					the preview to see the email with their values. <Link href={getHelpHref("writing", "first-name")}>Names and fields in your emails</Link>

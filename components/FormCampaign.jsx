@@ -68,6 +68,7 @@ import { useAutosave } from "@/lib/use-autosave";
 import { cn } from "@/lib/utils";
 
 const UPLOADING_MESSAGE = "Wait for images to finish uploading";
+const NO_FIELDS = [];
 const SUBJECT_MAX = 200;
 // Below lg, as the step bar's classes.
 const COMPACT_SCREEN = "(width < 64rem)";
@@ -78,7 +79,7 @@ export default function FormCampaign({
 	audienceCount,
 	everyoneCount,
 	segments,
-	contactFields = [],
+	contactFields: savedFields = NO_FIELDS,
 	isSegmentDeleted,
 	senderProblem,
 	isSharedSender = false,
@@ -95,6 +96,9 @@ export default function FormCampaign({
 	tips: storedTips = [],
 }) {
 	const isHtml = campaign.format === "html";
+	// The account's fields as the page got them, or as the editor left them once one was added or deleted there.
+	const [editedFields, setEditedFields] = useState(null);
+	const contactFields = editedFields ?? savedFields;
 	const [step, setStep] = useState("write");
 	const [isDiscardOpen, setIsDiscardOpen] = useState(false);
 	const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -481,6 +485,7 @@ export default function FormCampaign({
 								content={initialBody}
 								onChange={updateBody}
 								contactFields={contactFields}
+								onContactFieldsChange={setEditedFields}
 								newsletter={newsletter}
 								sections={sections.context}
 							/>

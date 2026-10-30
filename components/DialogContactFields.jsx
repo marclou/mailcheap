@@ -15,8 +15,9 @@ import { SAMPLE_FIRST_NAME, fieldTag, firstNameTag } from "@/lib/merge-tags";
 import { toast } from "@/lib/toast";
 
 // The account's own contact fields, shared by its newsletters: add one, or delete one (contacts keep their values).
-// onCloseAutoFocus: where the focus goes back, as what opened it is outside the dialog.
-export default function DialogContactFields({ isOpen, onOpenChange, onCloseAutoFocus }) {
+// onCloseAutoFocus: where the focus goes back, as what opened it is outside the dialog. onAdded(field) and
+// onDeleted(key): after one is added or deleted, for the editor, which puts one added where its slash was.
+export default function DialogContactFields({ isOpen, onOpenChange, onCloseAutoFocus, onAdded, onDeleted }) {
 	const { fields } = useContactOptions();
 
 	return (
@@ -34,24 +35,27 @@ export default function DialogContactFields({ isOpen, onOpenChange, onCloseAutoF
 						<span className="text-xs text-muted-foreground">{SAMPLE_FIRST_NAME} gets</span>
 						<span className="truncate">Hi {SAMPLE_FIRST_NAME},</span>
 					</div>
+					<p className="text-sm text-pretty text-muted-foreground">
+						Fill them in on a contact&apos;s page, from a CSV import or through the API.
+					</p>
 					<LinkHelpFields className="self-start text-sm" />
 				</DialogHeader>
 
 				{fields.length > 0 && (
 					<ul className="flex flex-col divide-y divide-border/60 rounded-xl shadow-border">
 						{fields.map((field) => (
-							<RowField key={field.key} field={field} />
+							<RowField key={field.key} field={field} onDeleted={onDeleted} />
 						))}
 					</ul>
 				)}
 
-				{fields.length < MAX_CONTACT_FIELDS && <FormAddField />}
+				{fields.length < MAX_CONTACT_FIELDS && <FormAddField onAdded={onAdded} />}
 			</DialogContent>
 		</Dialog>
 	);
 }
 
-function RowField({ field }) {
+function RowField({ field, onDeleted }) {
 	const [isConfirming, setIsConfirming] = useState(false);
 	const [isDeleting, startDeleting] = useTransition();
 
@@ -60,6 +64,7 @@ function RowField({ field }) {
 		startDeleting(async () => {
 			const result = await deleteContactField(field.key);
 			if (result?.error) toast.error(result.error);
+			else onDeleted?.(field.key);
 			setIsConfirming(false);
 		});
 	}
@@ -87,7 +92,7 @@ function RowField({ field }) {
 	);
 }
 
-function FormAddField() {
+function FormAddField({ onAdded }) {
 	const [label, setLabel] = useState("");
 	const [type, setType] = useState("text");
 	const [isAdding, startAdding] = useTransition();
@@ -98,12 +103,14 @@ function FormAddField() {
 			const result = await createContactField({ label, type });
 			if (result?.error) return void toast.error(result.error);
 			setLabel("");
+			onAdded?.(result.field);
 		});
 	}
 
 	return (
 		<form onSubmit={add} className="flex gap-2">
 			<Input
+				autoFocus
 				value={label}
 				onChange={(event) => setLabel(event.target.value)}
 				placeholder="New field, e.g. Company"

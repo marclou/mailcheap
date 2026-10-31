@@ -14,7 +14,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { firstNameTag } from "@/lib/merge-tags";
 import { getSectionPath } from "@/lib/newsletter-sections";
-import { SIGNUP_FORM_DEFAULTS, SIGNUP_FORM_LIMITS, getEmbedCode, getSignupFormHeading, toSignupFormSettings } from "@/lib/signup-form";
+import {
+	SIGNUP_FORM_DEFAULTS,
+	SIGNUP_FORM_LIMITS,
+	getAgentPrompt,
+	getEmbedCode,
+	getSignupFormHeading,
+	toSignupFormSettings,
+} from "@/lib/signup-form";
 import { renderFormPage } from "@/lib/signup-form-page";
 import { toast } from "@/lib/toast";
 import { useIsClient } from "@/lib/use-is-client";
@@ -33,6 +40,7 @@ export default function FormEmbed({ newsletter, appUrl, hasBotCheck = true }) {
 	const [isSaving, startSaving] = useTransition();
 	const settings = toSignupFormSettings(toInput(draft, newsletter));
 	const code = getEmbedCode({ appUrl, newsletterId: newsletter._id, settings, theme: newsletter.theme, newsletter });
+	const prompt = getAgentPrompt({ appUrl, newsletterId: newsletter._id, newsletter, settings, code, isOn: saved.enabled, hasPlan });
 
 	function set(key, value) {
 		setDraft((current) => ({ ...current, [key]: value }));
@@ -146,7 +154,7 @@ export default function FormEmbed({ newsletter, appUrl, hasBotCheck = true }) {
 				</Field>
 			</Section>
 			<Section title="Code to paste" stagger={3}>
-				<CodeSignupForm code={code} />
+				<CodeSignupForm code={code} prompt={prompt} />
 			</Section>
 			<Section title="Where it works" stagger={4}>
 				<Field
@@ -229,11 +237,15 @@ function PreviewSignupForm({ newsletter, settings }) {
 	);
 }
 
-function CodeSignupForm({ code }) {
+// The prompt comes first: people build their sites with AI agents, which pick the code that fits.
+function CodeSignupForm({ code, prompt }) {
 	return (
-		<Tabs defaultValue="script" className="gap-3 p-4">
+		<Tabs defaultValue="agent" className="gap-3 p-4">
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<TabsList>
+					<TabsTrigger value="agent" className="px-3">
+						AI agent
+					</TabsTrigger>
 					<TabsTrigger value="script" className="px-3">
 						Script
 					</TabsTrigger>
@@ -245,6 +257,13 @@ function CodeSignupForm({ code }) {
 					Where to paste it
 				</LinkHelp>
 			</div>
+			<TabsContent value="agent" className="flex flex-col gap-2">
+				<BlockCode title="Prompt" code={prompt} isWrapped />
+				<p className="text-xs text-pretty text-muted-foreground">
+					For the AI agent that builds your site, like Cursor, Claude Code, Codex or Lovable: it picks the code that fits your site,
+					adds the form, then tells you what&apos;s left to do here.
+				</p>
+			</TabsContent>
 			<TabsContent value="script" className="flex flex-col gap-2">
 				<BlockCode title="Script" code={code.script} />
 				<p className="text-xs text-pretty text-muted-foreground">

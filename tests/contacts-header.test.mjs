@@ -3,75 +3,74 @@ import { readFile } from "node:fs/promises";
 import { after, before, describe, test } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { LIST_STARTED_AT, SEGMENTS_FROM, getContactsHeader } from "../lib/contacts-header.js";
+import { FORM_SECTION, getSectionPath } from "../lib/newsletter-sections.js";
 import { as, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
 
-// The actions at the top of the Contacts page follow how far along the newsletter's list is (lib/contacts-header.js):
-// the stages, the page that counts the list for them, and the help center that says where each action is.
-const ONE = { buttons: ["fields", "add", "import"], menu: ["add", "fields", "export", "help"] };
-const TWO = { buttons: ["segments", "fields", "add", "import"], menu: ["add", "segments", "fields", "export", "help"] };
-const LIST = { buttons: ["segments", "fields", "import"], menu: ["add", "segments", "fields", "export", "help"] };
+// The actions at the top of the Contacts page are the same whatever the list holds (components/ButtonsContacts.jsx):
+// Segments and Fields, to show what a list can do before it has anyone, Add contacts, with every way to add them
+// (components/DialogAddContacts.jsx), and a ⋯ menu with the export and the help article. The menu and the window only
+// render once opened, so their source says what they have.
+const HEADER = ["Segments", "Fields", "Add contacts", "More"];
 
-test("an empty list has Import and a ⋯ menu with the ways to add contacts and the fields, as there's nothing to export", () => {
-	assert.deepEqual(getContactsHeader(0), { buttons: ["import"], menu: ["add", "fields", "help"] });
-});
+function readSource(path) {
+	return readFile(new URL(`../${path}`, import.meta.url), "utf8");
+}
 
-test("one or two contacts make Fields and Add contact buttons, and put Export in the menu", () => {
-	assert.deepEqual(getContactsHeader(1), ONE);
-	assert.deepEqual(getContactsHeader(2), TWO);
-});
-
-test("from 2 contacts, segments have people to tell apart: Segments is a button, in the menu on phones", () => {
-	assert.equal(SEGMENTS_FROM, 2);
-	for (const count of [0, 1]) assert.ok(!getContactsHeader(count).buttons.includes("segments"), `${count}`);
-	for (const count of [2, 3, 20]) {
-		const { buttons, menu } = getContactsHeader(count);
-		assert.equal(buttons[0], "segments", `${count}`);
-		assert.ok(menu.includes("segments"), `${count}`);
-	}
-});
-
-test("from 3 contacts, the list came from an import or signups, and adding one by hand is only in the menu", () => {
-	assert.equal(LIST_STARTED_AT, 3);
-	assert.deepEqual(getContactsHeader(3), LIST);
-	assert.deepEqual(getContactsHeader(20), LIST);
-	assert.deepEqual(getContactsHeader(50_000), LIST);
-});
-
-test("at every stage, Import is a button, and the menu starts on the ways to add contacts and ends on the help article", () => {
-	for (const count of [0, 1, 2, 3, 20]) {
-		const { buttons, menu } = getContactsHeader(count);
-		assert.ok(buttons.includes("import"), `${count}`);
-		assert.equal(menu[0], "add", `${count}`);
-		assert.equal(menu.at(-1), "help", `${count}`);
-		assert.ok(menu.includes("fields"), `${count}: Fields is in the menu, on phones at least`);
-		assert.equal(buttons.includes("add"), count > 0 && count < LIST_STARTED_AT, `${count}: Add contact is a button while the list starts`);
-		assert.equal(menu.includes("export"), count > 0, `${count}`);
-	}
-});
-
-// The menu only renders once opened, so its source says what it has.
-test("Add contacts, at the top of the menu, has every way: the form for the owner's site, an import, the API, then by hand", async () => {
-	const source = await readFile(new URL("../components/ButtonsContacts.jsx", import.meta.url), "utf8");
-	const menu = source.match(/<DropdownMenuContent\b[\s\S]*?<\/DropdownMenuContent>/)?.[0] ?? "";
-	const group = menu.match(/<DropdownMenuGroup aria-labelledby=\{addLabelId\}>([\s\S]*?)<\/DropdownMenuGroup>/)?.[1] ?? "";
-	assert.ok(menu.indexOf(group) < menu.indexOf("<DropdownMenuItem asChild className"), "before the other actions");
-	assert.match(group, /^\s*<DropdownMenuLabel id=\{addLabelId\}>Add contacts<\/DropdownMenuLabel>/);
-	const ways = [...group.matchAll(/<DropdownMenuItem\b((?:[^>{}]|\{[^{}]*\})*)>([\s\S]*?)<\/DropdownMenuItem>/g)].map(([, attributes, inner]) => ({
+// Each JSX element's attributes and what it wraps, with the text left once tags are taken out.
+function readElements(source, name) {
+	return [...source.matchAll(new RegExp(`<${name}\\b((?:[^>{}]|\\{[^{}]*\\})*)>([\\s\\S]*?)</${name}>`, "g"))].map(([, attributes, inner]) => ({
 		attributes,
-		inner,
-		label: inner.replace(/<[^>]+>/g, "").trim(),
+		label: inner.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+	}));
+}
+
+test("Add contacts has every way, in order: an import, the API, the form for the owner's site, then by hand", async () => {
+	const source = await readSource("components/DialogAddContacts.jsx");
+	const ways = readElements(source, "TileWay").map(({ attributes }) => ({
+		title: attributes.match(/title=(?:"([^"]+)"|\{([^{}]+)\})/).slice(1).find(Boolean),
+		description: attributes.match(/description="([^"]+)"/)?.[1],
+		action: attributes.match(/(?:onPick=\{\(\) => pick\("(\w+)"\)\}|href=\{([^{}]+)\})/).slice(1).find(Boolean),
 	}));
 	assert.deepEqual(
-		ways.map(({ label }) => label),
-		["{FORM_SECTION.label}", "Import a CSV", "With the API", "By hand"]
+		ways.map(({ title, action }) => [title, action]),
+		[
+			["Import a CSV", "import"],
+			["With the API", "api"],
+			["FORM_SECTION.label", "getSectionPath(FORM_SECTION.id)"],
+			["By hand", "add"],
+		]
 	);
-	assert.match(ways[0].inner, /<Link href=\{getSectionPath\(FORM_SECTION\.id\)\}>/, "the form opens its settings");
-	assert.match(ways[1].attributes, /onSelect=\{openImport\}/, "the import opens its dialog, or the paywall without a plan");
-	assert.match(ways[2].attributes, /openFromMenu\("api"\)/);
-	assert.match(ways[3].attributes, /openFromMenu\("add"\)/);
-	for (const { label, attributes } of ways) assert.match(attributes, /disabled=\{!newsletter\}/, `${label}, without a newsletter to add to`);
-	assert.match(source, /function openImport\(\) \{\s*if \(paywall && !paywall\.hasPlan\) return void paywall\.open\("import"\);/);
+	for (const { title, description } of ways) assert.ok(description, `${title} says what it's for`);
+	assert.equal(FORM_SECTION.label, "Form for your site");
+	assert.equal(getSectionPath(FORM_SECTION.id), "/newsletters/form", "the form opens its settings");
+	assert.match(source, /function pick\(name\) \{[^}]*if \(name === "import" && paywall && !paywall\.hasPlan\) paywall\.open\("import"\);\s*else setWay\(name\);/);
+
+	// Each way opens its own window, which gives the focus back to Add contacts.
+	const windows = { DialogImportContacts: "import", DialogContactsApi: "api", DialogAddContact: "add" };
+	for (const [name, way] of Object.entries(windows)) {
+		const [, attributes] = source.match(new RegExp(`<${name}\\b((?:[^>{}]|\\{[^{}]*\\})*)/>`)) ?? [];
+		assert.ok(attributes, name);
+		assert.match(attributes, new RegExp(`isOpen=\\{way === "${way}"\\}`), name);
+		assert.match(attributes, /onCloseAutoFocus=\{returnFocus\}/, name);
+	}
+	assert.match(source, /<DialogTrigger ref=\{triggerRef\} asChild>/);
+	assert.match(source, /function returnFocus\(event\) \{\s*event\.preventDefault\(\);\s*triggerRef\.current\?\.focus\(\);/);
+});
+
+test("the ⋯ menu holds the export, Delete once filters narrow the list, and the help article, plus Segments and Fields on phones", async () => {
+	const source = await readSource("components/ButtonsContacts.jsx");
+	const menu = source.match(/<DropdownMenuContent\b[\s\S]*?<\/DropdownMenuContent>/)?.[0] ?? "";
+	const items = readElements(menu, "DropdownMenuItem");
+	assert.deepEqual(
+		items.map(({ label }) => label),
+		["Segments", "Contact fields", 'Export {formatCount(count, "contact")}', 'Delete {formatCount(count, "contact")}', "How contacts work"]
+	);
+	for (const item of items.slice(0, 2)) assert.match(item.attributes, /className="sm:hidden"/, `${item.label}: a button on wider screens`);
+	assert.match(menu, /\{hasContacts && \(\s*<DropdownMenuItem onSelect=\{download\}/, "Export, once the list has anyone");
+	assert.match(menu, /\{canDelete && \(/);
+	assert.match(source, /const canDelete = hasContactFilters\(filters\) && count > 0;/);
+	assert.match(menu, /<DropdownMenuSeparator className=\{cn\(!hasContacts && "sm:hidden"\)\} \/>/, "no line on top of the help article alone");
+	assert.doesNotMatch(menu, /Add contacts|Import|With the API|By hand|FORM_SECTION/, "adding contacts is Add contacts' own");
 });
 
 describe("the Contacts page", () => {
@@ -86,6 +85,8 @@ describe("the Contacts page", () => {
 			newsletters: await import("../app/(app)/newsletters/actions.js"),
 			contactsPage: await import("../app/(app)/contacts/page.js"),
 			helpPage: await import("../app/(site)/help/contacts/page.js"),
+			importingPage: await import("../app/(site)/help/importing-contacts/page.js"),
+			websitePage: await import("../app/(site)/help/website/page.js"),
 			Contact: (await import("../models/Contact.js")).default,
 			TooltipProvider: (await import("../components/ui/tooltip.jsx")).TooltipProvider,
 		};
@@ -103,10 +104,13 @@ describe("the Contacts page", () => {
 		return renderToStaticMarkup(createElement(m.TooltipProvider, null, page));
 	}
 
+	function readHeaderHtml(html) {
+		return html.match(/<header[^>]*>([\s\S]*?)<\/header>/)[1];
+	}
+
 	// The header's buttons and links by their text, or the ⋯ button by its label.
 	function readHeader(html) {
-		const [, header] = html.match(/<header[^>]*>([\s\S]*?)<\/header>/);
-		return [...header.matchAll(/<(button|a)\b([^>]*)>([\s\S]*?)<\/\1>/g)].map(
+		return [...readHeaderHtml(html).matchAll(/<(button|a)\b([^>]*)>([\s\S]*?)<\/\1>/g)].map(
 			([, , attributes, content]) => attributes.match(/aria-label="([^"]+)"/)?.[1] ?? content.replace(/<[^>]+>/g, "").trim()
 		);
 	}
@@ -115,44 +119,51 @@ describe("the Contacts page", () => {
 		return m.Contact.insertMany(emails.map((email) => ({ accountId: user.accountId, newsletterId, email, status, source: "manual" })));
 	}
 
-	test("follows the whole list, of every status, whatever the search or the status tab shows", async () => {
+	test("has the same actions at the top whatever the list holds, with Add contacts the one in black", async () => {
 		const empty = await render();
-		assert.deepEqual(readHeader(empty), ["Import", "More"]);
-		assert.match(empty, /Add yourself as a contact/, "the card under it has Add contact");
+		assert.deepEqual(readHeader(empty), HEADER);
+		const header = readHeaderHtml(empty);
+		assert.match(header.match(/<a[^>]*href="\/contacts\/segments"[^>]*>/)[0], /data-variant="outline"[^>]*max-sm:hidden|max-sm:hidden[^>]*data-variant="outline"/);
+		assert.match(header.match(/<button[^>]*>(?:(?!<\/button>)[\s\S])*Fields<\/button>/)[0], /data-variant="outline"[^>]*max-sm:hidden|max-sm:hidden[^>]*data-variant="outline"/);
+		const add = header.match(/<button[^>]*>(?:(?!<\/button>)[\s\S])*Add contacts<\/button>/)[0];
+		assert.match(add, /data-variant="default"/, "the page's main action");
+		assert.match(add, /aria-haspopup="dialog"/);
+		assert.doesNotMatch(header, />Import</, "the import is one of Add contacts' ways");
+		assert.match(empty, /Add yourself as a contact/, "the card under it has every way too");
 		assert.match(empty, /Add them in one of three ways\./);
-		assert.match(empty, /Take signups on your site/);
-		assert.match(empty, /<a [^>]*href="\/newsletters\/form"[^>]*>(?:(?!<\/a>)[\s\S])*Set up the form<\/a>/, "and the form for their site");
-		assert.match(empty, /-d &#x27;\{&quot;email&quot;:&quot;jane@example\.com&quot;,&quot;newsletter&quot;:&quot;header-news&quot;\}&#x27;/, "and the API");
+		assert.match(empty, /<a [^>]*href="\/newsletters\/form"[^>]*>(?:(?!<\/a>)[\s\S])*Set up the form<\/a>/);
+		assert.match(empty, /-d &#x27;\{&quot;email&quot;:&quot;jane@example\.com&quot;,&quot;newsletter&quot;:&quot;header-news&quot;\}&#x27;/);
 
 		await addContacts(["reader1@example.com"]);
-		assert.deepEqual(readHeader(await render()), ["Fields", "Add contact", "Import", "More"], "one contact: no segments yet");
+		assert.deepEqual(readHeader(await render()), HEADER, "one contact");
 
-		await addContacts(["reader2@example.com"]);
-		const few = await render();
-		assert.deepEqual(readHeader(few), ["Segments", "Fields", "Add contact", "Import", "More"]);
-		assert.match(few.match(/<button[^>]*>(?:(?!<\/button>)[\s\S])*Fields<\/button>/)[0], /max-sm:hidden/, "on phones, Fields is in the menu");
-		assert.match(few.match(/<a[^>]*href="\/contacts\/segments"[^>]*>/)[0], /max-sm:hidden/, "and so is Segments");
-		const nobody = await render({ q: "nobody" });
-		assert.deepEqual(readHeader(nobody), ["Segments", "Fields", "Add contact", "Import", "More"], "a search that finds no one");
-		assert.match(nobody, /No contacts match/);
-
-		await addContacts(["reader3@example.com", "reader4@example.com", "reader5@example.com"], "unsubscribed");
-		const list = ["Segments", "Fields", "Import", "More"];
-		assert.deepEqual(readHeader(await render()), list);
-		assert.deepEqual(readHeader(await render({ q: "reader1" })), list, "a search that finds fewer than 3");
-		assert.deepEqual(readHeader(await render({ status: "bounced" })), list, "a status with no one");
-		assert.deepEqual(readHeader(await render({ source: "nowhere" })), list, "a source with no one");
-		assert.deepEqual(readHeader(await render({ signedUpBefore: "2000-01-01" })), list, "a signup date with no one");
+		await addContacts(["reader2@example.com", "reader3@example.com"]);
+		await addContacts(["reader4@example.com", "reader5@example.com"], "unsubscribed");
+		for (const searchParams of [{}, { q: "reader1" }, { status: "bounced" }, { source: "nowhere" }, { signedUpBefore: "2000-01-01" }]) {
+			assert.deepEqual(readHeader(await render(searchParams)), HEADER, JSON.stringify(searchParams));
+		}
 	});
 
-	test("the help center says where each action is, and until how many contacts Add contact is a button too", () => {
+	test("counts the whole list again when the search finds no one, to tell an empty list from a narrowed one", async () => {
+		const nobody = await render({ q: "nobody" });
+		assert.match(nobody, /No contacts match/);
+		assert.doesNotMatch(nobody, /No contacts yet/);
+	});
+
+	test("the help center says where each action is", () => {
 		const text = renderToStaticMarkup(createElement(m.helpPage.default)).replace(/<[^>]+>/g, "");
-		assert.match(text, /Click Fields at the top of the Contacts page\. Before your list has contacts, and on a phone, it&#x27;s Contact fields in the ⋯ menu there\./);
-		assert.match(text, /Add contacts, in the ⋯ menu at the top of the Contacts page, has every way to add people to your list:/);
-		for (const way of ["Form for your site", "Import a CSV", "With the API", "By hand"]) assert.ok(text.includes(way), way);
-		assert.match(text, new RegExp(`Until your list has ${LIST_STARTED_AT} contacts, Add contact is also a button at the top of the page\\.`));
-		assert.match(text, new RegExp(`Once your list has ${SEGMENTS_FROM} contacts, Segments at the top of the Contacts page opens yours,`));
+		assert.match(text, /Click Fields at the top of the Contacts page, or Contact fields in its ⋯ menu on a phone\./);
+		assert.match(text, /Segments, at the top of the Contacts page, opens yours,/);
+		assert.match(text, /Click Add contacts, at the top of the Contacts page, and pick how people join your list:/);
+		const ways = ["Import a CSV brings in", "With the API shows", "Form for your site opens", "By hand adds one person"].map((way) => text.indexOf(way));
+		assert.ok(ways.every((index, at) => index > (ways[at - 1] ?? 0)), "in Add contacts' order");
 		assert.match(text, /Export, in the ⋯ menu at the top of the Contacts page, downloads the contacts that match your filters/);
 		assert.match(text, /They join at once, without a confirmation email, and get your welcome email if it&#x27;s on\./);
+		assert.doesNotMatch(text, /Add contact is also a button|Once your list has \d+ contacts/);
+
+		const importing = renderToStaticMarkup(createElement(m.importingPage.default)).replace(/<[^>]+>/g, "");
+		assert.match(importing, /click Add contacts, pick Import a CSV and choose the file, or drop it\s+anywhere on the page\./);
+		const website = renderToStaticMarkup(createElement(m.websitePage.default)).replace(/<[^>]+>/g, "");
+		assert.match(website, /By hand or from a file: Add contacts, at the top of the\s+Contacts page, lists every way to add them\./);
 	});
 });

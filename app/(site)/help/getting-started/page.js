@@ -64,12 +64,13 @@ export default function GettingStartedPage() {
 			</p>
 			<ol>
 				<li>
-					<strong>Write your first issue.</strong> Start a draft from the <LinkApp href="/campaigns">Campaigns page</LinkApp>. It
-					saves as you type. <Link href={getHelpHref("writing")}>Writing an issue</Link>
+					<strong>Add your subscribers.</strong> On the <LinkApp href="/contacts">Contacts page</LinkApp>, import a CSV file from the
+					platform you&apos;re leaving, take signups with a form on your site, or add people with the API or by hand.{" "}
+					<Link href={getHelpHref("contacts", "add")}>Adding contacts</Link>
 				</li>
 				<li>
-					<strong>Add your subscribers.</strong> Import a CSV file from the platform you&apos;re leaving, or add people one by one on
-					the <LinkApp href="/contacts">Contacts page</LinkApp>. <Link href={getHelpHref("importing-contacts")}>Importing contacts</Link>
+					<strong>Write your first issue.</strong> Start a draft from the <LinkApp href="/campaigns">Campaigns page</LinkApp>. It
+					saves as you type. <Link href={getHelpHref("writing")}>Writing an issue</Link>
 				</li>
 				<li>
 					<strong>Send from your domain{sharedDomain ? ", if you want to" : ""}.</strong>{" "}

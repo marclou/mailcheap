@@ -164,22 +164,9 @@ const STEPS = {
 	},
 	subscribers: {
 		title: "Add your subscribers",
-		description: (
-			<>
-				Import a CSV from beehiiv, Substack or Mailchimp, or add them with the{" "}
-				<Link
-					href="/docs/api#add-contact"
-					target="_blank"
-					rel="noopener noreferrer"
-					className="font-medium text-foreground underline decoration-foreground/30 underline-offset-2 transition-colors duration-150 hover:decoration-foreground"
-				>
-					API
-				</Link>
-				.
-			</>
-		),
+		description: "Import a CSV, take signups on your site, or add them with the API or by hand.",
 		href: "/contacts",
-		action: "Import",
+		action: "Add contacts",
 	},
 	agent: {
 		title: "Connect your AI agent",

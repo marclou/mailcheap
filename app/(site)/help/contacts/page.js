@@ -5,7 +5,6 @@ import LinkApp from "@/components/LinkApp";
 import { TRIAL_CONTACTS } from "@/lib/actions/contacts";
 import { isCloud } from "@/lib/config";
 import { MAX_CONTACT_FIELDS, MAX_TAGS, MAX_TAG_LENGTH } from "@/lib/contact-fields";
-import { LIST_STARTED_AT, SEGMENTS_FROM } from "@/lib/contacts-header";
 import { isSpamListEnabled } from "@/lib/domain-reputation";
 import { getHelpHref, getHelpPageMetadata } from "@/lib/help";
 import { ACTIVITY_DAYS, MAX_SEGMENT_CONDITIONS, SEGMENT_PRESETS, describeSegment } from "@/lib/segments";
@@ -202,9 +201,9 @@ export default function ContactsPage() {
 			/>
 			<ol>
 				<li>
-					<strong>Make your fields.</strong> Click Fields at the top of the <LinkApp href="/contacts">Contacts page</LinkApp>.
-					Before your list has contacts, and on a phone, it&apos;s Contact fields in the <strong>⋯</strong> menu there. On a
-					contact&apos;s page, Add a field opens the same list, under their fields or in Edit fields. Type a name, like Birthday,
+					<strong>Make your fields.</strong> Click Fields at the top of the <LinkApp href="/contacts">Contacts page</LinkApp>, or
+					Contact fields in its <strong>⋯</strong> menu on a phone. On a contact&apos;s page, Add a field opens the same list,
+					under their fields or in Edit fields. Type a name, like Birthday,
 					pick its type (text, a number or a date) and click the plus. Its key, like <code>birthday</code>, is
 					what imports, segments and the API call it, and between double braces, like <code>{"{{birthday}}"}</code> next to it,
 					it prints each reader&apos;s own value in your emails: click it to copy it. While writing an issue, type <kbd>/</kbd>{" "}
@@ -257,10 +256,10 @@ export default function ContactsPage() {
 
 			<h2 id="segments">Segments</h2>
 			<p>
-				A segment picks some of your contacts with a few conditions, and keeps up to date as they change. Once your list has{" "}
-				{SEGMENTS_FROM} contacts, Segments at the top of the <LinkApp href="/contacts">Contacts page</LinkApp> opens{" "}
-				<LinkApp href="/contacts/segments">yours</LinkApp>, each with its active contacts, their share of your list and how many
-				opened in the last {ACTIVITY_DAYS} days. New segment opens the editor, with a few starting points:
+				A segment picks some of your contacts with a few conditions, and keeps up to date as they change. Segments, at the top of
+				the <LinkApp href="/contacts">Contacts page</LinkApp>, opens <LinkApp href="/contacts/segments">yours</LinkApp>, each with
+				its active contacts, their share of your list and how many opened in the last {ACTIVITY_DAYS} days. New segment opens the
+				editor, with a few starting points:
 			</p>
 			<ul>
 				{SEGMENT_PRESETS.map((segment) => (
@@ -297,15 +296,15 @@ export default function ContactsPage() {
 
 			<h2 id="add">Adding contacts</h2>
 			<p>
-				Add contacts, in the <strong>⋯</strong> menu at the top of the <LinkApp href="/contacts">Contacts page</LinkApp>, has every
-				way to add people to your list:
+				Click Add contacts, at the top of the <LinkApp href="/contacts">Contacts page</LinkApp>, and pick how people join your
+				list:
 			</p>
+			<FigureHelp
+				src="/help/contacts/add-contacts.webp"
+				alt="The Add contacts window: Import a CSV, With the API, Form for your site and By hand, each with what it's for."
+				caption="Adding contacts"
+			/>
 			<ul>
-				<li>
-					<strong>Form for your site</strong> opens the <LinkApp href="/newsletters/form">signup form</LinkApp> to paste on your site,
-					blog or link page: readers who sign up there join on their own.{" "}
-					<Link href={getHelpHref("website", "form-on-your-site")}>A signup form on your own site</Link>
-				</li>
 				<li>
 					<strong>Import a CSV</strong> brings in a whole list, like an export from beehiiv, Substack or Mailchimp.{" "}
 					<Link href={getHelpHref("importing-contacts")}>Importing contacts</Link>
@@ -314,6 +313,11 @@ export default function ContactsPage() {
 					<strong>With the API</strong> shows the request that signs someone up from your own site or app, with your newsletter in
 					it, and where to create its key. A request can tag them too.{" "}
 					<Link href={getHelpHref("api-and-ai")}>API and AI assistants</Link>
+				</li>
+				<li>
+					<strong>Form for your site</strong> opens the <LinkApp href="/newsletters/form">signup form</LinkApp> to paste on your site,
+					blog or link page: readers who sign up there join on their own.{" "}
+					<Link href={getHelpHref("website", "form-on-your-site")}>A signup form on your own site</Link>
 				</li>
 				<li>
 					<strong>By hand</strong> adds one person, as below.
@@ -325,8 +329,7 @@ export default function ContactsPage() {
 			</p>
 			<p>
 				To add someone by hand, pick By hand, type their email address and tick that they agreed to get your emails. They join at
-				once, without a confirmation email, and get your welcome email if it&apos;s on. Until your list has {LIST_STARTED_AT}{" "}
-				contacts, Add contact is also a button at the top of the page.
+				once, without a confirmation email, and get your welcome email if it&apos;s on.
 				{isCloud() && ` Without a plan, you can add ${TRIAL_CONTACTS.limit} contacts a day, enough to try it on yourself.`}
 			</p>
 

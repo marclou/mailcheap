@@ -99,14 +99,14 @@ async function doneSteps(user, newsletterId = user.newsletterId) {
 }
 
 describe("the steps", () => {
-	test("a new account has all five to do, the domain one optional and the AI agent last, and sees the list", async () => {
+	test("a new account has all five to do, subscribers first, the domain one optional and the AI agent last, and sees the list", async () => {
 		const user = await customer("gs-new@example.com");
 		const { steps, draftId, isFinished } = await check(user);
 		assert.deepEqual(
 			steps.map(({ id, isDone, isOptional }) => [id, isDone, Boolean(isOptional)]),
 			[
-				["write", false, false],
 				["subscribers", false, false],
+				["write", false, false],
 				["domain", false, true],
 				["send", false, false],
 				["agent", false, false],
@@ -174,11 +174,11 @@ describe("the steps", () => {
 		await addReader(user);
 		const id = await draft(user);
 		assert.deepEqual(await as(user, () => m.campaigns.scheduleCampaign(id, { scheduledAt: tomorrow() })), { ok: true });
-		assert.deepEqual(await doneSteps(user), ["write", "subscribers", "send"]);
+		assert.deepEqual(await doneSteps(user), ["subscribers", "write", "send"]);
 		assert.deepEqual(await as(user, () => m.campaigns.unscheduleCampaign(id)), { ok: true });
-		assert.deepEqual(await doneSteps(user), ["write", "subscribers"]);
+		assert.deepEqual(await doneSteps(user), ["subscribers", "write"]);
 		assert.deepEqual(await as(user, () => m.campaigns.sendCampaign(id, {})), { ok: true });
-		assert.deepEqual(await doneSteps(user), ["write", "subscribers", "send"]);
+		assert.deepEqual(await doneSteps(user), ["subscribers", "write", "send"]);
 	});
 
 	test("each newsletter counts its own issues, subscribers and sends; the domain and the AI agent count for all", async () => {
@@ -188,7 +188,7 @@ describe("the steps", () => {
 		await addVerifiedDomain(user, "gs-two.dev");
 		const id = await draft(user);
 		await as(user, () => m.campaigns.scheduleCampaign(id, { scheduledAt: tomorrow() }));
-		assert.deepEqual(await doneSteps(user), ["write", "subscribers", "domain", "send", "agent"]);
+		assert.deepEqual(await doneSteps(user), ["subscribers", "write", "domain", "send", "agent"]);
 
 		const second = await addNewsletter(user, "gs-two-b");
 		const { steps, draftId, isFinished } = await check(user, second);

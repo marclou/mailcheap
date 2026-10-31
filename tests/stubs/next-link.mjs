@@ -4,3 +4,8 @@ import { createElement } from "react";
 export default function Link({ href, prefetch, replace, scroll, shallow, onNavigate, ...props }) {
 	return createElement("a", { href: typeof href === "string" ? href : String(href?.pathname ?? ""), ...props });
 }
+
+// No navigation is ever on its way on the server.
+export function useLinkStatus() {
+	return { pending: false };
+}

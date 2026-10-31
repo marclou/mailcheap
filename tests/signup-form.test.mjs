@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
 	SIGNUP_FORM_RATE_LIMITS,
+	getAgentPrompt,
 	getEmbedCode,
 	getFramePolicy,
 	getSignupFormHeading,
@@ -71,6 +74,44 @@ test("with a list of sites there's no plain form to paste: only the framed one c
 	assert.equal(html, null);
 });
 
+test("the prompt for an AI agent says what MailCheap is, gives both codes and the frame, links the docs and what's left to do", () => {
+	const appUrl = "https://mailcheap.test";
+	const newsletter = { name: "Field notes", description: "One idea a week." };
+	function prompt(signupForm, options) {
+		const settings = toSignupFormSettings(signupForm);
+		const code = getEmbedCode({ appUrl, newsletterId: NEWSLETTER_ID, settings, theme: {}, newsletter });
+		return { code, text: getAgentPrompt({ appUrl, newsletterId: NEWSLETTER_ID, newsletter, settings, code, ...options }) };
+	}
+
+	const { code, text } = prompt({ enabled: true });
+	assert.ok(
+		text.startsWith(
+			"Add the signup form of my newsletter, Field notes, to my website. Whoever signs up there joins my list on MailCheap (https://mailcheap.test), the newsletter app I use."
+		)
+	);
+	assert.ok(text.includes("It comes in two versions: pick the one that fits my site."));
+	assert.ok(text.includes(`\`\`\`html\n${code.script}\n\`\`\``) && text.includes(`\`\`\`html\n${code.html}\n\`\`\``), "both codes");
+	assert.ok(text.includes(`<iframe src="${appUrl}/embed/${NEWSLETTER_ID}" title="Newsletter signup"`), "the frame, for a component");
+	assert.ok(text.includes('{ type: "mailcheap:height", height }, checking they come from https://mailcheap.test.'));
+	assert.ok(text.includes('the header Accept: application/json. It answers { "ok": true, "pending": false }'), "the plain form from fetch");
+	assert.ok(text.includes(`- How the form works: ${appUrl}/help/website#form-on-your-site`) && text.includes(`${appUrl}/llms.txt`));
+	assert.equal(
+		text.split("## When you're done, remind me to\n\n")[1],
+		`- List my site under Where it works at ${appUrl}/newsletters/form if you used the script, so the form only shows there. With the HTML form, leave that list empty: a plain form stops working once sites are listed.`,
+		"only what's left"
+	);
+
+	const waiting = prompt({}, { isOn: false, hasPlan: false }).text;
+	assert.ok(waiting.includes(`- Turn on Take signups on your site at ${appUrl}/newsletters/form, then save. Until then, the form says signups are closed.`));
+	assert.ok(waiting.includes(`- Pick a plan at ${appUrl}/billing: the form takes signups once I have one.`));
+
+	const listed = prompt({ enabled: true, allowedDomains: ["example.com", "blog.dev"] });
+	assert.equal(listed.code.html, null);
+	assert.ok(listed.text.includes("It only works on the sites I listed in MailCheap (example.com, blog.dev), so use the script"));
+	assert.ok(!listed.text.includes("## HTML") && !listed.text.includes("<form"), "no plain form to pick");
+	assert.ok(listed.text.endsWith(`- Add my site under Where it works at ${appUrl}/newsletters/form if it isn't one of example.com, blog.dev: the form only shows on the sites listed there.`));
+});
+
 test("the frame proves a browser sent its form only where BotID runs, and never in the preview", () => {
 	const newsletter = { name: "Field notes", theme: {} };
 	const endpoint = `/api/embed/${NEWSLETTER_ID}`;
@@ -129,6 +170,8 @@ describe("signups from forms on other sites", () => {
 			frame: await import("../app/embed/[id]/route.js"),
 			done: await import("../app/embed/[id]/done/route.js"),
 			botid: await import("../app/embed/botid/route.js"),
+			formPage: await import("../app/(app)/newsletters/form/page.js"),
+			TooltipProvider: (await import("../components/ui/tooltip.jsx")).TooltipProvider,
 			tokens: await import("../lib/signup-form-token.js"),
 			Account: (await import("../models/Account.js")).default,
 			Contact: (await import("../models/Contact.js")).default,
@@ -204,6 +247,34 @@ describe("signups from forms on other sites", () => {
 		const html = await page.text();
 		assert.ok(html.includes("You&#39;re in") || html.includes("You're in"));
 		assert.ok(html.includes("Back to reader-blog.example"));
+	});
+
+	test("the plain form's fields posted with fetch answer in JSON, as the AI agent's prompt says", async () => {
+		const user = await customer("embed-fetch@example.com");
+		const response = await post(user.newsletterId, { email: "fetched@example.org", website: "" }, {
+			json: false,
+			headers: { accept: "application/json", origin: "https://agent-site.example" },
+		});
+		assert.equal(response.status, 200);
+		assert.deepEqual(await response.json(), { ok: true, pending: false, inbox: null });
+		assert.equal((await findContact(user, "fetched@example.org")).sourceDomain, "agent-site.example");
+		const refused = await post(user.newsletterId, { email: "nope" }, { json: false, headers: { accept: "application/json", origin: "https://agent-site.example" } });
+		assert.deepEqual([refused.status, await refused.json()], [400, { error: "Enter a valid email" }]);
+	});
+
+	test("Form for your site starts on the AI agent's prompt, before the script and the HTML", async () => {
+		const user = await customer("embed-agent@example.com");
+		const page = await as(user, () => m.formPage.default());
+		const html = renderToStaticMarkup(createElement(m.TooltipProvider, null, page));
+		const tabs = [...html.matchAll(/<button[^>]*role="tab"[^>]*>([\s\S]*?)<\/button>/g)].map(([tag, label]) => ({
+			label: label.replace(/<[^>]+>/g, "").trim(),
+			isActive: tag.includes('aria-selected="true"'),
+		}));
+		assert.deepEqual(tabs.map(({ label }) => label), ["AI agent", "Script", "HTML"]);
+		assert.deepEqual(tabs.filter(({ isActive }) => isActive).map(({ label }) => label), ["AI agent"], "the prompt shows first");
+		assert.match(html, />Prompt<\/span>/);
+		assert.match(html, /Add the signup form of my newsletter, embed-agent, to my website\./);
+		assert.match(html, /For the AI agent that builds your site, like Cursor, Claude Code, Codex or Lovable/);
 	});
 
 	test("the framed form answers in JSON, follows confirmed opt-in and sends the confirmation email", async () => {

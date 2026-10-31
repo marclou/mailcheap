@@ -15,7 +15,6 @@ import { getAppUrl, isCloud } from "@/lib/config";
 import { getFieldOptions } from "@/lib/contact-fields";
 import { LIST_STATUSES, readContactFilters, toFilterQuery, toListQuery } from "@/lib/contact-filters";
 import { CONTACTS_PAGE_SIZE, findContactsPage, listContactSources, listContactTags } from "@/lib/contacts";
-import { LIST_STARTED_AT, getContactsHeader } from "@/lib/contacts-header";
 import { getAddContactCurl } from "@/lib/docs/reference";
 import { listImports } from "@/lib/import-jobs";
 import { toNewsletterOption } from "@/lib/newsletters";
@@ -50,12 +49,12 @@ export default async function ContactsPage({ searchParams }) {
 			])
 		: [NO_PAGE, [], [], []];
 	const pageCount = Math.max(1, Math.ceil(total / CONTACTS_PAGE_SIZE));
-	// totalAll counts within the search and the filters but every status, while the actions at the top follow the whole
-	// list, which a narrowed page with fewer than LIST_STARTED_AT counts again, up to that.
+	// totalAll counts within the search and the filters but every status, while the card of an empty list and the export
+	// follow the whole list, which a narrowed page that finds no one counts again.
 	const isNarrowed = Boolean(filters.query || filters.tag || filters.source || filters.signedUpSince || filters.signedUpBefore);
 	const listCount =
-		isNarrowed && newsletterId && totalAll < LIST_STARTED_AT
-			? await Contact.countDocuments(scoped(account, { newsletterId: selected._id }), { limit: LIST_STARTED_AT })
+		isNarrowed && newsletterId && totalAll === 0
+			? await Contact.countDocuments(scoped(account, { newsletterId: selected._id }), { limit: 1 })
 			: totalAll;
 	const hasContacts = listCount > 0;
 	const newsletter = selected && toNewsletterOption(selected);
@@ -73,7 +72,7 @@ export default async function ContactsPage({ searchParams }) {
 		<ProviderContactOptions fields={fields} tags={tags}>
 			<HeaderPage title="Contacts">
 				<ButtonsContacts
-					header={getContactsHeader(listCount)}
+					hasContacts={hasContacts}
 					newsletter={newsletter}
 					filters={filters}
 					count={total}

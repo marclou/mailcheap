@@ -61,8 +61,17 @@ const PREVIEW_ROWS = 6;
 // follows (CardImports). Closing the dialog while the rows are sent doesn't stop them. A CSV dropped on the dialog, or
 // anywhere on the page, is read like one picked; without a plan, the page drop opens the paywall, like the button.
 // guides: how to export the file from other platforms, under the drop zone (siteExtensions.importGuides). isOpen and
-// onOpenChange: for a page that also opens it from elsewhere, like the Contacts page's ⋯ menu.
-export default function DialogImportContacts({ newsletter, guides = [], label = "Import", variant = "outline", isOpen: isOpenProp, onOpenChange }) {
+// onOpenChange: for a page that opens it from elsewhere, like the Contacts page's Add contacts, without its own button;
+// onCloseAutoFocus then says where the focus goes back.
+export default function DialogImportContacts({
+	newsletter,
+	guides = [],
+	label = "Import",
+	variant = "outline",
+	isOpen: isOpenProp,
+	onOpenChange,
+	onCloseAutoFocus,
+}) {
 	const router = useRouter();
 	const paywall = usePaywall();
 	const { fields, tags: tagOptions } = useContactOptions();
@@ -253,14 +262,17 @@ export default function DialogImportContacts({ newsletter, guides = [], label = 
 					if (!open && !isSending) reset();
 				}}
 			>
-				<DialogTrigger asChild>
-					<Button variant={variant} disabled={!newsletter}>
-						<Upload data-icon="inline-start" />
-						{label}
-					</Button>
-				</DialogTrigger>
+				{isOpenProp === undefined && (
+					<DialogTrigger asChild>
+						<Button variant={variant} disabled={!newsletter}>
+							<Upload data-icon="inline-start" />
+							{label}
+						</Button>
+					</DialogTrigger>
+				)}
 				<DialogContent
 					{...dropProps}
+					onCloseAutoFocus={onCloseAutoFocus}
 					className={cn(
 						"max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto]",
 						parsed && !isSending ? "sm:max-w-2xl" : "sm:max-w-md"

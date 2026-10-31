@@ -156,7 +156,8 @@ export default function NewslettersPage() {
 			<h2 id="form-for-your-site">Form for your site</h2>
 			<p>
 				A signup form to paste on your own site, off until you turn it on. On <LinkApp href="/newsletters/form">its page</LinkApp>,
-				you preview it, set its button and placeholder, copy its code, and list the sites it works on.{" "}
+				you preview it, set its button and placeholder, copy its code or a prompt for your AI agent, and list the sites it works
+				on.{" "}
 				<Link href={getHelpHref("website", "form-on-your-site")}>A signup form on your own site</Link>
 			</p>
 			<FigureHelp

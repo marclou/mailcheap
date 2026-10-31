@@ -11,8 +11,8 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 
-// Adding contacts from code, from the Contacts page's ⋯ menu: the add_contact request for the newsletter the page shows,
-// and where to get a key. onCloseAutoFocus: where the focus goes back, as what opened it is outside the dialog.
+// Adding contacts from code, from Add contacts on the Contacts page: the add_contact request for the newsletter the page
+// shows, and where to get a key. onCloseAutoFocus: where the focus goes back, as what opened it is outside the dialog.
 export default function DialogContactsApi({ newsletter, curl, isOpen, onOpenChange, onCloseAutoFocus }) {
 	return (
 		<Dialog open={isOpen} onOpenChange={onOpenChange}>

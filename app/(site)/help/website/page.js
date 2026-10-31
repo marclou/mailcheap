@@ -1,5 +1,6 @@
 import Link from "next/link";
 import ArticleHelp from "@/components/ArticleHelp";
+import FigureHelp from "@/components/FigureHelp";
 import LinkApp from "@/components/LinkApp";
 import { isBotIdEnabled } from "@/lib/bot-check";
 import { getArchiveCnameTarget, getSharedDomain, isCloud } from "@/lib/config";
@@ -149,8 +150,8 @@ export default function WebsitePage() {
 					reference.
 				</li>
 				<li>
-					<strong>By hand or from a file</strong>: under Add contacts, in the <strong>⋯</strong> menu of the{" "}
-					<LinkApp href="/contacts">Contacts page</LinkApp>, which lists every way to add them.{" "}
+					<strong>By hand or from a file</strong>: Add contacts, at the top of the{" "}
+					<LinkApp href="/contacts">Contacts page</LinkApp>, lists every way to add them.{" "}
 					<Link href={getHelpHref("contacts", "add")}>Adding contacts</Link>
 				</li>
 			</ul>
@@ -164,10 +165,21 @@ export default function WebsitePage() {
 			<h2 id="form-on-your-site">A signup form on your own site</h2>
 			<p>
 				Turn on <LinkApp href="/newsletters/form">Form for your site</LinkApp> in the{" "}
-				<Link href={getHelpHref("newsletters")}>newsletter&apos;s settings</Link>, save, then copy one of its two codes to the spot
-				on your site where the form goes:
+				<Link href={getHelpHref("newsletters")}>newsletter&apos;s settings</Link>, save, then copy one of the three tabs under Code to
+				paste:
 			</p>
+			<FigureHelp
+				src="/help/website/code-to-paste.webp"
+				alt="Code to paste on the AI agent tab: the prompt to copy, which starts by asking the agent to add the newsletter's signup form, next to the Script and HTML tabs."
+				caption="The prompt for your AI agent"
+			/>
 			<ul>
+				<li>
+					<strong>AI agent</strong>: a prompt for the AI agent that builds your site, like Cursor, Claude Code, Codex or Lovable. It
+					tells your agent what MailCheap is and gives it the script and the HTML form, with when each fits, so it picks the one
+					that fits your site and adds the form there. Once it&apos;s done, it reminds you of what&apos;s left: turning the form on,
+					if it&apos;s off, and listing your site under Where it works.
+				</li>
 				<li>
 					<strong>Script</strong>: the form in your newsletter&apos;s theme. It says what happened without leaving the page, and what
 					you change in its settings reaches your site on its own.
@@ -209,6 +221,10 @@ export default function WebsitePage() {
 				</li>
 				<li>
 					<strong>Any other site</strong>: wherever it lets you add HTML.
+				</li>
+				<li>
+					<strong>React, Next.js, Vue or Svelte</strong>: a script tag in a component doesn&apos;t stay where it sits, so give your
+					AI agent the prompt, which says how to add the form there.
 				</li>
 			</ul>
 			<p>

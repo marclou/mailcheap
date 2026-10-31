@@ -28,7 +28,7 @@
 
 ![MailCheap's overview: emails sent, delivery, open, click, bounce and complaint rates, and subscribers over the last 30 days](docs/screenshots/overview.webp)
 
-MailCheap is a newsletter app: write an issue, send it to your list, publish it on the web, from the dashboard or from your AI agent. This repository is the whole app. Self-host it with your own Amazon SES or PostShiba account, or use [MailCheap Cloud](https://mailcheap.ai), which runs this same code.
+MailCheap is a newsletter app: write an issue, send it to your list, publish it on the web, from the dashboard or from your AI agent. This repository is the whole app. Self-host it with your own Amazon SES, PostShiba or Resend account, or use [MailCheap Cloud](https://mailcheap.ai), which runs this same code.
 
 ## Features
 
@@ -59,7 +59,7 @@ All names and addresses in the screenshots are made up.
 | | [MailCheap Cloud](https://mailcheap.ai) | Self-hosted |
 | --- | --- | --- |
 | Price | From $19 a month for 20,000 emails | Free, plus what your provider charges per email: $0.10 to $0.16 per 1,000 on Amazon SES |
-| Sending | Set up for you, from `hello@<slug>.mailcheap.ai` or your domain | Your Amazon SES or PostShiba account, from your domain |
+| Sending | Set up for you, from `hello@<slug>.mailcheap.ai` or your domain | Your Amazon SES, PostShiba or Resend account, from your domain |
 | Website | `<slug>.mailcheap.ai` | `/archive/<slug>` on your server's domain |
 | Who signs in | Anyone who signs up | The emails you allow |
 | Limits | Emails a month and active subscribers, by plan | None |
@@ -81,7 +81,7 @@ Plan for about an hour, most of it waiting for DNS and for your provider to appr
 | Service | For | Cost |
 | --- | --- | --- |
 | [MongoDB](https://www.mongodb.com/atlas) | Contacts, campaigns, stats | Free tier works |
-| [Amazon SES](https://aws.amazon.com/ses/) or [PostShiba](https://postshiba.com) | Sending | SES: $0.10 to $0.16 per 1,000 emails, depending on its pricing plan. PostShiba: a fixed price per cluster, invite only for now |
+| [Amazon SES](https://aws.amazon.com/ses/), [PostShiba](https://postshiba.com) or [Resend](https://resend.com) | Sending | SES: $0.10 to $0.16 per 1,000 emails, depending on its pricing plan. PostShiba: a fixed price per cluster, invite only for now. Resend: a free plan, then monthly plans by volume |
 | [Upstash QStash](https://upstash.com/docs/qstash) | Background sending and scheduling | Free tier to start, then pay per message. One message sends 50 emails |
 | [Vercel](https://vercel.com) or any Node.js 22+ host | Hosting | Free tier works |
 | [Resend](https://resend.com) (optional) | Sign-in codes and alerts. Without it, they go through SES or PostShiba | Free plan works |
@@ -103,7 +103,7 @@ Without Redis, MailCheap counts the same rate limits in each server instance's m
 | `APP_URL` | Public URL of the app, for email links and sign-in. On Vercel it defaults to the production domain |
 | `RESEND_API_KEY` | Optional: sign-in codes and alerts through Resend. Without it, they go through the email provider |
 | `SENDING_ENABLED` | Nothing goes to readers unless it's `true`. Sign-in codes and alerts don't wait for it |
-| `SES_*` or `POSTSHIBA_*` | The email provider, in step 4 |
+| `SES_*`, `POSTSHIBA_*` or `RESEND_*` | The email provider, in step 4 |
 | `QSTASH_*` | Background sending and scheduling, in step 5 |
 
 [`.env.example`](.env.example) lists every variable with what it does, the optional ones included: Google sign-in and Postmaster Tools, image uploads, Redis, Telegram alerts, the shared domain, and MailCheap Cloud's own.
@@ -134,7 +134,7 @@ Everyone gets an account of their own, with up to 3 newsletters and their contac
 
 ### 4. Email provider
 
-Pick Amazon SES or PostShiba (invite only for now). `EMAIL_PROVIDER` picks one; without it, MailCheap uses PostShiba when `POSTSHIBA_API_KEY` is set and SES otherwise. Every account gets its own tenant there, with its own domains, suppression list and pause switch. MailCheap creates them; you set up the provider account and its events once.
+Pick Amazon SES, PostShiba (invite only for now) or Resend. `EMAIL_PROVIDER` picks one; without it, MailCheap uses PostShiba when `POSTSHIBA_API_KEY` is set and SES otherwise. On SES and PostShiba, every account gets its own tenant there, with its own domains, suppression list and pause switch; on Resend, every account sends through your one team. MailCheap creates them; you set up the provider account and its events once.
 
 #### Amazon SES
 
@@ -192,6 +192,16 @@ PostShiba approves production sending by hand: until then, sends to anyone outsi
 MailCheap creates the rest: a tenant per account (slug `mc-<accountId>`), an SMTP credential for it on each cluster (one in all on a single cluster), and its domains. Creating credentials and domains and running domain checks share PostShiba's budget of 60 an hour per key; a failed setup is retried at the account's next send.
 
 Without Resend, sign-in codes and alerts go through a tenant of their own, `mc-platform`, on the transactional cluster. The first one adds `EMAIL_FROM`'s domain there, and the server log lists the two CNAME records it needs; once PostShiba finds them, codes go out. A domain belongs to one tenant at PostShiba, so `EMAIL_FROM` needs a domain or subdomain that no newsletter sends from.
+
+#### Resend
+
+One Resend team sends everything: readers' emails, and sign-in codes and alerts with the same `RESEND_API_KEY`.
+
+1. **Key.** In API keys, create a full access key (a sending-only one can't add domains): `RESEND_API_KEY`, and set `EMAIL_PROVIDER=resend`.
+2. **Rate.** Set `SEND_RATE_PER_SECOND` a little under your team's rate limit (10 requests a second by default), so sign-in codes always have room. Each email is one request. Past the limit, Resend answers 429 and the batch goes back to the queue.
+3. **Webhook.** At `https://<your-app>/api/webhooks/resend`, with the events `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.suppressed` and `email.failed`. Its signing secret goes in `RESEND_WEBHOOK_SECRET`.
+
+MailCheap adds each domain to the team with Resend's open and click tracking off, as it tracks them itself, and its return path at `send.<domain>`. A domain the team already has, like `EMAIL_FROM`'s, can't be added: MailCheap only sends from domains it added itself. Resend keeps one suppression list for the team: when it suppresses an address because of another account's email, that email fails without becoming the account's own suppression.
 
 ### 5. QStash
 
@@ -327,7 +337,7 @@ npm run dev
 - Without `MAILCHEAP_CLOUD` it runs as a self-hosted server: sign in with an email in `ADMIN_EMAILS` or `ALLOWED_EMAILS`. Without `RESEND_API_KEY`, development prints the code in the server console (`[signin] Code for ...`); production never does.
 - A local MongoDB works: `docker run -d -p 27017:27017 mongo` and `MONGODB_URI=mongodb://127.0.0.1:27017/mailcheap`. A replica set (`mongod --replSet rs0`, then `rs.initiate()`) also gives Better Auth transactions, like Atlas.
 - To work on MailCheap Cloud's own parts, set `MAILCHEAP_CLOUD=true` with Stripe test keys and a Resend key: the cloud doesn't start without them. Run `stripe listen --forward-to localhost:3000/api/webhooks/stripe` and use its signing secret as `STRIPE_WEBHOOK_SECRET`.
-- Sending stays off unless `SENDING_ENABLED=true`. SES needs `SES_ACCESS_KEY_ID` and `SES_SECRET_ACCESS_KEY`: the app never falls back to `~/.aws` or other default AWS credentials. PostShiba needs its four ids and keys and `CREDENTIALS_ENCRYPTION_KEY`.
+- Sending stays off unless `SENDING_ENABLED=true`. SES needs `SES_ACCESS_KEY_ID` and `SES_SECRET_ACCESS_KEY`: the app never falls back to `~/.aws` or other default AWS credentials. PostShiba needs its four ids and keys and `CREDENTIALS_ENCRYPTION_KEY`. Resend needs `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` and, for its events, `RESEND_WEBHOOK_SECRET`.
 - QStash can't reach `localhost`. To try a full send locally, run the QStash dev server (`npx @upstash/qstash-cli dev`) and use the URL, token and signing keys it prints.
 
 Before a pull request, run the full suite, lint and a build:

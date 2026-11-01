@@ -5,6 +5,7 @@ import {
 	canBeNewField,
 	guessFieldType,
 	mapColumns,
+	normalizeDate,
 	normalizeImportRow,
 	normalizeRate,
 	normalizeStatus,
@@ -100,6 +101,20 @@ test("maps statuses and never guesses active for unknown values", () => {
 	assert.equal(normalizeStatus("pending"), "dormant");
 	assert.equal(normalizeStatus("something-new"), "dormant");
 	assert.equal(normalizeStatus(""), "active");
+});
+
+// listmonk's subscribers.csv: uuid, email, name, attributes, status, created_at, updated_at, dates as Go writes them.
+test("a listmonk export reads its statuses and its dates, zone names included", () => {
+	const headers = ["uuid", "email", "name", "attributes", "status", "created_at", "updated_at"];
+	const columns = mapColumns(headers);
+	assert.deepEqual([columns.email, columns.status, columns.subscribedAt], ["email", "status", "created_at"]);
+	const read = (status, created_at) => normalizeImportRow({ email: "reader@example.com", name: "Ada", attributes: "{}", status, created_at }, columns);
+	assert.equal(read("enabled", "2026-01-15 10:23:45.123456 +0000 UTC").status, "active");
+	assert.equal(read("blocklisted").status, "unsubscribed");
+	assert.equal(read("disabled").status, "dormant", "listmonk still emails them, but nothing says they want it");
+	assert.equal(read("enabled", "2026-01-15 10:23:45.123456 +0000 UTC").subscribedAt, "2026-01-15T10:23:45.123Z");
+	assert.equal(read("enabled", "2026-01-15 10:23:45 +0530 IST").subscribedAt, "2026-01-15T04:53:45.000Z");
+	assert.equal(normalizeDate("2018-02-12 10:54:27 PM"), new Date("2018-02-12 10:54:27 PM").toISOString(), "a time of day isn't a zone");
 });
 
 test("normalizes rates written as percents or fractions", () => {

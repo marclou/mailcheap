@@ -39,9 +39,11 @@ const NO_TAGS = [];
 // them back as they are after one is added or deleted there.
 // newsletter: whose email design HTML blocks preview in, and whose button colors and corners buttons show.
 // ref: reveal({ id, message, words }), which goes to a review step's warning or check (lib/campaign-steps.js), else to
-// the first place the issue has the words, and says whether it found it. gutterRef: the positioned element around the
-// editor's card, whose problems' dots sit beside it in the page's margin (components/GutterProblems.jsx). sections: what
-// the issue's sections pick from (components/BlockSection.jsx), its segments a section without one is marked by.
+// the first place the issue has the words, and says whether it found it; append(block), which adds a block at the end.
+// gutterRef: the positioned element around the editor's card, whose problems' dots sit beside it in the page's margin
+// (components/GutterProblems.jsx). sections: what the issue's sections pick from (components/BlockSection.jsx), its
+// segments a section without one is marked by; without them, as in the newsletter's own emails, the slash menu offers
+// no section. actionLink: the link the email's button keeps (components/MenuButton.jsx). minHeight: a min-h- class.
 export default function EditorRich({
 	ref,
 	gutterRef,
@@ -51,6 +53,8 @@ export default function EditorRich({
 	onContactFieldsChange = () => {},
 	newsletter = null,
 	sections = null,
+	actionLink = null,
+	minHeight = MIN_HEIGHT,
 }) {
 	const [isEditingLink, setIsEditingLink] = useState(false);
 	const [isEditingButtonLink, setIsEditingButtonLink] = useState(false);
@@ -97,12 +101,17 @@ export default function EditorRich({
 				onDrop: (current, files, position) => insertImages(current, files, position),
 				onPaste: (current, files) => insertImages(current, files),
 			}),
-			SlashCommand.configure({ onPickImage: () => setIsPickingImage(true), onAddField: () => setIsAddingField(true), contactFields }),
+			SlashCommand.configure({
+				onPickImage: () => setIsPickingImage(true),
+				onAddField: () => setIsAddingField(true),
+				contactFields,
+				withSections: Boolean(sections),
+			}),
 			MergeTagSuggestion.configure({ contactFields }),
 		],
 		editorProps: {
 			// With a mouse, the left padding holds the blocks' drag handle (lib/editor-block-handle.js).
-			attributes: { class: `prose-issue ${MIN_HEIGHT} px-5 py-5 outline-none [@media(pointer:fine)]:pl-12`, "aria-label": "Content" },
+			attributes: { class: `prose-issue ${minHeight} px-5 py-5 outline-none [@media(pointer:fine)]:pl-12`, "aria-label": "Content" },
 			// In a button, ⌘K opens the button's own link (lib/editor-button.js).
 			handleKeyDown: (view, event) => {
 				const isLinkShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
@@ -140,6 +149,10 @@ export default function EditorRich({
 			const found = findProblem(findDocProblems(editor.state.doc, contactFields, segmentIds), { id, message });
 			return found ? reveal(found) : Boolean(words && selectWords(editor, words));
 		},
+		append: (block) => {
+			if (!editor || editor.isDestroyed) return;
+			editor.chain().insertContentAt(editor.state.doc.content.size, block).focus("end").scrollIntoView().run();
+		},
 	}));
 
 	useEffect(() => {
@@ -150,7 +163,7 @@ export default function EditorRich({
 		if (editor && !editor.isDestroyed) setEditorFields(editor, contactFields);
 	}, [editor, contactFields]);
 
-	if (!editor) return <div className={MIN_HEIGHT} />;
+	if (!editor) return <div className={minHeight} />;
 
 	return (
 		<SectionsContext value={sections}>
@@ -163,7 +176,7 @@ export default function EditorRich({
 				onReveal={({ pos, problems }) => reveal({ pos, problem: problems[0] })}
 			/>
 			<MenuFormat editor={editor} isEditingLink={isEditingLink} onEditLink={setIsEditingLink} />
-			<MenuButton editor={editor} isEditingLink={isEditingButtonLink} onEditLink={setIsEditingButtonLink} />
+			<MenuButton editor={editor} isEditingLink={isEditingButtonLink} onEditLink={setIsEditingButtonLink} actionLink={actionLink} />
 			<MenuImage editor={editor} />
 			<TooltipMergeTag editor={editor} contactFields={contactFields} />
 			<DialogImagePicker

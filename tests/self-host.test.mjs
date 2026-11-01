@@ -157,7 +157,7 @@ describe("billing is off", () => {
 		const user = await signIn("sender@team.example.org");
 		await addVerifiedDomain(user, "self-hosted.dev");
 		const settings = { name: "Notes", slug: "self-notes", fromName: "Jo", fromEmail: "hello@self-hosted.dev", postalAddress: "1 Main St, Paris" };
-		const welcome = { welcomeEnabled: "on", welcomeSubject: "Welcome", welcomeMarkdown: "Thanks for joining." };
+		const welcome = { welcomeEnabled: "on", welcomeSubject: "Welcome", welcomeContent: "Thanks for joining." };
 		const url = await as(user, () => catchRedirect(m.newsletters.saveNewsletter(null, form({ ...settings, ...welcome }))));
 		const newsletterId = url.split("/").at(-1);
 		const rows = ["a", "b", "c"].map((name) => ({ email: `${name}@readers.example.org`, status: "active" }));

@@ -223,10 +223,12 @@ export default function SendingPage() {
 						still goes straight out.
 					</p>
 					<p>
-						The check also reads your own welcome and confirmation emails when you save them. If one looks clearly harmful, the{" "}
-						<LinkApp href="/newsletters/welcome">Welcome email</LinkApp> or <LinkApp href="/newsletters/signups">Confirm signups</LinkApp>{" "}
-						page says In review until a person at MailCheap looks at it. Meanwhile, new subscribers get the built-in confirmation
-						email, or no welcome email. If it can&apos;t go out, you get an email saying why, and changing it has it checked again.
+						The check also reads your own welcome, confirmation and last-chance emails when you save them. If one looks clearly
+						harmful, the <LinkApp href="/newsletters/welcome">Welcome email</LinkApp>,{" "}
+						<LinkApp href="/newsletters/signups">Confirm signups</LinkApp> or <LinkApp href="/newsletters/cleanup">List cleanup</LinkApp>{" "}
+						page says In review until a person at MailCheap looks at it. Meanwhile, MailCheap&apos;s own confirmation and last-chance
+						emails go out instead, and new subscribers get no welcome email. If it can&apos;t go out, you get an email saying why, and
+						changing it has it checked again.
 					</p>
 				</>
 			)}

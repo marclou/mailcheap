@@ -7,7 +7,7 @@ import HeaderPage from "@/components/HeaderPage";
 import { describeBlocker, getAccountStatus, isBlocked } from "@/lib/account-state";
 import { getNewsletterForAdmin } from "@/lib/admin-stats";
 import { requireAdmin } from "@/lib/auth";
-import { CONFIRM_URL_PLACEHOLDER } from "@/lib/confirmation-content";
+import { CONFIRM_URL_PLACEHOLDER, KEEP_URL_PLACEHOLDER } from "@/lib/action-links";
 import { toPreviewHtml } from "@/lib/email-preview";
 import { formatRelative } from "@/lib/format";
 import { getPostalAddress } from "@/lib/postal-address";
@@ -19,7 +19,7 @@ import { isObjectIdString } from "@/lib/validation";
 
 export const metadata = { title: "Newsletter" };
 
-// Any account's newsletter, read-only: its own welcome and confirmation emails as new subscribers get them, what the
+// Any account's newsletter, read-only: its own welcome, confirmation and last-chance emails as readers get them, what the
 // content check found in each, and the decision on one it holds. The layout lets only ADMIN_EMAILS in; this page checks
 // again, and everyone else gets the same 404 as a missing newsletter.
 export default async function AdminNewsletterPage({ params }) {
@@ -104,7 +104,7 @@ function SectionSignupEmail({ kind, newsletter, ownerEmail, stagger }) {
 		<section style={{ "--stagger": stagger }} className="mt-8 flex flex-col gap-3 animate-enter">
 			<h2 className="text-base font-semibold tracking-tight">{TITLES[kind]}</h2>
 			{!content && <p className="text-sm text-muted-foreground">{describeWithout(newsletter, kind)}</p>}
-			{content && !review && <p className="text-sm text-muted-foreground">Not checked yet: the check reads it at its next save or signup.</p>}
+			{content && !review && <p className="text-sm text-muted-foreground">Not checked yet: the check reads it at its next save or send.</p>}
 			{review && (
 				<CardContentReview
 					newsletterId={String(newsletter._id)}
@@ -121,7 +121,9 @@ function SectionSignupEmail({ kind, newsletter, ownerEmail, stagger }) {
 					title={TITLES[kind]}
 					sandbox=""
 					referrerPolicy="no-referrer"
-					srcDoc={toPreviewHtml(renderEmail({ ...content, newsletter }).html).replaceAll(CONFIRM_URL_PLACEHOLDER, "#")}
+					srcDoc={toPreviewHtml(renderEmail({ ...content, newsletter }).html)
+						.replaceAll(CONFIRM_URL_PLACEHOLDER, "#")
+						.replaceAll(KEEP_URL_PLACEHOLDER, "#")}
 					className="mt-3 block h-[32rem] w-full rounded-xl bg-white shadow-border"
 				/>
 			)}
@@ -131,7 +133,8 @@ function SectionSignupEmail({ kind, newsletter, ownerEmail, stagger }) {
 
 function describeWithout(newsletter, kind) {
 	if (kind === "confirmation") return newsletter.requireConfirmation ? "The built-in one goes out." : "Off: new subscribers join without confirming.";
+	if (kind === "lastChance") return newsletter.cleanup?.enabled ? "The built-in one goes out." : "Off: list cleanup is off.";
 	return newsletter.requireConfirmation ? "Off: new subscribers get the confirmation email instead." : "Off.";
 }
 
-const TITLES = { confirmation: "Confirmation email", welcome: "Welcome email" };
+const TITLES = { confirmation: "Confirmation email", welcome: "Welcome email", lastChance: "Last-chance email" };

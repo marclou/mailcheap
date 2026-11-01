@@ -23,7 +23,7 @@ async function createNewsletter(user, slug) {
 		archiveEnabled: "on",
 		welcomeEnabled: "on",
 		welcomeSubject: "Welcome",
-		welcomeMarkdown: "Thanks for joining.",
+		welcomeContent: "Thanks for joining.",
 	};
 	const url = await as(user, () => catchRedirect(m.newsletters.saveNewsletter(null, form(fields))));
 	return url.split("/").at(-1);

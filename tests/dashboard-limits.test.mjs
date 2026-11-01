@@ -34,7 +34,7 @@ async function customer(email) {
 	const user = await signIn(email);
 	await activate(user);
 	const slug = email.split("@")[0];
-	const settings = { name: slug, slug, postalAddress: "1 Main St, Paris", welcomeSubject: "Welcome", welcomeMarkdown: "Glad you're here." };
+	const settings = { name: slug, slug, postalAddress: "1 Main St, Paris", welcomeSubject: "Welcome", welcomeContent: "Glad you're here." };
 	const url = await as(user, () => catchRedirect(m.newsletters.saveNewsletter(null, form(settings))));
 	user.newsletterId = url.split("/").at(-1);
 	return user;

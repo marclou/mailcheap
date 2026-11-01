@@ -5,6 +5,7 @@ import Link from "next/link";
 import { saveSignupForm } from "@/app/(app)/newsletters/actions";
 import BarSave from "@/components/BarSave";
 import BlockCode from "@/components/BlockCode";
+import BlockPrompt from "@/components/BlockPrompt";
 import { Segmented } from "@/components/FieldsTheme";
 import { Field, Section } from "@/components/FormNewsletter";
 import LinkHelp from "@/components/LinkHelp";
@@ -237,10 +238,13 @@ function PreviewSignupForm({ newsletter, settings }) {
 	);
 }
 
-// The prompt comes first: people build their sites with AI agents, which pick the code that fits.
+// The prompt comes first: people build their sites with AI agents, which pick the code that fits. Where to paste it is for
+// the codes, as the agent knows where the form goes.
 function CodeSignupForm({ code, prompt }) {
+	const [tab, setTab] = useState("agent");
+
 	return (
-		<Tabs defaultValue="agent" className="gap-3 p-4">
+		<Tabs value={tab} onValueChange={setTab} className="gap-3 p-4">
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<TabsList>
 					<TabsTrigger value="agent" className="px-3">
@@ -253,19 +257,21 @@ function CodeSignupForm({ code, prompt }) {
 						HTML
 					</TabsTrigger>
 				</TabsList>
-				<LinkHelp article="website" section="form-on-your-site" className="text-xs">
-					Where to paste it
-				</LinkHelp>
+				{tab !== "agent" && (
+					<LinkHelp article="website" section="form-on-your-site" className="text-xs">
+						Where to paste it
+					</LinkHelp>
+				)}
 			</div>
 			<TabsContent value="agent" className="flex flex-col gap-2">
-				<BlockCode title="Prompt" code={prompt} isWrapped />
+				<BlockPrompt prompt={prompt} />
 				<p className="text-xs text-pretty text-muted-foreground">
 					For the AI agent that builds your site, like Cursor, Claude Code, Codex or Lovable: it picks the code that fits your site,
 					adds the form, then tells you what&apos;s left to do here.
 				</p>
 			</TabsContent>
 			<TabsContent value="script" className="flex flex-col gap-2">
-				<BlockCode title="Script" code={code.script} />
+				<BlockCode title="Script" code={code.script} hasCopyLabel />
 				<p className="text-xs text-pretty text-muted-foreground">
 					Your theme, and the thank-you shows in place. Changes you save here reach your site on their own.
 				</p>
@@ -273,7 +279,7 @@ function CodeSignupForm({ code, prompt }) {
 			<TabsContent value="html" className="flex flex-col gap-2">
 				{code.html ? (
 					<>
-						<BlockCode title="HTML" code={code.html} />
+						<BlockCode title="HTML" code={code.html} hasCopyLabel />
 						<p className="text-xs text-pretty text-muted-foreground">
 							Works without JavaScript and takes your site&apos;s font. Copy it again after changing the form&apos;s text or layout.
 						</p>

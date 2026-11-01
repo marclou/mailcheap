@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { activate, anonymous, as, callApi, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
+import { renderToStaticMarkup } from "react-dom/server";
+import { getLastChanceContent } from "../lib/last-chance-content.js";
+import { activate, anonymous, as, callApi, catchRedirect, form, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
 
 // New subscribers get the confirmation email or the welcome email, never both. The settings pages turn one off as the
 // other goes on, in one save; the API and MCP refuse a change that would leave both on and say how to switch.
@@ -85,7 +87,7 @@ test("a newsletter saved with both on before the rule still takes other changes"
 test("the settings pages switch the other one off in the same save", async () => {
 	const user = await customer("signup-pages@example.com");
 	const id = user.newsletterId;
-	const welcomePage = form({ id, section: "welcome", welcomeEnabled: "on", welcomeSubject: "Welcome", welcomePreviewText: "", welcomeMarkdown: "Hi" });
+	const welcomePage = form({ id, section: "welcome", welcomeEnabled: "on", welcomeSubject: "Welcome", welcomePreviewText: "", welcomeContent: "Hi" });
 	assert.equal((await as(user, () => m.newsletters.saveNewsletter(null, welcomePage))).ok, true);
 	const find = () => m.Newsletter.findOne({ accountId: user.accountId, _id: id }).lean();
 	let saved = await find();
@@ -94,4 +96,45 @@ test("the settings pages switch the other one off in the same save", async () =>
 	assert.equal((await as(user, () => m.newsletters.saveNewsletter(null, form({ id, section: "signups", requireConfirmation: "on" })))).ok, true);
 	saved = await find();
 	assert.deepEqual([saved.requireConfirmation, saved.welcome.enabled, saved.welcome.markdown], [true, false, "Hi"]);
+});
+
+test("the list cleanup page saves the newsletter's own last-chance email; the built-in one sent back stays the built-in one", async () => {
+	const user = await customer("cleanup-page@example.com");
+	const id = user.newsletterId;
+	const find = () => m.Newsletter.findOne({ accountId: user.accountId, _id: id }).lean();
+	const save = (fields) =>
+		as(user, () =>
+			m.newsletters.saveNewsletter(
+				null,
+				form({ id, section: "cleanup", cleanupEnabled: "on", cleanupIssues: "", cleanupDays: "", lastChancePreviewText: "", lastChanceFormat: "rich", ...fields })
+			)
+		);
+	const content = '<p>Faz tempo que você não abre.</p><div data-button=""><a href="{{keep_url}}">Sim, quero continuar</a></div>';
+
+	assert.equal((await save({ lastChanceSubject: "Ainda quer receber?", lastChanceContent: content })).ok, true);
+	const { lastChance } = await find();
+	assert.deepEqual([lastChance.subject, lastChance.format, lastChance.html], ["Ainda quer receber?", "rich", content]);
+
+	const refused = await save({ lastChanceSubject: "Ainda quer receber?", lastChanceContent: "<p>Sem botão</p>" });
+	assert.match(refused.error, /^Last-chance email needs its button/);
+	assert.equal((await find()).lastChance.html, content, "nothing changed");
+
+	const builtIn = getLastChanceContent({ name: (await find()).name });
+	assert.equal((await save({ lastChanceSubject: builtIn.subject, lastChancePreviewText: builtIn.previewText, lastChanceContent: builtIn.html })).ok, true);
+	assert.equal((await find()).lastChance.subject, "", "Use the built-in email keeps no copy of it");
+});
+
+test("the list cleanup page shows the last-chance email while the cleanup is on, and the domains it stopped without a credit line", async () => {
+	const user = await customer("cleanup-render@example.com");
+	await m.Newsletter.updateOne({ accountId: user.accountId, _id: user.newsletterId }, { $set: { "cleanup.enabled": true } });
+	const CleanupPage = (await import("../app/(app)/newsletters/cleanup/page.js")).default;
+	const render = () => withEnv({ STOPFORUMSPAM_COMMERCIAL_OK: "1" }, async () => renderToStaticMarkup(await as(user, () => CleanupPage())));
+	const page = await render();
+	assert.ok(page.includes("Last-chance email") && page.includes('name="lastChanceSubject"'));
+	assert.ok(page.includes('value="Do you still want cleanup-render?"'), "the built-in one until it's written");
+	assert.ok(page.includes("Contacts on a known spam domain stop getting issues at once"));
+	assert.ok(!/stopforumspam/i.test(page), "no credit line");
+
+	await m.Newsletter.updateOne({ accountId: user.accountId, _id: user.newsletterId }, { $set: { "cleanup.enabled": false } });
+	assert.ok(!(await render()).includes('name="lastChanceSubject"'), "off, it's hidden and nothing of it is sent");
 });

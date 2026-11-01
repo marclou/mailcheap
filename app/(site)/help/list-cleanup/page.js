@@ -31,8 +31,9 @@ export default function ListCleanupPage() {
 					are signs of life, and any of them starts the count over.
 				</li>
 				<li>
-					<strong>One click keeps them.</strong> The email has a &ldquo;Yes, keep sending it&rdquo; button. Clicking it puts them back
-					in your list as before.
+					<strong>One click keeps them.</strong> The email has a button, &ldquo;Yes, keep sending it&rdquo; until you{" "}
+					<Link href={getHelpHref("list-cleanup", "last-chance-email")}>write your own</Link>. Clicking it puts them back in your list
+					as before.
 				</li>
 				<li>
 					<strong>No answer makes them dormant.</strong> Until they answer, they get no issues. At your first send {LAST_CHANCE_DAYS}{" "}
@@ -43,6 +44,22 @@ export default function ListCleanupPage() {
 				Dormant contacts stay in your list: they&apos;re never unsubscribed or deleted, and you can mark any of them active from the{" "}
 				<LinkApp href="/contacts">Contacts page</LinkApp>.{isCloud() && " They don't count toward your plan's subscribers."}
 			</p>
+
+			<h2 id="last-chance-email">The last-chance email</h2>
+			<p>
+				MailCheap&apos;s own last-chance email asks whether they still want your newsletter, and follows its name. On the{" "}
+				<LinkApp href="/newsletters/cleanup">List cleanup page</LinkApp>, you can write your own subject, preview text and content
+				instead, in your words or your readers&apos; language, in the same <Link href={getHelpHref("writing", "editor")}>editor</Link>{" "}
+				as your issues. Keep its button: each contact gets their own link in it, and its toolbar says Keeps them on your list. If
+				it&apos;s gone, Add the button brings it back, and Use the built-in email goes back to MailCheap&apos;s. Preview shows it as
+				they get it.
+			</p>
+			{isCloud() && (
+				<p>
+					Like issues, it goes through the <Link href={getHelpHref("sending", "content-check")}>content check</Link> when you save
+					it: while it&apos;s in review, cold contacts get MailCheap&apos;s own.
+				</p>
+			)}
 
 			<h2 id="before-sending">Before you send</h2>
 			<p>
@@ -65,11 +82,7 @@ export default function ListCleanupPage() {
 					Contacts on a known spam domain, from StopForumSpam&apos;s list updated every day, stop the same way at once, marked
 					&ldquo;Spam domain&rdquo;, and signups and imports from those domains are left out. Contacts who ever opened or clicked
 					never stop for it, and neither do addresses at mailbox providers, internet providers or privacy relays like SimpleLogin.
-					They come back if the list drops their domain. Spam domain data from{" "}
-					<a href="https://www.stopforumspam.com" target="_blank" rel="noopener">
-						StopForumSpam.com
-					</a>
-					.
+					They come back if the list drops their domain.
 				</p>
 			)}
 			<p>
@@ -83,6 +96,8 @@ export default function ListCleanupPage() {
 				<Link href={getHelpHref("newsletters", "list-cleanup")}>newsletter&apos;s settings</Link>, turn it off, or change when a contact
 				counts as cold: {CLEANUP_LIMITS.minIssues} to {CLEANUP_LIMITS.maxIssues} ignored issues, counting from the first issue MailCheap
 				sent them, and {CLEANUP_LIMITS.minDays} to {CLEANUP_LIMITS.maxDays} quiet days. A weekly newsletter can go lower on days.
+				The <Link href={getHelpHref("list-cleanup", "last-chance-email")}>last-chance email</Link> is there too, while the cleanup is
+				on.
 			</p>
 		</ArticleHelp>
 	);

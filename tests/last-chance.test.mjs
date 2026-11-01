@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createConfirmToken, verifyConfirmToken } from "../lib/confirmation.js";
 import { createKeepToken, getKeepUrl, verifyKeepToken } from "../lib/last-chance.js";
-import { KEEP_URL_PLACEHOLDER, getLastChanceContent } from "../lib/last-chance-content.js";
+import { KEEP_URL_PLACEHOLDER, getLastChanceContent, getLastChanceProblem, getOwnLastChance, isDefaultLastChance } from "../lib/last-chance-content.js";
 import { buildRecipientEmail, getCampaignRateProblem, getCampaignStatsPath } from "../lib/sending-rules.js";
 import { createUnsubscribeToken, verifyUnsubscribeToken } from "../lib/unsubscribe.js";
 
@@ -44,8 +44,10 @@ test("keep, confirmation and unsubscribe links can't stand in for each other", (
 test("the last-chance email asks one question, with a clean button", () => {
 	const content = getLastChanceContent(NEWSLETTER);
 	assert.equal(content.subject, "Do you still want Field notes?");
-	assert.ok(!/action required/i.test(`${content.subject} ${content.previewText} ${content.markdown}`));
-	assert.equal(content.markdown.match(/<a /g).length, 1, "one button");
+	assert.ok(!/action required/i.test(`${content.subject} ${content.previewText} ${content.html}`));
+	assert.equal(content.format, "rich", "written as the editor writes it, where its owner can change it");
+	assert.equal(content.html.match(/<a /g).length, 1, "one button");
+	assert.ok(content.html.includes(`<div data-button=""><a href="${KEEP_URL_PLACEHOLDER}">Yes, keep sending it</a></div>`));
 
 	const keepUrl = getKeepUrl(REFERENCE);
 	const email = buildRecipientEmail({
@@ -63,6 +65,47 @@ test("the last-chance email asks one question, with a clean button", () => {
 	assert.ok(email.headers["List-Unsubscribe"].startsWith("<https://mailcheap.test/api/unsubscribe?token="));
 	assert.equal(email.headers["List-Unsubscribe-Post"], "List-Unsubscribe=One-Click");
 	assert.ok(email.html.includes(email.unsubscribeUrl), "footer unsubscribe link");
+});
+
+test("a newsletter's own last-chance email, in its readers' language, goes out with each contact's keep link", () => {
+	const lastChance = {
+		subject: "Ainda quer receber a Field notes?",
+		previewText: "Um clique e ela continua chegando.",
+		format: "rich",
+		html: `<p>Faz tempo que você não abre.</p><div data-button=""><a href="${KEEP_URL_PLACEHOLDER}">Sim, quero continuar</a></div>`,
+	};
+	const content = getLastChanceContent({ ...NEWSLETTER, lastChance });
+	assert.equal(content.subject, "Ainda quer receber a Field notes?");
+	const keepUrl = getKeepUrl(REFERENCE);
+	const email = buildRecipientEmail({ campaign: content, newsletter: NEWSLETTER, contact: { _id: REFERENCE.contactId, email: "reader@example.com" }, keepUrl });
+	assert.ok(email.html.includes(`href="${keepUrl}"`));
+	assert.ok(email.text.includes(`Sim, quero continuar (${keepUrl})`));
+	assert.ok(!email.html.includes(KEEP_URL_PLACEHOLDER));
+
+	assert.deepEqual(getLastChanceContent({ ...NEWSLETTER, lastChance }, { builtIn: true }), getLastChanceContent(NEWSLETTER), "held, the built-in one goes out");
+});
+
+test("a last-chance email without its subject or its button can't be saved and never goes out", () => {
+	const builtIn = getLastChanceContent(NEWSLETTER);
+	assert.equal(getLastChanceProblem(builtIn), null);
+	assert.equal(getLastChanceProblem({ ...builtIn, subject: "" }), "Last-chance email needs a subject");
+	const buttonProblem = /^Last-chance email needs its button: a link to \{\{keep_url\}\}/;
+	assert.match(getLastChanceProblem({ subject: "Still there?", format: "rich", html: "<p>Still there?</p>" }), buttonProblem);
+	assert.match(getLastChanceProblem({ subject: "Still there?", format: "markdown", markdown: `[Keep](${KEEP_URL_PLACEHOLDER})` }), buttonProblem);
+	assert.equal(getLastChanceProblem({ subject: "Still there?", format: "markdown", markdown: `<a href="${KEEP_URL_PLACEHOLDER}">Keep</a>` }), null);
+
+	const broken = { ...NEWSLETTER, lastChance: { subject: "Still there?", format: "rich", html: "<p>No button</p>" } };
+	assert.equal(getOwnLastChance(broken), null);
+	assert.deepEqual(getLastChanceContent(broken), builtIn, "the built-in one goes out instead");
+});
+
+test("the built-in last-chance email sent back as it is stays the built-in one, which follows the name", () => {
+	const builtIn = getLastChanceContent(NEWSLETTER);
+	assert.equal(isDefaultLastChance(builtIn, NEWSLETTER), true);
+	assert.equal(isDefaultLastChance(builtIn, { ...NEWSLETTER, name: "Weekly notes" }), false);
+	assert.equal(isDefaultLastChance(builtIn, { ...NEWSLETTER, name: "Weekly notes" }, NEWSLETTER), true, "filled in before the rename");
+	assert.equal(isDefaultLastChance({ ...builtIn, subject: "Ainda quer receber?" }, NEWSLETTER), false);
+	assert.equal(getLastChanceContent({ ...NEWSLETTER, name: "Tips & <tricks>" }).html.includes("Tips &amp; &lt;tricks&gt;"), true, "the name is text");
 });
 
 test("issues keep the newsletter's reply-to", () => {

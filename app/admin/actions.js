@@ -92,8 +92,8 @@ export async function rejectContentReview(campaignId, { note, block } = {}) {
 	return result;
 }
 
-// A newsletter's own welcome or confirmation email the content check holds (lib/signup-email-review.js): approving lets
-// new subscribers get it.
+// A newsletter's own welcome, confirmation or last-chance email the content check holds (lib/signup-email-review.js):
+// approving lets it go out.
 export async function approveSignupEmail(newsletterId, kind) {
 	const admin = await requireAdmin();
 	if (!isValidObjectId(newsletterId)) return { error: "Newsletter not found" };

@@ -272,8 +272,12 @@ describe("signups from forms on other sites", () => {
 		}));
 		assert.deepEqual(tabs.map(({ label }) => label), ["AI agent", "Script", "HTML"]);
 		assert.deepEqual(tabs.filter(({ isActive }) => isActive).map(({ label }) => label), ["AI agent"], "the prompt shows first");
-		assert.match(html, />Prompt<\/span>/);
-		assert.match(html, /Add the signup form of my newsletter, embed-agent, to my website\./);
+		const prompt = html.match(/<figure\b(?:(?!<\/figure>)[\s\S])*>Prompt<\/span>[\s\S]*?<\/figure>/)?.[0] ?? "";
+		assert.match(prompt, /Add the signup form of my newsletter, embed-agent, to my website\./);
+		assert.match(prompt, /<button[^>]*>(?:(?!<\/button>)[\s\S])*<span aria-live="polite">Copy<\/span><\/button>/, "Copy says so, next to its icon");
+		assert.match(prompt, /<button[^>]*aria-expanded="false"[^>]*>Show more/, "its first lines, then Show more");
+		assert.doesNotMatch(html, /Where to paste it/, "the agent knows where: that link is for the script and the HTML");
+		assert.doesNotMatch(prompt, /overflow-y-auto|overflow-auto/, "it never scrolls on its own, so the page scrolls past it");
 		assert.match(html, /For the AI agent that builds your site, like Cursor, Claude Code, Codex or Lovable/);
 	});
 
@@ -294,7 +298,7 @@ describe("signups from forms on other sites", () => {
 		const user = await customer("embed-welcome@example.com", {
 			welcomeEnabled: "on",
 			welcomeSubject: "Welcome",
-			welcomeMarkdown: "Thanks for joining.",
+			welcomeContent: "Thanks for joining.",
 		});
 		const response = await post(user.newsletterId, { email: "welcomed@example.org", token: token(user.newsletterId, "https://site.example") });
 		assert.equal((await response.json()).pending, false);

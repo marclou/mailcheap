@@ -238,7 +238,7 @@ describe("without a plan", () => {
 		await welcome(user, { name: "Welcome trial" });
 		const { _id, name, slug } = await m.Newsletter.findOne({ accountId: user.accountId }).lean();
 		const newsletterId = String(_id);
-		const settings = { id: newsletterId, name, slug, postalAddress: "1 Main St, Paris", welcomeEnabled: "on", welcomeSubject: "Welcome", welcomeMarkdown: "Thanks." };
+		const settings = { id: newsletterId, name, slug, postalAddress: "1 Main St, Paris", welcomeEnabled: "on", welcomeSubject: "Welcome", welcomeContent: "Thanks." };
 		assert.equal((await as(user, () => m.newsletters.saveNewsletter(null, form(settings)))).ok, true, "signups don't confirm, so the welcome email is on");
 		const add = (email) => as(user, () => m.contacts.addContact(null, form({ newsletterId, email, consent: "on" })));
 

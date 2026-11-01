@@ -249,27 +249,29 @@ function ChipAddField({ isSelected, onPoint, onPick }) {
 
 // Typing "/" at the start of a line or after a space opens the menu, but not in a button's text; the text after it
 // searches. contactFields: the account's fields, offered after the first name, as setEditorFields keeps them
-// (lib/editor-merge-tags.js). In a section, a section isn't offered. onAddField: Add a field was picked.
+// (lib/editor-merge-tags.js). In a section, or without sections (withSections false), a section isn't offered.
+// onAddField: Add a field was picked.
 export const SlashCommand = Extension.create({
 	name: "slashCommand",
 	addOptions() {
-		return { onPickImage: () => {}, onAddField: () => {}, contactFields: [] };
+		return { onPickImage: () => {}, onAddField: () => {}, contactFields: [], withSections: true };
 	},
 	addStorage() {
 		return { contactFields: this.options.contactFields };
 	},
 	addProseMirrorPlugins() {
-		const { storage } = this;
+		const { storage, options } = this;
+		const getItems = (contactFields, state = null) => {
+			const items = getSlashItems(contactFields);
+			return options.withSections && !(state && isInSection(state)) ? items : items.filter((item) => !item.isSection);
+		};
 		return [
 			Suggestion({
 				editor: this.editor,
 				char: "/",
 				// Rendered before it's first placed, so it's placed at its own height.
-				initialItems: getSlashItems(this.options.contactFields),
-				items: ({ editor }) => {
-					const items = getSlashItems(storage.contactFields);
-					return isInSection(editor.state) ? items.filter((item) => !item.isSection) : items;
-				},
+				initialItems: getItems(options.contactFields),
+				items: ({ editor }) => getItems(storage.contactFields, editor.state),
 				allow: ({ state, range }) => state.doc.resolve(range.from).parent.type.name !== "button",
 				command: ({ editor, range, props: item }) => {
 					runPick(editor, range, item);

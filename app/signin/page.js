@@ -8,11 +8,16 @@ import { SigninAside, SiteAnalytics } from "@/components/SiteExtensions";
 import { DELETION_GRACE_DAYS } from "@/lib/account-deletion";
 import { getSession, getSignupError, isGoogleEnabled } from "@/lib/auth";
 import { BOTID_SIGNIN, isBotIdEnabled } from "@/lib/bot-check";
-import { isCloud } from "@/lib/config";
+import { getAppUrl, isCloud } from "@/lib/config";
 import { readOAuthRequest } from "@/lib/oauth";
 import { toSafeNextPath } from "@/lib/validation";
 
-export const metadata = { title: "Sign in" };
+// People search for MailCheap Cloud's sign-in by name, so search engines may list it there, as one address whatever
+// the query its links carry. A self-hosted server's stays out of search like the rest of its dashboard.
+export function generateMetadata() {
+	if (!isCloud()) return { title: "Sign in" };
+	return { title: "Sign in", robots: { index: true, follow: true }, alternates: { canonical: `${getAppUrl()}/signin` } };
+}
 
 // Also where an app connecting with OAuth (ChatGPT, Claude) sends people who aren't signed in: Better Auth
 // adds the signed authorization request to the query, and signing in carries on to the consent page.

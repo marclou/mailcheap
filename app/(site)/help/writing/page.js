@@ -215,7 +215,8 @@ export default function WritingPage() {
 				<Link href={getHelpHref("writing", "sections")}>section</Link> of it.
 			</p>
 			<p>
-				Names and fields work in the subject, the preview text and the content, and in your welcome and confirmation emails. Your
+				Names and fields work in the subject, the preview text and the content, and in your welcome, confirmation and last-chance
+				emails. Your
 				website and its issue pages always show the fallback, so no reader&apos;s details are ever public. The preview shows the
 				name Jane, with no field values, or the details of a contact you{" "}
 				<Link href={getHelpHref("writing", "preview")}>pick in it</Link>. Test emails show Jane too, or your own first name and

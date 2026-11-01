@@ -58,7 +58,7 @@ async function customer(email, { contacts = 2, isFree = false } = {}) {
 					archiveEnabled: "on",
 					welcomeEnabled: "on",
 					welcomeSubject: "Welcome",
-					welcomeMarkdown: "Thanks for joining.",
+					welcomeContent: "Thanks for joining.",
 				})
 			)
 		)

@@ -5,7 +5,8 @@ import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-export default function ButtonCopy({ value, label = "Copy" }) {
+// hasLabel: the label shows next to the icon, in an outlined button, for code that's the page's point to copy.
+export default function ButtonCopy({ value, label = "Copy", hasLabel = false }) {
 	const [isCopied, setIsCopied] = useState(false);
 	const timeout = useRef(null);
 
@@ -17,6 +18,15 @@ export default function ButtonCopy({ value, label = "Copy" }) {
 	}
 
 	const Icon = isCopied ? Check : Copy;
+
+	if (hasLabel) {
+		return (
+			<Button type="button" variant="outline" size="sm" onClick={copy} className="min-w-20">
+				<Icon key={String(isCopied)} data-icon="inline-start" className="animate-icon-in" />
+				<span aria-live="polite">{isCopied ? "Copied" : label}</span>
+			</Button>
+		);
+	}
 
 	return (
 		<Tooltip>

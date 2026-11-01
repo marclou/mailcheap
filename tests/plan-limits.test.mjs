@@ -36,7 +36,7 @@ async function setup(email, { emails, subscribers, contacts, welcome = false }) 
 					fromEmail: `hello@${slug}.mailcheapmail.com`,
 					postalAddress: "1 Main St, Paris",
 					archiveEnabled: "on",
-					...(welcome && { welcomeEnabled: "on", welcomeSubject: "Welcome", welcomeMarkdown: "Thanks for joining." }),
+					...(welcome && { welcomeEnabled: "on", welcomeSubject: "Welcome", welcomeContent: "Thanks for joining." }),
 				})
 			)
 		)

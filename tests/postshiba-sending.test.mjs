@@ -646,7 +646,7 @@ describe("PostShiba sending", () => {
 		await as(user, () =>
 			m.newsletters.saveNewsletter(
 				null,
-				form({ id: user.newsletterId, name: user.slug, slug: user.slug, fromName: "Jane", fromEmail: "hello@ps-signups.dev", postalAddress: "1 Main St", welcomeEnabled: "on", welcomeSubject: "Welcome", welcomeMarkdown: "Thanks for joining." })
+				form({ id: user.newsletterId, name: user.slug, slug: user.slug, fromName: "Jane", fromEmail: "hello@ps-signups.dev", postalAddress: "1 Main St", welcomeEnabled: "on", welcomeSubject: "Welcome", welcomeContent: "Thanks for joining." })
 			)
 		);
 		await withEnv(TELEGRAM, async () => {
@@ -680,7 +680,7 @@ describe("PostShiba sending", () => {
 					postalAddress: "1 Main St",
 					welcomeEnabled: "on",
 					welcomeSubject: "Welcome",
-					welcomeMarkdown: "Thanks for joining.",
+					welcomeContent: "Thanks for joining.",
 				})
 			)
 		);
@@ -730,7 +730,7 @@ describe("Feedback-ID on every email", () => {
 		await as(user, () =>
 			m.newsletters.saveNewsletter(
 				null,
-				form({ id: user.newsletterId, name: user.slug, slug: user.slug, fromName: "Jane", fromEmail: "hello@ps-feedback.dev", postalAddress: "1 Main St", welcomeEnabled: "on", welcomeSubject: "Welcome", welcomeMarkdown: "Thanks for joining." })
+				form({ id: user.newsletterId, name: user.slug, slug: user.slug, fromName: "Jane", fromEmail: "hello@ps-feedback.dev", postalAddress: "1 Main St", welcomeEnabled: "on", welcomeSubject: "Welcome", welcomeContent: "Thanks for joining." })
 			)
 		);
 		const sent = fake.state.sends.length;

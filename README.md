@@ -34,7 +34,7 @@ MailCheap is a newsletter app: write an issue, send it to your list, publish it 
 
 - **AI agents and the dashboard.** Everything the dashboard does also works from an AI agent through the MCP server, and from code through the REST API, with the same checks and limits. ChatGPT, Claude and Grok Bot connect with OAuth; Claude Code, Codex and Cursor with an API key. MCP marks sending as an action that can't be undone, so agents ask you first.
 - **Write, review, send.** Write in an editor with slash commands, images and boxes, or send Markdown or a complete HTML email through the API and MCP. Review shows what to fix before sending: subject, preview text, unsubscribe link, Gmail's 100 KB clip, postal address, sender. Then send it, schedule it, or start with your most engaged readers and send to more later.
-- **Imports from beehiiv, Substack and Mailchimp.** Their CSV exports import as they are, with each reader's status and signup date, and so do Kit's, MailerLite's, Buttondown's, Ghost's and EmailOctopus's.
+- **Imports from beehiiv, Substack and Mailchimp.** Their CSV exports import as they are, with each reader's status and signup date, and so do Kit's, MailerLite's, Buttondown's, Ghost's, EmailOctopus's and listmonk's.
 - **A website for each newsletter**, on a free subdomain on MailCheap Cloud (`<slug>.mailcheap.ai`), or on your server: every issue gets a page search engines can find, with a signup form, an author page, share images and a sitemap.
 - **Sending from your own domain**, with the DKIM, return path and DMARC records to add and a check for each. On MailCheap Cloud, a newsletter without a domain sends from its own shared address, `hello@<slug>.mailcheap.ai`.
 - **Deliverability protections**, built in:

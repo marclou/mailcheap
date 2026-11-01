@@ -56,7 +56,7 @@ async function addNewsletter(user, { requireConfirmation = false } = {}) {
 					postalAddress: "1 Main St, Paris",
 					archiveEnabled: "on",
 					welcomeSubject: "Welcome aboard",
-					welcomeMarkdown: "Thanks for joining.",
+					welcomeContent: "Thanks for joining.",
 					...(requireConfirmation ? { requireConfirmation: "on" } : { welcomeEnabled: "on" }),
 				})
 			)

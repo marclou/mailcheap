@@ -81,7 +81,7 @@ test("newsletter changes land on the saved settings, and the shared address foll
 		welcome: { enabled: true, subject: "Hi", markdown: "Hello" },
 	});
 	const merged = mergeNewsletterSettings(saved, { slug: "letters", welcome: { subject: "Welcome" } });
-	assert.deepEqual(merged.welcome, { enabled: true, subject: "Welcome", previewText: "", markdown: "Hello" });
+	assert.deepEqual(merged.welcome, { enabled: true, subject: "Welcome", previewText: "", format: "markdown", markdown: "Hello", html: "" });
 	assert.equal(applySharedAddress(merged, "mailcheapmail.com").fromEmail, "hello@letters.mailcheapmail.com");
 	assert.equal(applySharedAddress({ ...merged, fromEmail: "hello@weekly.mailcheapmail.com" }, "mailcheapmail.com").fromEmail, "hello@letters.mailcheapmail.com");
 	assert.equal(applySharedAddress({ ...merged, fromEmail: "hi@own.dev" }, "mailcheapmail.com").fromEmail, "hi@own.dev");

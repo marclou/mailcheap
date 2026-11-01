@@ -97,7 +97,10 @@ export default function NewslettersPage() {
 			<p>
 				The built-in confirmation email follows your newsletter&apos;s name and description. On the{" "}
 				<LinkApp href="/newsletters/signups">Confirm signups page</LinkApp>, you can write your own subject, preview text and content,
-				as long as it keeps the button.
+				in your words or your readers&apos; language, in the same <Link href={getHelpHref("writing", "editor")}>editor</Link> as
+				your issues. Keep its button: each new subscriber gets their own link in it, and its toolbar says Confirms their
+				subscription. If it&apos;s gone, Add the button brings it back, and Use the built-in email goes back to MailCheap&apos;s.
+				Preview shows it as they get it.
 				{isCloud() && (
 					<>
 						{" "}
@@ -120,10 +123,12 @@ export default function NewslettersPage() {
 
 			<h2 id="welcome-email">Welcome email</h2>
 			<p>
-				An email each new subscriber gets when they join, written in Markdown. Send yourself a test of it from the{" "}
-				<LinkApp href="/newsletters/welcome">Welcome email page</LinkApp>.
-				While double opt-in is on, new subscribers get the confirmation email instead: turning the welcome email on turns double
-				opt-in off when you save, and the page says so first.
+				An email each new subscriber gets when they join, written in the same{" "}
+				<Link href={getHelpHref("writing", "editor")}>editor</Link> as your issues, with pictures, buttons and their{" "}
+				<Link href={getHelpHref("writing", "first-name")}>first name</Link>. On the{" "}
+				<LinkApp href="/newsletters/welcome">Welcome email page</LinkApp>, Preview shows it as they get it and Send test sends the
+				saved version to you. While double opt-in is on, new subscribers get the confirmation email instead: turning the welcome
+				email on turns double opt-in off when you save, and the page says so first.
 				{isCloud() && (
 					<>
 						{" "}
@@ -134,7 +139,7 @@ export default function NewslettersPage() {
 			</p>
 			<FigureHelp
 				src="/help/newsletters/welcome-email.webp"
-				alt="The welcome email page with its switch on and a note that saving turns off double opt-in."
+				alt="The welcome email page with its switch on, a note that saving turns off double opt-in, and the email in the editor."
 				caption="The welcome email"
 			/>
 			{isCloud() && (
@@ -149,8 +154,9 @@ export default function NewslettersPage() {
 				When an issue goes out, contacts who ignored several issues in a row and showed no sign of life for months get one last-chance
 				email instead. It&apos;s on for new newsletters, after {cleanup.issues} ignored issues and {cleanup.days} quiet days: on the{" "}
 				<LinkApp href="/newsletters/cleanup">List cleanup page</LinkApp>, you can pick {CLEANUP_LIMITS.minIssues} to{" "}
-				{CLEANUP_LIMITS.maxIssues} issues and {CLEANUP_LIMITS.minDays} to {CLEANUP_LIMITS.maxDays} days.{" "}
-				<Link href={getHelpHref("list-cleanup")}>List cleanup</Link>
+				{CLEANUP_LIMITS.maxIssues} issues and {CLEANUP_LIMITS.minDays} to {CLEANUP_LIMITS.maxDays} days, and write your own
+				last-chance email, like the confirmation email.{" "}
+				<Link href={getHelpHref("list-cleanup", "last-chance-email")}>The last-chance email</Link>
 			</p>
 
 			<h2 id="form-for-your-site">Form for your site</h2>

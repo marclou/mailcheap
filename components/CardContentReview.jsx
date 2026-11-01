@@ -14,7 +14,7 @@ import { formatRelative } from "@/lib/format";
 import { toast } from "@/lib/toast";
 
 // What the automated content check found (lib/content-review.js), for admins only, and the decision on what it holds: an
-// issue (campaignId), or a newsletter's own welcome or confirmation email (newsletterId and kind). isDraft: an issue's
+// issue (campaignId), or a newsletter's own welcome, confirmation or last-chance email (newsletterId and kind). isDraft: an issue's
 // check at its review step, before any send, which holds nothing yet.
 export default function CardContentReview({ campaignId, newsletterId, kind, review, isPending = false, ownerEmail, isDraft = false, stagger = 6 }) {
 	const status = getStatus(review, isPending, isDraft);
@@ -83,8 +83,8 @@ export default function CardContentReview({ campaignId, newsletterId, kind, revi
 	);
 }
 
-// What a decision does, by what the check holds: an issue sends or stays paused, a signup email goes out to new
-// subscribers or stays replaced.
+// What a decision does, by what the check holds: an issue sends or stays paused, a newsletter's own email goes out or
+// stays replaced.
 function getCampaignTarget(campaignId) {
 	return {
 		approve: () => approveContentReview(campaignId),
@@ -97,18 +97,35 @@ function getCampaignTarget(campaignId) {
 }
 
 function getSignupEmailTarget(newsletterId, kind) {
+	const { name, approved, rejectEffect } = SIGNUP_EMAILS[kind] ?? SIGNUP_EMAILS.confirmation;
 	return {
 		approve: () => approveSignupEmail(newsletterId, kind),
 		reject: (options) => rejectSignupEmail(newsletterId, kind, options),
 		approveLabel: "Approve",
-		approved: "Approved, new subscribers get it",
-		rejectTitle: `Reject this ${kind} email?`,
-		rejectEffect:
-			kind === "welcome"
-				? "New subscribers keep getting no welcome email until it's changed."
-				: "New subscribers keep getting the built-in confirmation email until it's changed.",
+		approved,
+		rejectTitle: `Reject this ${name} email?`,
+		rejectEffect,
 	};
 }
+
+// The newsletter's own emails the check reads (lib/signup-email-review.js), each by its kind.
+const SIGNUP_EMAILS = {
+	welcome: {
+		name: "welcome",
+		approved: "Approved, new subscribers get it",
+		rejectEffect: "New subscribers keep getting no welcome email until it's changed.",
+	},
+	confirmation: {
+		name: "confirmation",
+		approved: "Approved, new subscribers get it",
+		rejectEffect: "New subscribers keep getting the built-in confirmation email until it's changed.",
+	},
+	lastChance: {
+		name: "last-chance",
+		approved: "Approved, it goes out from the next send",
+		rejectEffect: "Contacts who stopped opening keep getting the built-in last-chance email until it's changed.",
+	},
+};
 
 function ActionsReview({ target, ownerEmail }) {
 	const router = useRouter();

@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { getDraftConfirmation, getDraftFromEmail, getDraftKey, getNewsletterDraft, getSlugChanges } from "../lib/newsletter-form.js";
+import {
+	getBuiltInLastChance,
+	getDraftConfirmation,
+	getDraftFromEmail,
+	getDraftKey,
+	getDraftLastChance,
+	getNewsletterDraft,
+	getSlugChanges,
+} from "../lib/newsletter-form.js";
 
 // The settings form's save bar shows while the form has unsaved changes: what saving would send, against what the
 // newsletter has saved.
@@ -38,8 +46,23 @@ test("the confirmation email and the welcome email both count, the welcome page 
 	assert.equal(hasChanges({ ...saved, name: "Field notes weekly" }), true);
 
 	assert.equal(hasChanges({ ...saved, welcome: { ...saved.welcome, subject: "Welcome" } }), true);
+	assert.equal(hasChanges({ ...saved, welcome: { ...saved.welcome, format: "rich", content: "<p>Hi</p>" } }), true);
 	assert.equal(hasChanges({ ...saved, isWelcomeEnabled: true }), true);
 	assert.equal(hasChanges({ ...saved, isConfirmationRequired: false }), true);
+});
+
+test("the last-chance email counts too: the built-in one until it's edited, which a rename follows", () => {
+	const lastChance = getDraftLastChance(saved, newsletter);
+	assert.deepEqual(lastChance, getBuiltInLastChance(newsletter));
+	assert.equal(lastChance.format, "rich");
+	assert.ok(lastChance.content.includes('<a href="{{keep_url}}">Yes, keep sending it</a>'));
+	assert.equal(hasChanges({ ...saved, lastChanceEdits: { ...lastChance, subject: "Ainda quer receber?" } }), true);
+	assert.equal(hasChanges({ ...saved, lastChanceEdits: { ...lastChance } }), false, "edited back to the built-in email");
+	assert.equal(getDraftLastChance({ ...saved, name: "Weekly notes" }, newsletter).subject, "Do you still want Weekly notes?");
+
+	const own = { ...newsletter, lastChance: { subject: "Ainda quer receber?", format: "rich", html: '<p>Oi</p><div data-button=""><a href="{{keep_url}}">Sim</a></div>' } };
+	const ownDraft = getNewsletterDraft({ newsletter: own, domains: [], sharedDomain });
+	assert.deepEqual(getDraftLastChance(ownDraft, own), { subject: "Ainda quer receber?", previewText: "", format: "rich", content: own.lastChance.html });
 });
 
 test("a welcome email saved on while signups confirm shows off, as it doesn't go out", () => {

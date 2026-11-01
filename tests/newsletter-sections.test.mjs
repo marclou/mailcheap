@@ -33,10 +33,16 @@ function fullForm(section) {
 		welcomeEnabled: "on",
 		welcomeSubject: "Welcome",
 		welcomePreviewText: "",
-		welcomeMarkdown: "Hi",
+		welcomeFormat: "rich",
+		welcomeContent: "<p>Hi</p>",
 		confirmationSubject: "Confirm",
 		confirmationPreviewText: "",
-		confirmationMarkdown: "Click",
+		confirmationFormat: "rich",
+		confirmationContent: "<p>Click</p>",
+		lastChanceSubject: "Still reading?",
+		lastChancePreviewText: "",
+		lastChanceFormat: "rich",
+		lastChanceContent: "<p>Keep it coming</p>",
 	};
 	for (const [key, value] of Object.entries(fields)) form.set(key, value);
 	if (section) form.set("section", section);
@@ -55,7 +61,10 @@ test("a section's page sends its own fields only, so saving it leaves the other 
 		replyTo: "reply@example.com",
 		postalAddress: "1 Main St, Paris",
 	});
-	assert.deepEqual(readSettingsForm(fullForm("cleanup")), { cleanup: { enabled: true, issues: 8, days: null } });
+	assert.deepEqual(readSettingsForm(fullForm("cleanup")), {
+		cleanup: { enabled: true, issues: 8, days: null },
+		lastChance: { subject: "Still reading?", previewText: "", format: "rich", content: "<p>Keep it coming</p>" },
+	});
 	assert.deepEqual(readSettingsForm(fullForm("website")), {
 		archiveEnabled: true,
 		description: "One idea a week.",
@@ -92,19 +101,33 @@ test("a switch only counts on its own page: off there, untouched elsewhere", () 
 });
 
 test("a collapsed email section sends nothing of it, so what it saved stays", () => {
+	const fieldsOf = (name) => ["Subject", "PreviewText", "Format", "Content"].map((field) => `${name}${field}`);
 	const signupsOff = fullForm("signups");
 	signupsOff.delete("requireConfirmation");
-	for (const key of ["confirmationSubject", "confirmationPreviewText", "confirmationMarkdown"]) signupsOff.delete(key);
+	for (const key of fieldsOf("confirmation")) signupsOff.delete(key);
 	assert.deepEqual(readSettingsForm(signupsOff), { requireConfirmation: false });
 
 	const welcomeCollapsed = fullForm("welcome");
-	for (const key of ["welcomeEnabled", "welcomeSubject", "welcomePreviewText", "welcomeMarkdown"]) welcomeCollapsed.delete(key);
+	for (const key of ["welcomeEnabled", ...fieldsOf("welcome")]) welcomeCollapsed.delete(key);
 	assert.deepEqual(readSettingsForm(welcomeCollapsed), {});
 
+	const cleanupOff = fullForm("cleanup");
+	for (const key of ["cleanupEnabled", ...fieldsOf("lastChance")]) cleanupOff.delete(key);
+	assert.deepEqual(readSettingsForm(cleanupOff), { cleanup: { enabled: false, issues: 8, days: null } }, "the last-chance email shows while the cleanup is on");
+
 	assert.deepEqual(readSettingsForm(fullForm("welcome")), {
-		welcome: { enabled: true, subject: "Welcome", previewText: "", markdown: "Hi" },
+		welcome: { enabled: true, subject: "Welcome", previewText: "", format: "rich", content: "<p>Hi</p>" },
 		requireConfirmation: false,
 	});
+});
+
+test("an email the editor never changed comes back in the Markdown it was saved in", () => {
+	const untouched = fullForm("welcome");
+	untouched.set("welcomeFormat", "markdown");
+	untouched.set("welcomeContent", "Thanks for joining.");
+	assert.deepEqual(readSettingsForm(untouched).welcome, { enabled: true, subject: "Welcome", previewText: "", format: "markdown", content: "Thanks for joining." });
+	untouched.delete("welcomeFormat");
+	assert.equal(readSettingsForm(untouched).welcome.format, "markdown");
 });
 
 test("without a section the form sends every field, as the one-page settings did; a section with no fields here sends none", () => {

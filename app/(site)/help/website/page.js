@@ -170,7 +170,7 @@ export default function WebsitePage() {
 			</p>
 			<FigureHelp
 				src="/help/website/code-to-paste.webp"
-				alt="Code to paste on the AI agent tab: the prompt to copy, which starts by asking the agent to add the newsletter's signup form, next to the Script and HTML tabs."
+				alt="Code to paste on the AI agent tab, next to the Script and HTML tabs: the prompt's first lines, which ask the agent to add the newsletter's signup form, between Copy and Show more."
 				caption="The prompt for your AI agent"
 			/>
 			<ul>

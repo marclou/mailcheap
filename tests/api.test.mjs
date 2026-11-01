@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { getConfirmationContent } from "../lib/confirmation-content.js";
+import { toDraftEmail } from "../lib/newsletter-emails.js";
 import { activate, as, callApi, catchRedirect, form, jsonRequest, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
 import { flushAfter } from "./stubs/next-server.mjs";
 import { published } from "./stubs/qstash.mjs";
@@ -79,8 +80,9 @@ async function draft(user, fields = {}) {
 	return response.body.id;
 }
 
-// The settings form with confirmed opt-in on, as a browser sends it: a textarea's line breaks become CRLF.
+// The settings form with confirmed opt-in on, as the confirmation email's editor sends it.
 function saveSettingsForm(user, { description = "", confirmation }) {
+	const { subject, previewText, format, content } = toDraftEmail(confirmation);
 	const fields = {
 		id: user.newsletterId,
 		name: `${user.slug} news`,
@@ -88,9 +90,10 @@ function saveSettingsForm(user, { description = "", confirmation }) {
 		postalAddress: "1 Main St, Paris",
 		description,
 		requireConfirmation: "on",
-		confirmationSubject: confirmation.subject,
-		confirmationPreviewText: confirmation.previewText,
-		confirmationMarkdown: confirmation.markdown.replaceAll("\n", "\r\n"),
+		confirmationSubject: subject,
+		confirmationPreviewText: previewText,
+		confirmationFormat: format,
+		confirmationContent: content,
 	};
 	return as(user, () => m.newsletters.saveNewsletter(null, form(fields)));
 }
@@ -544,7 +547,15 @@ describe("newsletters and images", () => {
 		const user = await customer("settings-api@example.com");
 		await api(user.key, "PATCH", `/newsletters/${user.slug}`, { welcome: { enabled: true, subject: "Hi", markdown: "Hello." } });
 		const updated = await api(user.key, "PATCH", `/newsletters/${user.newsletterId}`, { welcome: { subject: "Hello there" }, replyTo: "Me@Example.org" });
-		assert.deepEqual(updated.body.welcome, { enabled: true, subject: "Hello there", previewText: "", markdown: "Hello.", paused: false, review: null });
+		assert.deepEqual(updated.body.welcome, {
+			enabled: true,
+			subject: "Hello there",
+			previewText: "",
+			format: "markdown",
+			content: "Hello.",
+			paused: false,
+			review: null,
+		});
 		assert.equal(updated.body.replyTo, "me@example.org");
 		assert.equal(updated.body.postalAddress, "1 Main St, Paris");
 		assert.equal(updated.body.fromEmail, `hello@${user.slug}.mailcheapmail.com`);
@@ -589,7 +600,7 @@ describe("newsletters and images", () => {
 		const filledIn = getConfirmationContent({ name, description: "One idea a week." });
 		assert.equal((await saveSettingsForm(user, { description: "One idea a week.", confirmation: filledIn })).ok, true);
 		const stored = await m.Newsletter.findOne({ accountId: user.accountId }).lean();
-		assert.deepEqual(stored.confirmation, { subject: "", previewText: "", markdown: "" }, "no copy of the built-in one");
+		assert.deepEqual(stored.confirmation, { subject: "", previewText: "", format: "markdown", markdown: "", html: "" }, "no copy of the built-in one");
 		assert.equal((await api(user.key, "GET", `/newsletters/${user.slug}`)).body.confirmation.isCustom, false);
 
 		await api(user.key, "PATCH", `/newsletters/${user.slug}`, { description: "Two ideas a week." });
@@ -599,8 +610,12 @@ describe("newsletters and images", () => {
 		assert.equal(sesEmails.length - before, 1);
 		assert.ok(sesEmails.at(-1).text.includes(`You asked to get ${name}. Two ideas a week.`), "the confirmation email has the new description");
 
-		const { subject, previewText, markdown } = (await api(user.key, "GET", `/newsletters/${user.slug}`)).body.confirmation;
-		const renamed = await api(user.key, "PATCH", `/newsletters/${user.slug}`, { name: "Field notes", confirmation: { subject, previewText, markdown } });
+		const { subject, previewText, format, content } = (await api(user.key, "GET", `/newsletters/${user.slug}`)).body.confirmation;
+		assert.equal(format, "rich");
+		const renamed = await api(user.key, "PATCH", `/newsletters/${user.slug}`, {
+			name: "Field notes",
+			confirmation: { subject, previewText, format, content },
+		});
 		assert.equal(renamed.body.confirmation.isCustom, false, "read before the rename, it's still the built-in one");
 		assert.equal(renamed.body.confirmation.subject, "Confirm your subscription to Field notes");
 	});
@@ -608,18 +623,73 @@ describe("newsletters and images", () => {
 	test("an edited confirmation email is stored and kept; one stored before stays through saves that leave it out", async () => {
 		const user = await customer("own-confirmation@example.com");
 		const builtIn = getConfirmationContent({ name: `${user.slug} news` });
-		const edited = { ...builtIn, markdown: `${builtIn.markdown}\n\nP.S. Reply to say hi.` };
+		const edited = { ...builtIn, html: `${builtIn.html}<p>P.S. Reply to say hi.</p>` };
 		assert.equal((await saveSettingsForm(user, { confirmation: edited })).ok, true);
 		await api(user.key, "PATCH", `/newsletters/${user.slug}`, { description: "One idea a week." });
 		const { confirmation } = (await api(user.key, "GET", `/newsletters/${user.slug}`)).body;
 		assert.equal(confirmation.isCustom, true);
-		assert.ok(confirmation.markdown.endsWith("P.S. Reply to say hi."));
-		assert.ok(!confirmation.markdown.includes("One idea a week."), "the description doesn't change it");
+		assert.equal(confirmation.format, "rich");
+		assert.ok(confirmation.content.endsWith("<p>P.S. Reply to say hi.</p>"));
+		assert.ok(!confirmation.content.includes("One idea a week."), "the description doesn't change it");
 
-		const { subject, previewText, markdown } = getConfirmationContent({ name: `${user.slug} news`, description: "One idea a week." });
-		await m.Newsletter.updateOne({ accountId: user.accountId }, { $set: { confirmation: { subject, previewText, markdown } } });
+		// Written in Markdown before the editor.
+		const markdown = `Confirm to get ${user.slug} news.\n\n<a href="{{confirm_url}}">Confirm</a>`;
+		await m.Newsletter.updateOne({ accountId: user.accountId }, { $set: { confirmation: { subject: "Confirm", previewText: "", markdown } } });
 		await api(user.key, "PATCH", `/newsletters/${user.slug}`, { postalAddress: "2 Main St, Paris" });
 		assert.equal((await m.Newsletter.findOne({ accountId: user.accountId }).lean()).confirmation.markdown, markdown);
+		const kept = (await api(user.key, "GET", `/newsletters/${user.slug}`)).body.confirmation;
+		assert.deepEqual([kept.isCustom, kept.format, kept.content], [true, "markdown", markdown]);
+	});
+
+	test("a newsletter's own last-chance email is the built-in one until it's written, in the editor's HTML or in Markdown, and keeps its button", async () => {
+		const user = await customer("own-last-chance@example.com");
+		const path = `/newsletters/${user.slug}`;
+		const builtIn = (await api(user.key, "GET", path)).body.lastChance;
+		assert.deepEqual([builtIn.isCustom, builtIn.format, builtIn.review], [false, "rich", null]);
+		assert.equal(builtIn.subject, `Do you still want ${user.slug} news?`);
+		assert.ok(builtIn.content.includes('<div data-button=""><a href="{{keep_url}}">Yes, keep sending it</a></div>'));
+
+		const content = '<p>Faz tempo que você não abre.</p><div data-button=""><a href="{{keep_url}}">Sim, quero continuar</a></div>';
+		const saved = await api(user.key, "PATCH", path, { lastChance: { subject: "Ainda quer receber?", format: "rich", content } });
+		assert.deepEqual(saved.body.lastChance, { subject: "Ainda quer receber?", previewText: "", format: "rich", content, isCustom: true, review: null });
+
+		const withoutButton = await api(user.key, "PATCH", path, { lastChance: { format: "rich", content: "<p>Faz tempo.</p>" } });
+		assert.match(assertError(withoutButton, 400, "validation_failed"), /^Last-chance email needs its button: a link to \{\{keep_url\}\}/);
+		assert.equal(assertError(await api(user.key, "PATCH", path, { lastChance: { format: "rich" } }), 400, "validation_failed"), "lastChance.format: send content with it");
+		const inMarkdown = await api(user.key, "PATCH", path, { lastChance: { content: 'Faz tempo.\n\n<a href="{{keep_url}}">Sim</a>' } });
+		assert.deepEqual([inMarkdown.body.lastChance.format, inMarkdown.body.lastChance.isCustom], ["markdown", true], "Markdown without a format");
+
+		const { subject, previewText, format, content: builtInContent } = builtIn;
+		const back = await api(user.key, "PATCH", path, { lastChance: { subject, previewText, format, content: builtInContent } });
+		assert.equal(back.body.lastChance.isCustom, false, "sent back as it was, it's the built-in one again");
+		assert.equal((await m.Newsletter.findOne({ accountId: user.accountId }).lean()).lastChance.subject, "");
+	});
+
+	test("the welcome and confirmation emails take content in the editor's HTML too, and markdown as before", async () => {
+		const user = await customer("email-formats@example.com");
+		const path = `/newsletters/${user.slug}`;
+		const welcome = await api(user.key, "PATCH", path, { requireConfirmation: false, welcome: { enabled: true, subject: "Bem-vindo", markdown: "Obrigado!" } });
+		assert.deepEqual([welcome.body.welcome.format, welcome.body.welcome.content], ["markdown", "Obrigado!"]);
+		const rich = await api(user.key, "PATCH", path, { welcome: { format: "rich", content: "<p>Obrigado, {{first_name|leitor}}!</p>" } });
+		assert.deepEqual([rich.body.welcome.subject, rich.body.welcome.format, rich.body.welcome.content], ["Bem-vindo", "rich", "<p>Obrigado, {{first_name|leitor}}!</p>"]);
+		assertError(await api(user.key, "PATCH", path, { welcome: { format: "rich", content: "<p></p>" } }), 400, "validation_failed");
+
+		const confirmation = '<p>Falta só um clique.</p><div data-button=""><a href="{{confirm_url}}">Confirmar</a></div>';
+		const confirming = await api(user.key, "PATCH", path, {
+			requireConfirmation: true,
+			welcome: { enabled: false },
+			confirmation: { subject: "Confirme sua inscrição", format: "rich", content: confirmation },
+		});
+		assert.deepEqual([confirming.body.confirmation.isCustom, confirming.body.confirmation.content], [true, confirmation]);
+		const withoutButton = await api(user.key, "PATCH", path, { confirmation: { content: "<p>Falta só um clique.</p>", format: "rich" } });
+		assert.match(assertError(withoutButton, 400, "validation_failed"), /^Confirmation email needs its button: a link to \{\{confirm_url\}\}/);
+
+		const before = sesEmails.length;
+		assert.equal((await api(user.signupsKey, "POST", "/contacts", { email: "leitor@example.org" })).body.status, "pending");
+		await flushAfter();
+		const sent = sesEmails.slice(before).find(({ to }) => [to].flat().includes("leitor@example.org"));
+		assert.equal(sent.subject, "Confirme sua inscrição");
+		assert.match(sent.html, /<a href="https:\/\/[^"]+\/confirm\?token=[^"]+" style="display:inline-block;[^"]*">Confirmar<\/a>/, "its button carries the reader's own link");
 	});
 
 	test("images upload as base64 or from a link, into the account's folder", async () => {

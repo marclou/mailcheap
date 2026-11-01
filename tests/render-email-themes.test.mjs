@@ -38,10 +38,17 @@ test("web fonts load from the app on screens only, and Outlook gets fonts it has
 });
 
 test("the confirmation button takes the accent, its readable label and the theme's corners", () => {
-	const { html } = renderEmail({ ...getConfirmationContent({ name: "Field notes" }), newsletter: { name: "Field notes", theme: { preset: "poster" } } });
-	assert.match(html, /style="display:inline-block;background:#ffd23f;color:#0a0a0a;[^"]*border-radius:0px;"/);
-	const pill = renderEmail({ ...getConfirmationContent({ name: "Field notes" }), newsletter: { name: "Field notes", theme: { preset: "sunset" } } });
-	assert.match(pill.html, /border-radius:999px;">Confirm my subscription<\/a>/);
+	const buttonStyle = (content, preset) =>
+		renderEmail({ ...content, newsletter: { name: "Field notes", theme: { preset } } }).html.match(
+			/<a href="\{\{confirm_url\}\}" style="([^"]*)">Confirm my subscription<\/a>/
+		)?.[1];
+	const builtIn = getConfirmationContent({ name: "Field notes" });
+	assert.match(buttonStyle(builtIn, "poster"), /border-radius:0px;background:#ffd23f;color:#0a0a0a;/);
+	assert.match(buttonStyle(builtIn, "sunset"), /border-radius:999px;/);
+
+	// A copy its owner saved in Markdown, before the editor, keeps the built-in button's inline style.
+	const markdown = `Hi\n\n<a href="{{confirm_url}}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:8px;">Confirm my subscription</a>`;
+	assert.match(buttonStyle({ format: "markdown", markdown, subject: "Hi" }, "poster"), /^display:inline-block;background:#ffd23f;color:#0a0a0a;[^"]*border-radius:0px;$/);
 });
 
 test("editor pictures take the theme's corners; designed HTML emails keep their own look", () => {

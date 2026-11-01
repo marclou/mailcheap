@@ -1,37 +1,40 @@
 "use client";
 
-import { useDeferredValue, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, CircleAlert, ExternalLink, FlaskConical, Loader2, X } from "lucide-react";
+import { Check, CircleAlert, ExternalLink, FlaskConical, Loader2, RotateCcw, X } from "lucide-react";
 import { checkSlug, saveNewsletter, sendWelcomeTest } from "@/app/(app)/newsletters/actions";
 import BarSave from "@/components/BarSave";
 import ButtonCopy from "@/components/ButtonCopy";
 import CardWebsiteDomain from "@/components/CardWebsiteDomain";
+import EditorEmail from "@/components/EditorEmail";
 import InputImage from "@/components/InputImage";
 import LinkHelp from "@/components/LinkHelp";
 import NoticeWelcomePaused from "@/components/NoticeWelcomePaused";
-import PreviewEmail from "@/components/PreviewEmail";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { CONFIRM_URL_PLACEHOLDER, KEEP_URL_PLACEHOLDER } from "@/lib/action-links";
 import { CLEANUP_LIMITS, LAST_CHANCE_DAYS, getCleanupSettings } from "@/lib/cleanup";
-import { CONFIRM_URL_PLACEHOLDER } from "@/lib/confirmation-content";
+import { CONFIRM_BUTTON_TEXT } from "@/lib/confirmation-content";
 import { formatNumber } from "@/lib/format";
-import { KEEP_URL_PLACEHOLDER, getLastChanceContent } from "@/lib/last-chance-content";
-import { fillSampleName } from "@/lib/merge-tags";
+import { KEEP_BUTTON_TEXT } from "@/lib/last-chance-content";
+import { isSameEmail } from "@/lib/newsletter-emails";
 import {
+	getBuiltInConfirmation,
+	getBuiltInLastChance,
 	getDraftConfirmation,
 	getDraftFromEmail,
 	getDraftKey,
+	getDraftLastChance,
 	getNewsletterDraft,
 	getSlugChanges,
 	getWebsiteAddress,
 } from "@/lib/newsletter-form";
 import { getSlugFormatProblem } from "@/lib/newsletter-settings";
 import { ADD_DOMAIN_PATH, DOMAINS_PATH, MAX_AUTHOR_BIO_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/newsletters";
-import { UNSUBSCRIBE_PLACEHOLDER, renderEmail } from "@/lib/render-email";
 import { getSharedAddress } from "@/lib/sender-rules";
 import { slugify } from "@/lib/slug";
 import { toast } from "@/lib/toast";
@@ -45,8 +48,9 @@ const IMAGE_PREVIEW_PATTERN = /^(https:\/\/\S+\.\S{2,}\/\S+|\/\S+\.\w{3,4})$/;
 // section's fields. It saves from onSubmit, not a form action: React resets a form after its action, which turned the
 // switches back to how the page opened and dropped what an error refused. Discard goes back to what the newsletter has
 // saved. welcomePause: the notice to show while the month's emails are used up and welcome emails are skipped.
-// signupReviews: whether the content check holds the saved welcome or confirmation email (lib/signup-email-review.js),
-// never why. isCloud: MailCheap Cloud, whose plans count the confirmation and welcome emails among their monthly emails.
+// signupReviews: whether the content check holds the saved welcome, confirmation or last-chance email
+// (lib/signup-email-review.js), never why. isCloud: MailCheap Cloud, whose plans count the confirmation and welcome
+// emails among their monthly emails.
 // defaultPostalAddress: what its emails print until it has its own (lib/postal-address.js); the editor's checks link
 // to the field with #postal-address. hasArchiveHost: the server hosts websites on customers' own subdomains, and
 // websiteDomain is the newsletter's (lib/website-domain-rules.js). hasSentIssue: an issue went out, so the website can
@@ -118,7 +122,12 @@ export default function FormNewsletter({
 		setDiscardCount((count) => count + 1);
 	}
 
-	const form = { draft, setDraft, set, update, newsletter, sender, contactFields, discardCount, isCloud };
+	// What the newsletter's own emails are previewed in (components/EditorEmail.jsx).
+	const previewNewsletter = useMemo(
+		() => ({ name: draft.name, postalAddress: draft.postalAddress, theme: newsletter.theme }),
+		[draft.name, draft.postalAddress, newsletter.theme]
+	);
+	const form = { draft, setDraft, set, update, newsletter, sender, previewNewsletter, contactFields, discardCount, isCloud };
 
 	return (
 		<form onSubmit={save} className="flex flex-col gap-4">
@@ -144,7 +153,7 @@ export default function FormNewsletter({
 					review={signupReviews?.welcome}
 				/>
 			)}
-			{section === "cleanup" && <SectionCleanup {...form} fromEmail={fromEmail} totals={cleanupTotals} />}
+			{section === "cleanup" && <SectionCleanup {...form} totals={cleanupTotals} review={signupReviews?.lastChance} />}
 			{section === "website" && (
 				<SectionWebsite
 					{...form}
@@ -334,30 +343,23 @@ function SectionSender({ draft, set, update, domains, sharedDomain, fromEmail, d
 
 // Until it's edited, the built-in confirmation email follows the name and the description. Turned on while the welcome
 // email goes out, it says that saving turns the welcome email off (readSettingsForm sends both).
-function SectionSignups({ draft, setDraft, set, newsletter, sender, contactFields, isCloud, review }) {
-	const { name, description, confirmationEdits, isConfirmationRequired, postalAddress } = draft;
+function SectionSignups({ draft, setDraft, set, newsletter, sender, previewNewsletter, contactFields, discardCount, isCloud, review }) {
+	const { name, description, confirmationEdits, isConfirmationRequired } = draft;
+	const [version, setVersion] = useState(0);
 	const isWelcomeReplaced = isConfirmationRequired && !newsletter.requireConfirmation && Boolean(newsletter.welcome?.enabled);
 	const confirmation = useMemo(
 		() => getDraftConfirmation({ name, description, confirmationEdits }, newsletter),
 		[name, description, confirmationEdits, newsletter]
 	);
-	const deferredConfirmation = useDeferredValue(confirmation);
-	const html = useMemo(
-		() =>
-			fillSampleName(
-				renderEmail({ ...deferredConfirmation, newsletter: { name, postalAddress, theme: newsletter.theme } })
-					.html.replaceAll(UNSUBSCRIBE_PLACEHOLDER, "#")
-					.replaceAll(CONFIRM_URL_PLACEHOLDER, "#"),
-				{ isHtml: true, contactFields }
-			),
-		[deferredConfirmation, name, postalAddress, newsletter.theme, contactFields]
+	const builtIn = useMemo(() => getBuiltInConfirmation({ name, description }), [name, description]);
+	const changeConfirmation = useCallback(
+		(changes) => setDraft((current) => ({ ...current, confirmationEdits: { ...getDraftConfirmation(current, newsletter), ...changes } })),
+		[setDraft, newsletter]
 	);
 
-	function updateConfirmation(key) {
-		return (event) => {
-			const { value } = event.target;
-			setDraft((current) => ({ ...current, confirmationEdits: { ...(current.confirmationEdits ?? confirmation), [key]: value } }));
-		};
+	function restoreBuiltIn() {
+		setDraft((current) => ({ ...current, confirmationEdits: builtIn }));
+		setVersion((count) => count + 1);
 	}
 
 	return (
@@ -381,77 +383,52 @@ function SectionSignups({ draft, setDraft, set, newsletter, sender, contactField
 			{isWelcomeReplaced && <NoticeSection>Saving turns off the welcome email: new subscribers get this email instead.</NoticeSection>}
 			{isConfirmationRequired && review && <NoticeReview review={review} instead="new subscribers get the built-in confirmation email" />}
 			{isConfirmationRequired && (
-				<>
-					<Field label="Subject">
-						<Input name="confirmationSubject" value={confirmation.subject} required onChange={updateConfirmation("subject")} />
-					</Field>
-					<Field label="Preview text">
-						<Input
-							name="confirmationPreviewText"
-							value={confirmation.previewText}
-							placeholder="Optional"
-							onChange={updateConfirmation("previewText")}
-						/>
-					</Field>
-					<Field label="Content" hint={`Markdown. Keep the button: its ${CONFIRM_URL_PLACEHOLDER} becomes each subscriber's link.`}>
-						<Textarea
-							name="confirmationMarkdown"
-							value={confirmation.markdown}
-							onChange={updateConfirmation("markdown")}
-							className="min-h-48 font-mono text-[13px] leading-6"
-						/>
-					</Field>
-					<div className="p-3">
-						<PreviewEmail
-							html={html}
-							sender={sender}
-							subject={deferredConfirmation.subject}
-							previewText={deferredConfirmation.previewText}
-							fit="content"
-						/>
-					</div>
-				</>
+				<EditorEmail
+					key={`${discardCount}-${version}`}
+					name="confirmation"
+					email={confirmation}
+					onChange={changeConfirmation}
+					newsletter={newsletter}
+					previewNewsletter={previewNewsletter}
+					sender={sender}
+					contactFields={contactFields}
+					action={CONFIRM_ACTION}
+					isSubjectRequired
+					note={!isSameEmail(confirmation, builtIn) && <ButtonBuiltIn onClick={restoreBuiltIn} />}
+				/>
 			)}
 		</Section>
 	);
 }
 
 // Its switch works while signups confirm too: turned on, it says that saving turns double opt-in off (readSettingsForm
-// sends both).
-function SectionWelcome({ draft, setDraft, newsletter, sender, contactFields, isSendingEnabled, testEmail, welcomePause, isCloud, review }) {
+// sends both). Switched on empty, it starts from the newsletter's name and description.
+function SectionWelcome({
+	draft,
+	setDraft,
+	newsletter,
+	sender,
+	previewNewsletter,
+	contactFields,
+	discardCount,
+	isSendingEnabled,
+	testEmail,
+	welcomePause,
+	isCloud,
+	review,
+}) {
 	const paywall = usePaywall();
 	const hasPlan = paywall?.hasPlan ?? true;
 	const [isTesting, startTesting] = useTransition();
-	const { name, postalAddress, isWelcomeEnabled, welcome } = draft;
+	const [version, setVersion] = useState(0);
+	const { isWelcomeEnabled, welcome } = draft;
 	const isConfirmationOn = Boolean(newsletter.requireConfirmation);
-	const deferredWelcome = useDeferredValue(welcome);
-	const html = useMemo(
-		() =>
-			fillSampleName(
-				renderEmail({
-					markdown: deferredWelcome.markdown,
-					subject: deferredWelcome.subject,
-					previewText: deferredWelcome.previewText,
-					newsletter: { name, postalAddress, theme: newsletter.theme },
-				}).html.replaceAll(UNSUBSCRIBE_PLACEHOLDER, "#"),
-				{ isHtml: true, contactFields }
-			),
-		[deferredWelcome, name, postalAddress, newsletter.theme, contactFields]
-	);
-
-	function updateWelcome(key) {
-		return (event) => {
-			const { value } = event.target;
-			setDraft((current) => ({ ...current, welcome: { ...current.welcome, [key]: value } }));
-		};
-	}
+	const changeWelcome = useCallback((changes) => setDraft((current) => ({ ...current, welcome: { ...current.welcome, ...changes } })), [setDraft]);
 
 	function switchWelcome(isEnabled) {
-		setDraft((current) => ({
-			...current,
-			isWelcomeEnabled: isEnabled,
-			welcome: isEnabled ? prefillWelcome(current.welcome, { name: current.name, description: current.description }) : current.welcome,
-		}));
+		const next = isEnabled ? prefillWelcome(welcome, { name: draft.name, description: draft.description }) : welcome;
+		setDraft((current) => ({ ...current, isWelcomeEnabled: isEnabled, welcome: next }));
+		if (next !== welcome) setVersion((count) => count + 1);
 	}
 
 	function sendTest() {
@@ -480,52 +457,46 @@ function SectionWelcome({ draft, setDraft, newsletter, sender, contactFields, is
 			)}
 			{welcomePause && isWelcomeEnabled && <NoticeWelcomePaused {...welcomePause} className="px-4 py-3" />}
 			{review && isWelcomeEnabled && <NoticeReview review={review} instead="new subscribers don't get it" />}
-			<Field label="Subject">
-				<Input name="welcomeSubject" value={welcome.subject} onChange={updateWelcome("subject")} />
-			</Field>
-			<Field label="Preview text">
-				<Input name="welcomePreviewText" value={welcome.previewText} placeholder="Optional" onChange={updateWelcome("previewText")} />
-			</Field>
-			<Field label="Content" hint="Markdown">
-				<Textarea
-					name="welcomeMarkdown"
-					value={welcome.markdown}
-					onChange={updateWelcome("markdown")}
-					className="min-h-48 font-mono text-[13px] leading-6"
-				/>
-			</Field>
-			{deferredWelcome.markdown.trim() && (
-				<div className="p-3">
-					<PreviewEmail
-						html={html}
-						sender={sender}
-						subject={deferredWelcome.subject}
-						previewText={deferredWelcome.previewText}
-						fit="content"
-					/>
-				</div>
-			)}
-			<div className="flex items-center justify-between gap-3 px-4 py-3">
-				<p className="text-xs wrap-anywhere text-muted-foreground">
-					{isSendingEnabled || !hasPlan ? `Sends the saved version to ${testEmail}` : "Sending is off"}
-				</p>
+			<EditorEmail
+				key={`${discardCount}-${version}`}
+				name="welcome"
+				email={welcome}
+				onChange={changeWelcome}
+				newsletter={newsletter}
+				previewNewsletter={previewNewsletter}
+				sender={sender}
+				contactFields={contactFields}
+				note={
+					<p className="text-xs wrap-anywhere text-muted-foreground">
+						{isSendingEnabled || !hasPlan ? `Sends the saved version to ${testEmail}` : "Sending is off"}
+					</p>
+				}
+			>
 				<Button type="button" variant="outline" size="sm" onClick={sendTest} disabled={(hasPlan && !isSendingEnabled) || isTesting}>
 					{isTesting ? <Loader2 className="animate-spin" /> : <FlaskConical />}
 					Send test
 				</Button>
-			</div>
+			</EditorEmail>
 		</Section>
 	);
 }
 
-function SectionCleanup({ draft, setDraft, set, newsletter, sender, fromEmail, totals }) {
-	const { name, postalAddress, isCleanupEnabled, cleanup } = draft;
+// Until it's edited, the built-in last-chance email follows the name.
+function SectionCleanup({ draft, setDraft, set, newsletter, sender, previewNewsletter, contactFields, discardCount, totals, review }) {
+	const { name, isCleanupEnabled, cleanup, lastChanceEdits } = draft;
 	const savedCleanup = getCleanupSettings(newsletter);
-	const lastChance = useMemo(() => {
-		const content = getLastChanceContent({ name, fromEmail });
-		const { html } = renderEmail({ ...content, newsletter: { name, postalAddress, theme: newsletter.theme } });
-		return { ...content, html: html.replaceAll(UNSUBSCRIBE_PLACEHOLDER, "#").replaceAll(KEEP_URL_PLACEHOLDER, "#") };
-	}, [name, fromEmail, postalAddress, newsletter.theme]);
+	const [version, setVersion] = useState(0);
+	const lastChance = useMemo(() => getDraftLastChance({ name, lastChanceEdits }, newsletter), [name, lastChanceEdits, newsletter]);
+	const builtIn = useMemo(() => getBuiltInLastChance({ name }), [name]);
+	const changeLastChance = useCallback(
+		(changes) => setDraft((current) => ({ ...current, lastChanceEdits: { ...getDraftLastChance(current, newsletter), ...changes } })),
+		[setDraft, newsletter]
+	);
+
+	function restoreBuiltIn() {
+		setDraft((current) => ({ ...current, lastChanceEdits: builtIn }));
+		setVersion((count) => count + 1);
+	}
 
 	function updateCleanup(key) {
 		return (event) => {
@@ -551,7 +522,7 @@ function SectionCleanup({ draft, setDraft, set, newsletter, sender, fromEmail, t
 				<p className="px-4 py-3 text-sm text-pretty text-muted-foreground">
 					Stops sending to contacts who stopped opening, unless they answer a last-chance email. Each time you send an
 					issue, contacts who ignored the last {cleanup.issues || savedCleanup.issues} issues and showed no sign of life
-					for {cleanup.days || savedCleanup.days} days get this email instead. A click on its button keeps them. Anyone who
+					for {cleanup.days || savedCleanup.days} days get it instead. A click on its button keeps them. Anyone who
 					doesn&apos;t answer by a send {LAST_CHANCE_DAYS} days later becomes dormant: not unsubscribed, not deleted, and
 					back if they sign up again.
 				</p>
@@ -583,45 +554,47 @@ function SectionCleanup({ draft, setDraft, set, newsletter, sender, fromEmail, t
 					</span>
 				</Field>
 				{totals && <CleanupTotals totals={totals} />}
-				{isCleanupEnabled && (
-					<div className="p-3">
-						<PreviewEmail html={lastChance.html} sender={sender} subject={lastChance.subject} previewText={lastChance.previewText} fit="content" />
-					</div>
-				)}
 			</Section>
-			{totals && <SectionStoppedDomains totals={totals} />}
+			{isCleanupEnabled && (
+				<Section title="Last-chance email" stagger={2}>
+					<p className="px-4 py-3 text-sm text-pretty text-muted-foreground">
+						Write it in your own words, or in your readers&apos; language. Keep its button: a click on it keeps them.
+					</p>
+					{review && <NoticeReview review={review} instead="contacts who stopped opening get the built-in one" />}
+					<EditorEmail
+						key={`${discardCount}-${version}`}
+						name="lastChance"
+						email={lastChance}
+						onChange={changeLastChance}
+						newsletter={newsletter}
+						previewNewsletter={previewNewsletter}
+						sender={sender}
+						contactFields={contactFields}
+						action={KEEP_ACTION}
+						isSubjectRequired
+						note={!isSameEmail(lastChance, builtIn) && <ButtonBuiltIn onClick={restoreBuiltIn} />}
+					/>
+				</Section>
+			)}
+			{totals && <SectionStoppedDomains totals={totals} stagger={isCleanupEnabled ? 3 : 2} />}
 		</>
 	);
 }
 
 // The list hygiene's daily check of subscribers' domains (lib/list-hygiene.js): always on, so only its counts show.
-// StopForumSpam's license asks for its credit wherever its spam domains are used.
-function SectionStoppedDomains({ totals }) {
+function SectionStoppedDomains({ totals, stagger }) {
 	const stats = [
 		{ label: "No mail server", value: totals.noMailServer },
 		...(totals.isSpamListOn || totals.spamDomain > 0 ? [{ label: "Spam domain", value: totals.spamDomain }] : []),
 	];
 	return (
-		<Section title="Stopped for their domain" stagger={2}>
+		<Section title="Stopped for their domain" stagger={stagger}>
 			<p className="px-4 py-3 text-sm text-pretty text-muted-foreground">
 				MailCheap checks your contacts&apos; domains in the background.
 				{totals.isSpamListOn && " Contacts on a known spam domain stop getting issues at once."} Contacts on one that
 				can&apos;t receive email stop after two checks a day apart, and get issues again once it can.{" "}
 				<LinkHelp article="list-cleanup" section="domains" />
 			</p>
-			{totals.isSpamListOn && (
-				<p className="-mt-1 px-4 pb-3 text-xs text-muted-foreground">
-					Spam domain data from{" "}
-					<a
-						href="https://www.stopforumspam.com"
-						target="_blank"
-						rel="noopener noreferrer"
-						className="underline underline-offset-2 hover:text-foreground"
-					>
-						StopForumSpam.com
-					</a>
-				</p>
-			)}
 			<dl className={cn("grid divide-x divide-border/60", stats.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
 				{stats.map(({ label, value }) => (
 					<div key={label} className="flex flex-col gap-1 px-4 py-3">
@@ -764,6 +737,30 @@ export function Section({ title, action, stagger, children }) {
 		</section>
 	);
 }
+
+// Back to the built-in confirmation or last-chance email, which follows the newsletter's name from then on.
+function ButtonBuiltIn({ onClick }) {
+	return (
+		<Button type="button" variant="ghost" size="sm" onClick={onClick} className="-ml-2 text-muted-foreground">
+			<RotateCcw />
+			Use the built-in email
+		</Button>
+	);
+}
+
+// The links each reader of these emails gets their own of (lib/action-links.js), which their buttons keep.
+const CONFIRM_ACTION = {
+	href: CONFIRM_URL_PLACEHOLDER,
+	label: "Confirms their subscription",
+	buttonText: CONFIRM_BUTTON_TEXT,
+	missing: "This email needs its button: new subscribers click it to confirm.",
+};
+const KEEP_ACTION = {
+	href: KEEP_URL_PLACEHOLDER,
+	label: "Keeps them on your list",
+	buttonText: KEEP_BUTTON_TEXT,
+	missing: "This email needs its button: a click on it keeps them on your list.",
+};
 
 // The content check holds the saved email (lib/signup-email-review.js): what new subscribers get meanwhile, never why.
 function NoticeReview({ review, instead }) {

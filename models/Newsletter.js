@@ -56,6 +56,14 @@ const newsletterSchema = new mongoose.Schema(
 			bio: { type: String, trim: true },
 			imageUrl: { type: String, trim: true },
 		},
+		// The analytics tools its website loads, each by its ID alone (lib/website-analytics.js).
+		analytics: {
+			googleAnalytics: { type: String, trim: true },
+			googleTagManager: { type: String, trim: true },
+			metaPixel: { type: String, trim: true },
+		},
+		// Its own HTML for the head of its website's pages, only ever sent on its own domain (lib/website-code.js).
+		customCode: { type: String },
 		// New signups get an email with a link and only join once they click it (confirmed opt-in).
 		requireConfirmation: { type: Boolean, default: false },
 		// Checked when an issue is sent (lib/cleanup.js). Empty numbers use the newsletter's defaults.

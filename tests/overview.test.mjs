@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import ChartSends from "../components/ChartSends.jsx";
 import { linePath, niceScale } from "../lib/charts.js";
 import { formatChange, formatHour, formatSigned } from "../lib/format.js";
 import {
@@ -79,6 +82,25 @@ test("hours still to come today have no bar, yesterday's always do", () => {
 	assert.deepEqual(hours[9], { hour: 9, today: 5, yesterday: 7 });
 	assert.deepEqual(hours[16], { hour: 16, today: 0, yesterday: 0 });
 	assert.deepEqual(hours[20], { hour: 20, today: null, yesterday: 2 });
+});
+
+test("Now sits under the current hour's bar, and the hour labels next to it make room", () => {
+	const xLabels = (currentHour) => {
+		const html = renderToStaticMarkup(
+			createElement(ChartSends, { hours: buildHourlySeries({ rows: [], todayKey: "2026-10-08", currentHour }) })
+		);
+		const labels = html.matchAll(/<span class="absolute top-0 leading-none whitespace-nowrap ?([^"]*)" style="([^"]*)">([^<]+)<\/span>/g);
+		return Object.fromEntries([...labels].map(([, className, style, label]) => [label, { className, style }]));
+	};
+
+	const at4Pm = xLabels(16);
+	assert.equal(at4Pm.Now.style, "left:68.75%;transform:translateX(-50%)", "centered under the 4 PM bar");
+	assert.match(at4Pm.Now.className, /text-emerald-600/);
+	assert.equal(at4Pm["6 AM"].className, "");
+	assert.equal(at4Pm["12 PM"].className, "hidden lg:block", "4 hours away: only where the chart is wide");
+	assert.equal(at4Pm["6 PM"].className, "hidden lg:block");
+	assert.equal(at4Pm["11 PM"].className, "hidden sm:block");
+	assert.deepEqual(Object.keys(xLabels(17)).sort(), ["12 AM", "12 PM", "6 AM", "Now", "11 PM"].sort(), "an hour away: never");
 });
 
 test("changes need something to compare with; rates change by their difference, shown in %", () => {

@@ -22,6 +22,9 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/lib/toast";
 import { usePaywall } from "@/lib/use-paywall";
 
+// Where the Website page's other cards send people to add or finish the domain (components/FormNewsletter.jsx).
+export const OWN_DOMAIN_ID = "own-domain";
+
 // The newsletter's own domain for its website, inside the Website settings form: its field and buttons act on their
 // own and never send the form. setup: lib/website-domain-rules.js getWebsiteDomainSetup, null without a domain.
 // sharedAddress: where the website goes back to without one.
@@ -56,7 +59,7 @@ export default function CardWebsiteDomain({ newsletterId, setup, sharedAddress, 
 
 	if (!setup) {
 		return (
-			<section style={{ "--stagger": stagger }} className="rounded-xl bg-card shadow-border animate-enter">
+			<section id={OWN_DOMAIN_ID} style={{ "--stagger": stagger }} className="scroll-mt-24 rounded-xl bg-card shadow-border animate-enter">
 				<h2 className="flex h-12 items-center px-4 text-sm font-medium">Your own domain</h2>
 				<div className="flex flex-col gap-3 border-t border-border/60 px-4 py-3">
 					<p className="text-sm text-pretty text-muted-foreground">
@@ -91,7 +94,11 @@ export default function CardWebsiteDomain({ newsletterId, setup, sharedAddress, 
 	}
 
 	return (
-		<section style={{ "--stagger": stagger }} className="overflow-hidden rounded-xl bg-card shadow-border animate-enter">
+		<section
+			id={OWN_DOMAIN_ID}
+			style={{ "--stagger": stagger }}
+			className="scroll-mt-24 overflow-hidden rounded-xl bg-card shadow-border animate-enter"
+		>
 			<div className="flex flex-wrap items-center justify-between gap-3 p-4">
 				<div className="flex min-w-0 items-center gap-3">
 					<div className="grid size-9 shrink-0 place-items-center rounded-lg bg-muted">

@@ -166,6 +166,26 @@ describe("delivery", () => {
 		assert.deepEqual(await withEnv(NO_TELEGRAM, () => m.alerts.announceTelegram()), { skipped: "Telegram isn't set up" });
 	});
 
+	test("with ADMIN_ALERT_EMAILS, the admins' alerts are emailed there and not to ADMIN_EMAILS, those that need them and those only worth a look, and an owner's still go to the owner", async () => {
+		const owner = await signIn("alert-owner@example.com");
+		await flushAfter();
+		await withEnv({ ...NO_TELEGRAM, ADMIN_ALERT_EMAILS: "inbox@example.org" }, async () => {
+			const before = platformEmails.length;
+			const campaignId = "6a00000000000000000000b1";
+			await m.alerts.sendAlert({ accountId: null, key: `customer-blocked:${campaignId}`, title: "A paying customer can't send", detail: "Letter (letter.example.com, Growth plan): PostShiba suspended letter.example.com." });
+			await m.alerts.sendAlert({ accountId: null, key: `content-flagged:${campaignId}`, title: "Issue flagged", detail: `The content check wasn't sure about campaign ${campaignId}. It went out.` });
+			await m.alerts.sendAlert({ accountId: owner.accountId, key: "complaints", title: "Spam complaint", detail: "A reader marked an email as spam." });
+			assert.deepEqual(
+				platformEmails.slice(before).map(({ to, subject }) => [to, subject]),
+				[
+					[["inbox@example.org"], "[MailCheap] A paying customer can't send"],
+					[["inbox@example.org"], "[MailCheap] Issue flagged"],
+					[["alert-owner@example.com"], "[MailCheap] Spam complaint"],
+				]
+			);
+		});
+	});
+
 	test("with both, an alert that needs an admin reaches Telegram in HTML, escaped, and is emailed as before", async () => {
 		await withEnv(TELEGRAM, async () => {
 			const before = { telegram: telegramMessages.length, emails: platformEmails.length };

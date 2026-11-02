@@ -3,7 +3,8 @@ import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 // Gridlines with their values on the left and labels under the plot; the chart draws inside.
-// Labels are placed by x (0 to 1) and shift by the same ratio, so the first and last stay inside.
+// Labels are placed by x (0 to 1) and shift by the same ratio, so the first and last stay inside. A centered one
+// sits right under its x, to point at one bar.
 export default function ChartFrame({ scale, xLabels, formatTick = formatNumber, className, children }) {
 	const ticks = scale.ticks.map((tick) => ({
 		tick,
@@ -34,11 +35,11 @@ export default function ChartFrame({ scale, xLabels, formatTick = formatNumber, 
 				{children}
 			</div>
 			<div aria-hidden="true" className="relative col-start-2 mt-3 h-3.5">
-				{xLabels.map(({ x, label, className: labelClassName }) => (
+				{xLabels.map(({ x, label, isCentered, className: labelClassName }) => (
 					<span
 						key={label}
 						className={cn("absolute top-0 leading-none whitespace-nowrap", labelClassName)}
-						style={{ left: `${x * 100}%`, transform: `translateX(-${x * 100}%)` }}
+						style={{ left: `${x * 100}%`, transform: `translateX(-${(isCentered ? 0.5 : x) * 100}%)` }}
 					>
 						{label}
 					</span>

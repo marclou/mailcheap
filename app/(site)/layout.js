@@ -17,13 +17,14 @@ export const metadata = {
 	twitter: { card: "summary_large_image", ...(TWITTER_CREATOR && { creator: TWITTER_CREATOR }) },
 };
 
-// The docs need a wider page than the rest; the header and footer follow whichever page is open.
+// The docs need a wider page than the rest, and so does the help center, for the list of an article's sections beside
+// it; the header and footer follow whichever page is open.
 export default function SiteLayout({ children }) {
 	return (
 		<div
 			className={cn(
 				newsreader.variable,
-				"flex min-h-dvh flex-col bg-site [--site-width:72rem] has-[[data-layout=docs]]:[--site-width:80rem]"
+				"flex min-h-dvh flex-col bg-site [--site-width:72rem] has-[[data-layout=docs]]:[--site-width:80rem] has-[[data-layout=help]]:[--site-width:80rem]"
 			)}
 		>
 			<HeaderSite />

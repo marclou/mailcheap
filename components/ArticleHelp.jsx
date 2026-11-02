@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight } from "lucide-react";
+import NavArticleSections from "@/components/NavArticleSections";
 import { ArticleDemo } from "@/components/SiteExtensions";
+import { getArticleSections } from "@/lib/article-sections";
 import { isCloud } from "@/lib/config";
 import { HELP_PATH, getHelpArticle, getHelpArticles, getHelpHref } from "@/lib/help";
 import { siteExtensions } from "@/lib/site-extensions";
@@ -9,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 // An article of the help center (lib/help.js): its group, title and summary, on MailCheap Cloud the picture of its feature,
 // its sections, then the articles around it. One this server doesn't have (cloud only) answers 404. Sections are h2s
-// with an id, for links to them.
+// with an id, for links to them; on wide screens, a list of them stays beside the article, from MIN_SECTIONS on.
 export default function ArticleHelp({ slug, children }) {
 	const article = getHelpArticle(slug);
 	if (!article) notFound();
@@ -20,9 +22,31 @@ export default function ArticleHelp({ slug, children }) {
 		{ article: articles[index + 1], label: "Next", icon: ArrowRight },
 	];
 	const { supportChatPath } = siteExtensions;
+	const sections = getArticleSections(children);
 
 	return (
-		<article className="max-w-2xl">
+		<div className="xl:grid xl:grid-cols-[minmax(0,42rem)_11rem] xl:justify-between xl:gap-10">
+			<ArticleBody article={article} slug={slug} neighbors={neighbors} supportChatPath={supportChatPath}>
+				{children}
+			</ArticleBody>
+			{sections.length >= MIN_SECTIONS && (
+				<aside
+					style={{ "--stagger": 1 }}
+					className="hidden animate-enter xl:sticky xl:top-24 xl:block xl:max-h-[calc(100dvh-8rem)] xl:self-start xl:overflow-y-auto"
+				>
+					<NavArticleSections sections={sections} />
+				</aside>
+			)}
+		</div>
+	);
+}
+
+// Shorter articles fit on a screen or so, where a list of their sections adds nothing.
+const MIN_SECTIONS = 4;
+
+function ArticleBody({ article, slug, neighbors, supportChatPath, children }) {
+	return (
+		<article className="max-w-2xl min-w-0">
 			<header className="mb-10 animate-enter">
 				<p className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground">
 					<Link href={HELP_PATH} className="transition-colors duration-150 hover:text-foreground">

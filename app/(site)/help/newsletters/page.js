@@ -79,7 +79,8 @@ export default function NewslettersPage() {
 			<p>
 				Each newsletter has a public website with a page for each issue and a signup form. It&apos;s on for new newsletters and goes
 				live after your first issue. On the <LinkApp href="/newsletters/website">Website page</LinkApp>, you set its description (one
-				sentence under the name and in the subscribe popup), your author bio and photo, and your social links
+				sentence under the name and in the subscribe popup), your author bio and photo, your social links and the{" "}
+				<Link href={getHelpHref("website-analytics")}>analytics tools</Link> it loads
 				{hasOwnHost && (
 					<>
 						, and you can put it on <Link href={getHelpHref("website", "own-domain")}>your own domain</Link>

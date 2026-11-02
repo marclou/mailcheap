@@ -6,12 +6,15 @@ import { subscribe } from "@/app/archive/actions";
 import { Button } from "@/components/ui/button";
 import { storeValue, subscribedKey } from "@/lib/storage";
 import { cn } from "@/lib/utils";
+import { SIGNUP_EVENT } from "@/lib/website-analytics";
 
 export default function FormSubscribe({ newsletterSlug, className }) {
 	const [state, action, isPending] = useActionState(subscribe, null);
 
 	useEffect(() => {
-		if (state?.ok && !state.pending) storeValue(subscribedKey(newsletterSlug), 1);
+		if (!state?.ok) return;
+		if (!state.pending) storeValue(subscribedKey(newsletterSlug), 1);
+		window.dispatchEvent(new Event(SIGNUP_EVENT));
 	}, [state, newsletterSlug]);
 
 	if (state?.pending) return <CardConfirmEmail email={state.email} inbox={state.inbox} className={className} />;

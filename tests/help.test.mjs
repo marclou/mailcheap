@@ -3,10 +3,11 @@ import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { createElement } from "react";
+import { Fragment, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import sharp from "sharp";
 import NoticePace from "../components/NoticePace.jsx";
+import { getArticleSections } from "../lib/article-sections.js";
 import { HELP_ARTICLES, getHelpArticles } from "../lib/help.js";
 import { listAppPages } from "./helpers/app-pages.mjs";
 
@@ -187,4 +188,40 @@ test("from a new domain, the notice says how many Gmail readers get a send today
 	assert.match(backingOff, /Gmail gets it again in 4 hours: 300 of your Gmail readers that day\./);
 	assert.match(backingOff, /Next: the other 700 over the next 2 days\./);
 	assert.match(backingOff, /href="\/help\/warm-up#gmail"/);
+});
+
+test("an article's sections are its h2s with an id, in order, through fragments and plain elements", () => {
+	const Card = () => createElement("h2", { id: "in-a-component" }, "Unknown before it renders");
+	const children = [
+		createElement("h2", { id: "website" }, "Your newsletter", "\u2019", "s website"),
+		createElement("p", null, "Each newsletter has a website."),
+		createElement("h2", null, "No id, no link"),
+		false,
+		createElement(Fragment, null, createElement("h2", { id: "sign-in" }, "Signing in with ", createElement("code", null, "a code"))),
+		createElement("div", null, createElement("h2", { id: "restore" }, "Restoring it")),
+		createElement(Card),
+	];
+	assert.deepEqual(getArticleSections(children), [
+		{ id: "website", title: "Your newsletter\u2019s website" },
+		{ id: "sign-in", title: "Signing in with a code" },
+		{ id: "restore", title: "Restoring it" },
+	]);
+});
+
+test("on wide screens, an article of 4 sections or more lists them beside it, each linking to its heading", async () => {
+	let listed = 0;
+	for (const { slug } of getHelpArticles()) {
+		const { default: Page } = await import(`../${HELP_DIR}/${slug}/page.js`);
+		const html = renderToStaticMarkup(await Page());
+		const headings = [...html.matchAll(/<h2 id="([^"]+)"/g)].map(([, id]) => id);
+		const contents = html.match(/<nav aria-label="On this page".*?<\/nav>/s)?.[0];
+		if (headings.length < 4) {
+			assert.equal(contents, undefined, `${slug}: ${headings.length} sections need no list`);
+			continue;
+		}
+		listed += 1;
+		assert.deepEqual([...contents.matchAll(/href="#([^"]+)"/g)].map(([, id]) => id), headings, slug);
+		assert.equal(contents.match(/aria-current="location"/g)?.length, 1, `${slug}: one section is marked`);
+	}
+	assert.ok(listed >= 10, `most articles list their sections (${listed})`);
 });

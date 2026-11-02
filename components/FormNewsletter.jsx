@@ -2,14 +2,15 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, CircleAlert, ExternalLink, FlaskConical, Loader2, RotateCcw, X } from "lucide-react";
+import { Check, CircleAlert, CodeXml, ExternalLink, FlaskConical, Loader2, RotateCcw, X } from "lucide-react";
 import { checkSlug, saveNewsletter, sendWelcomeTest } from "@/app/(app)/newsletters/actions";
 import BarSave from "@/components/BarSave";
 import ButtonCopy from "@/components/ButtonCopy";
-import CardWebsiteDomain from "@/components/CardWebsiteDomain";
+import CardWebsiteDomain, { OWN_DOMAIN_ID } from "@/components/CardWebsiteDomain";
 import EditorEmail from "@/components/EditorEmail";
 import InputImage from "@/components/InputImage";
 import LinkHelp from "@/components/LinkHelp";
+import LogoAnalyticsTool from "@/components/LogoAnalyticsTool";
 import NoticeWelcomePaused from "@/components/NoticeWelcomePaused";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { CONFIRM_URL_PLACEHOLDER, KEEP_URL_PLACEHOLDER } from "@/lib/action-links";
+import { getNewsletterHost } from "@/lib/archive-hosts";
 import { CLEANUP_LIMITS, LAST_CHANCE_DAYS, getCleanupSettings } from "@/lib/cleanup";
 import { CONFIRM_BUTTON_TEXT } from "@/lib/confirmation-content";
 import { formatNumber } from "@/lib/format";
@@ -40,6 +42,8 @@ import { slugify } from "@/lib/slug";
 import { toast } from "@/lib/toast";
 import { usePaywall } from "@/lib/use-paywall";
 import { cn } from "@/lib/utils";
+import { ANALYTICS_TOOLS, readAnalyticsField } from "@/lib/website-analytics";
+import { CUSTOM_CODE_MAX_LENGTH, readCustomCode } from "@/lib/website-code";
 import { prefillWelcome } from "@/lib/welcome-content";
 
 const IMAGE_PREVIEW_PATTERN = /^(https:\/\/\S+\.\S{2,}\/\S+|\/\S+\.\w{3,4})$/;
@@ -607,7 +611,19 @@ function SectionStoppedDomains({ totals, stagger }) {
 	);
 }
 
-function SectionWebsite({ draft, set, update, newsletter, sharedDomain, appUrl, hasArchiveHost, websiteDomain, hasSentIssue, discardCount }) {
+function SectionWebsite({
+	draft,
+	setDraft,
+	set,
+	update,
+	newsletter,
+	sharedDomain,
+	appUrl,
+	hasArchiveHost,
+	websiteDomain,
+	hasSentIssue,
+	discardCount,
+}) {
 	const paywall = usePaywall();
 	const hasPlan = paywall?.hasPlan ?? true;
 	const { isArchiveEnabled } = draft;
@@ -719,8 +735,151 @@ function SectionWebsite({ draft, set, update, newsletter, sharedDomain, appUrl, 
 					/>
 				</Field>
 			</Section>
+			<SectionAnalytics
+				draft={draft}
+				setDraft={setDraft}
+				newsletter={newsletter}
+				sharedDomain={sharedDomain}
+				hasArchiveHost={hasArchiveHost}
+				websiteDomain={websiteDomain}
+				stagger={4}
+			/>
 		</>
 	);
+}
+
+// Where each tool's ID is, said in the tool's own words.
+const ANALYTICS_HINTS = {
+	googleAnalytics: "Measurement ID: in Google Analytics, Admin, then Data streams",
+	googleTagManager: "Container ID: at the top of your Tag Manager workspace",
+	metaPixel: "Pixel ID: under your pixel's name in Meta Events Manager",
+};
+
+// The analytics tools the website loads (lib/website-analytics.js). A field takes the ID or the code its tool gives, and
+// keeps the ID. Without a host of its own, the website shares the dashboard's address and loads none. Custom code, any
+// other script, runs on the newsletter's own domain only (lib/website-code.js), where the server has them (hasArchiveHost):
+// its tags are checked as it's typed, its JavaScript when it's saved.
+function SectionAnalytics({ draft, setDraft, newsletter, sharedDomain, hasArchiveHost, websiteDomain, stagger }) {
+	const codeId = useId();
+	const host = getNewsletterHost(newsletter, sharedDomain);
+	const isOwnDomain = Boolean(newsletter.archiveHost);
+	const codeProblem = readCustomCode(draft.customCode).problem;
+	const isCodeWaiting = !isOwnDomain && Boolean(draft.customCode.trim());
+
+	function update(key) {
+		return (event) => {
+			const value = readAnalyticsField(key, event.target.value);
+			setDraft((current) => ({ ...current, analytics: { ...current.analytics, [key]: value } }));
+		};
+	}
+
+	return (
+		<Section title="Analytics" stagger={stagger}>
+			<p className="px-4 py-3 text-sm text-pretty text-muted-foreground">
+				Paste each tool&apos;s ID, or the code it gives you. They load on every page of your website and get an event for each
+				signup there. <LinkHelp article="website-analytics" />
+			</p>
+			{!host && <NoticeSection>Your website shares the dashboard&apos;s address on this server, so analytics only load on your own domain.</NoticeSection>}
+			{ANALYTICS_TOOLS.map(({ key, name, example }) => (
+				<Field
+					key={key}
+					label={
+						<span className="inline-flex items-center gap-2">
+							<LogoAnalyticsTool tool={key} />
+							{name}
+						</span>
+					}
+					hint={
+						key === "googleTagManager" && host && !isOwnDomain
+							? `${ANALYTICS_HINTS[key]}. On ${host}, it runs Google's own tags; on your own domain, all of them.`
+							: ANALYTICS_HINTS[key]
+					}
+				>
+					<Input
+						name={key}
+						value={draft.analytics[key]}
+						placeholder={example}
+						autoComplete="off"
+						spellCheck={false}
+						className="font-mono"
+						onChange={update(key)}
+					/>
+				</Field>
+			))}
+			{(hasArchiveHost || isOwnDomain) && (
+				<Field
+					label={
+						<span className="inline-flex items-center gap-2">
+							<CodeXml className="size-4 shrink-0" aria-hidden="true" />
+							Custom code
+						</span>
+					}
+					htmlFor={codeId}
+					hint={
+						isCodeWaiting ? (
+							<HintCodeWaiting host={host} pendingHost={websiteDomain?.isLive === false ? websiteDomain.host : null} />
+						) : (
+							<>
+								{isOwnDomain
+									? "Goes in the head of every page of your website, like the code another tool gives you."
+									: `Runs once your website is on your own domain${host ? `, never on ${host}, which other newsletters share` : ""}.`}{" "}
+								<LinkHelp article="website-analytics" section="custom-code" />
+							</>
+						)
+					}
+					isWarning={isCodeWaiting}
+				>
+					<Textarea
+						id={codeId}
+						name="customCode"
+						value={draft.customCode}
+						rows={4}
+						maxLength={CUSTOM_CODE_MAX_LENGTH}
+						placeholder={'<script async src="https://example.com/script.js"></script>'}
+						spellCheck={false}
+						aria-invalid={codeProblem ? true : undefined}
+						aria-describedby={codeProblem ? `${codeId}-problem` : undefined}
+						className="font-mono text-[13px] leading-6"
+						onChange={(event) => {
+							const { value } = event.target;
+							setDraft((current) => ({ ...current, customCode: value }));
+						}}
+					/>
+					<span
+						id={`${codeId}-problem`}
+						aria-live="polite"
+						className={cn("text-xs text-pretty", codeProblem ? "text-red-600 dark:text-red-400" : "sr-only")}
+					>
+						{codeProblem && `Line ${codeProblem.line}: ${codeProblem.message}`}
+					</span>
+				</Field>
+			)}
+		</Section>
+	);
+}
+
+// Custom code while the website isn't on the newsletter's own domain yet: the way there, in the card above.
+function HintCodeWaiting({ host, pendingHost }) {
+	return (
+		<>
+			Not running yet:{" "}
+			{pendingHost
+				? `your code runs once ${pendingHost} is live.`
+				: `your code runs on your own domain${host ? `, never on ${host}, which other newsletters share` : ""}.`}{" "}
+			<a href={`#${OWN_DOMAIN_ID}`} onClick={goToOwnDomain} className={INLINE_LINK}>
+				{pendingHost ? "Finish setting it up" : "Add your domain"}
+			</a>
+		</>
+	);
+}
+
+function goToOwnDomain(event) {
+	const card = document.getElementById(OWN_DOMAIN_ID);
+	if (!card) return;
+	event.preventDefault();
+	const isReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+	card.scrollIntoView({ behavior: isReduced ? "auto" : "smooth", block: "center" });
+	card.querySelector("input")?.focus({ preventScroll: true });
 }
 
 // A card of fields. A title gets a row on top with the action on its right.

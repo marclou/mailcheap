@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { getAdminEmails, getConfigProblems, getUrgentReplyTo, isEmailAllowed } from "../lib/config.js";
+import { getAdminAlertEmails, getAdminEmails, getConfigProblems, getUrgentReplyTo, isEmailAllowed } from "../lib/config.js";
 import { register } from "../instrumentation.js";
 
 const STRONG = { BETTER_AUTH_SECRET: "s".repeat(32), SUPPRESSION_HASH_KEY: "k".repeat(32) };
@@ -96,6 +96,16 @@ test("ADMIN_EMAILS is a comma-separated list, trimmed and lowercased", () => {
 		if (previous === undefined) delete process.env.ADMIN_EMAILS;
 		else process.env.ADMIN_EMAILS = previous;
 	}
+});
+
+test("ADMIN_ALERT_EMAILS is where the admins' alerts are emailed, and without an address in it, ADMIN_EMAILS", () => {
+	const admins = { ADMIN_EMAILS: "signin@example.com" };
+	assert.deepEqual(getAdminAlertEmails({ ...admins, ADMIN_ALERT_EMAILS: " Inbox@Example.org, second@example.net ,," }), ["inbox@example.org", "second@example.net"]);
+	assert.deepEqual(getAdminAlertEmails({ ...admins, ADMIN_ALERT_EMAILS: "inbox@example.org, inbox" }), ["inbox@example.org"], "what isn't an address is left out");
+	for (const value of [undefined, "", " , ", "inbox", "Inbox <inbox@example.org>", "inbox at example.org", "inbox@example.org\r\nBcc: other@example.net"]) {
+		assert.deepEqual(getAdminAlertEmails({ ...admins, ADMIN_ALERT_EMAILS: value }), ["signin@example.com"], String(value));
+	}
+	assert.deepEqual(getAdminAlertEmails({}), [], "nobody, without either");
 });
 
 test("URGENT_REPLY_TO is where replies to an owner's urgent emails go, and anything that isn't one address leaves the usual one", () => {

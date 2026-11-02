@@ -55,6 +55,7 @@ const ARCHIVE_HOST_PATHS = [
 	/^\/unsubscribe$/,
 	/^\/api\/unsubscribe$/,
 	/^\/api\/views$/,
+	/^\/api\/website-code$/,
 	/^\/confirm$/,
 	/^\/keep$/,
 	/^\/o\//,

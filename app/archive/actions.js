@@ -9,6 +9,7 @@ import { getSignupProblem, upsertContact } from "@/lib/contacts";
 import { readCountry } from "@/lib/countries";
 import { connectDb } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
+import { resolveArchiveHost } from "@/lib/host-routing";
 import { getInbox } from "@/lib/inbox-links";
 import { findSignupNewsletterWithScale } from "@/lib/public-newsletters";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
@@ -20,6 +21,7 @@ const PER_IP = { name: "subscribe-ip", limit: 5, window: "10 m" };
 // A flood from many IPs (list bombing) still needs a look: it fills the list with spam traps. Starter's: bigger plans
 // multiply it (lib/plans.js getSignupScale), so a bigger list's viral moment isn't a flood.
 const PER_NEWSLETTER = { name: "subscribe-newsletter", limit: 300, window: "10 m" };
+const NOT_TAKING_SIGNUPS = "This newsletter is not taking signups";
 
 export async function subscribe(_state, formData) {
 	// People never see this field; bots fill in every input they find.
@@ -37,12 +39,14 @@ export async function subscribe(_state, formData) {
 	const emailProblem = await getSignupProblem(email);
 	if (emailProblem) return { error: emailProblem };
 
+	const slug = String(formData.get("newsletter") ?? "");
+	// A newsletter's website takes its own signups only, so a script on one can't sign people up to another.
+	const site = await resolveArchiveHost(requestHeaders.get("host"));
+	if (site.isArchiveHost && site.slug !== slug) return { error: NOT_TAKING_SIGNUPS };
+
 	await connectDb();
-	const found = await findSignupNewsletterWithScale({
-		slug: String(formData.get("newsletter") ?? ""),
-		archiveEnabled: true,
-	});
-	if (!found) return { error: "This newsletter is not taking signups" };
+	const found = await findSignupNewsletterWithScale({ slug, archiveEnabled: true });
+	if (!found) return { error: NOT_TAKING_SIGNUPS };
 	const { newsletter, signupScale } = found;
 
 	const perNewsletter = { ...PER_NEWSLETTER, limit: PER_NEWSLETTER.limit * signupScale };

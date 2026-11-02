@@ -4,11 +4,13 @@ import ChartHover from "@/components/ChartHover";
 import { niceScale, toRatio } from "@/lib/charts";
 import { formatHour, formatNumber } from "@/lib/format";
 
-// Emails sent in each hour of today, in front of yesterday's as faint bars. Hours to come show only yesterday.
+// Emails sent in each hour of today, in front of yesterday's as faint bars. Hours to come show only yesterday,
+// after Now under the current hour.
 export default function ChartSends({ hours }) {
 	const scale = niceScale([0, ...hours.flatMap(({ today, yesterday }) => [today ?? 0, yesterday])], 3);
 	const xOf = (hour) => (hour + 0.5) / hours.length;
 	const sentToday = hours.reduce((sum, { today }) => sum + (today ?? 0), 0);
+	const nowHour = hours.findLast(({ today }) => today !== null).hour;
 
 	const points = hours.map(({ hour, today, yesterday }) => ({
 		x: xOf(hour),
@@ -18,11 +20,15 @@ export default function ChartSends({ hours }) {
 			{ label: "Yesterday", value: formatNumber(yesterday), swatch: "ghost" },
 		].filter(Boolean),
 	}));
-	const xLabels = [0, 6, 12, 18, 23].map((hour) => ({
-		x: xOf(hour),
-		label: formatHour(hour),
-		className: hour === 23 ? "hidden sm:block" : undefined,
-	}));
+	// Hour labels near Now give it room, more of them below lg, where the chart can be under 300px wide.
+	const xLabels = [0, 6, 12, 18, 23]
+		.filter((hour) => Math.abs(hour - nowHour) > 1)
+		.map((hour) => ({
+			x: xOf(hour),
+			label: formatHour(hour),
+			className: Math.abs(hour - nowHour) < 5 ? "hidden lg:block" : hour === 23 ? "hidden sm:block" : undefined,
+		}));
+	xLabels.push({ x: xOf(nowHour), label: "Now", isCentered: true, className: "font-medium text-emerald-600 dark:text-emerald-400" });
 
 	return (
 		<ChartFrame scale={scale} xLabels={xLabels} className="h-36 sm:h-44">

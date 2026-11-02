@@ -26,6 +26,10 @@ function fullForm(section) {
 		authorBio: "I write.",
 		authorImageUrl: "https://cdn.example.com/jane.png",
 		socialLinks: "https://x.com/jane\nhttps://youtube.com/@jane",
+		googleAnalytics: "G-PSW1MY7HB4",
+		googleTagManager: "",
+		metaPixel: " 123456789012345 ",
+		customCode: '<script async src="https://static.example.com/101234567.js"></script>\n',
 		requireConfirmation: "on",
 		cleanupEnabled: "on",
 		cleanupIssues: "8",
@@ -70,6 +74,8 @@ test("a section's page sends its own fields only, so saving it leaves the other 
 		description: "One idea a week.",
 		author: { bio: "I write.", imageUrl: "https://cdn.example.com/jane.png" },
 		socialLinks: ["https://x.com/jane", "https://youtube.com/@jane"],
+		analytics: { googleAnalytics: "G-PSW1MY7HB4", googleTagManager: "", metaPixel: "123456789012345" },
+		customCode: '<script async src="https://static.example.com/101234567.js"></script>',
 	});
 	// Double opt-in and the welcome email, on here, also turn the other off.
 	const linked = { signups: ["welcome"], welcome: ["requireConfirmation"] };

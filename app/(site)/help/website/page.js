@@ -101,6 +101,13 @@ export default function WebsitePage() {
 				</>
 			)}
 
+			<h2 id="analytics">Analytics</h2>
+			<p>
+				Your website can load Google Analytics, Google Tag Manager and the Meta pixel: paste their IDs in the Analytics card of the{" "}
+				<LinkApp href="/newsletters/website">Website section</LinkApp>, and each signup on your website reaches them as an event.{" "}
+				<Link href={getHelpHref("website-analytics")}>Website analytics</Link>
+			</p>
+
 			<h2 id="issue-pages">Issue pages</h2>
 			<p>
 				Every issue on your website gets a page at <code>/p/</code> followed by its slug, made from the subject. Change the slug in

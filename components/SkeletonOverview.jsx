@@ -2,17 +2,18 @@ import CardSettings from "@/components/CardSettings";
 import HeaderPage from "@/components/HeaderPage";
 import SkeletonCampaigns from "@/components/SkeletonCampaigns";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PERIOD_DAYS } from "@/lib/overview-series";
 import { cn } from "@/lib/utils";
 
 // The overview while it loads (loading.js): the same sections, each section's skeleton the size of
-// what replaces it.
+// what replaces it, and the period's button.
 export default function SkeletonOverview() {
 	return (
 		<>
-			<HeaderPage title="Overview" />
+			<HeaderPage title="Overview">
+				<Skeleton aria-hidden="true" className="h-9 w-40 rounded-lg" />
+			</HeaderPage>
 			<div className="flex flex-col gap-8">
-				<SectionSkeleton title={`Last ${PERIOD_DAYS} days`}>
+				<SectionSkeleton>
 					<div className="overflow-hidden rounded-2xl bg-card shadow-border">
 						<SkeletonStats />
 						<div className="border-t border-border/60">
@@ -20,7 +21,7 @@ export default function SkeletonOverview() {
 						</div>
 					</div>
 				</SectionSkeleton>
-				<SectionSkeleton title="Today">
+				<SectionSkeleton>
 					<SkeletonSends />
 				</SectionSkeleton>
 				<SectionSkeleton title="Campaigns">
@@ -140,7 +141,7 @@ export function SkeletonSendingCapacity() {
 function SectionSkeleton({ title, children }) {
 	return (
 		<section className="flex flex-col gap-3">
-			<h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
+			{title && <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>}
 			{children}
 		</section>
 	);

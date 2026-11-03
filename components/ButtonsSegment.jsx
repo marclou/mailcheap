@@ -26,6 +26,7 @@ import {
 import { formatCount } from "@/lib/format";
 import { getHelpHref } from "@/lib/help";
 import { toast } from "@/lib/toast";
+import { useHasRole } from "@/lib/use-team-role";
 
 // The actions at the top of a segment's page: edit it, then in the ⋯ menu export or delete the contacts its list shows
 // (filters, count: the list's), and delete the segment. segment: { id, name, match, conditions, contacts }.
@@ -35,6 +36,9 @@ export default function ButtonsSegment({ newsletterId, segment, filters, count }
 	const moreRef = useRef(null);
 	const isOpeningDialogRef = useRef(false);
 	const listFilters = { ...filters, segmentId: segment.id };
+	// Changing segments, exporting and deleting are for the newsletter's admins.
+	const isAdmin = useHasRole("admin");
+	if (!isAdmin) return null;
 
 	function changeDialog(name) {
 		return (isOpen) => setDialog(isOpen ? name : null);

@@ -129,8 +129,9 @@ export default function WritingPage() {
 				Your emails and your website get the same block, cleaned first. Scripts, forms, frames, <code>&lt;style&gt;</code> tags,
 				classes and ids are removed, and so are styles that could move the block over the rest of the issue, like{" "}
 				<code>position</code> or a negative margin. Style each element inline instead, with <code>style=&quot;…&quot;</code>.
-				Tables, colors, fonts, borders, spacing and sizes stay. Links and pictures need their full address, starting with{" "}
-				<code>https://</code>. Names and fields work in its text and its links.
+				Tables, colors, fonts, borders, spacing and sizes stay, and so does <code>object-fit</code>: a picture with{" "}
+				<code>object-fit: cover</code> fills the size you give it, cropped to fit rather than stretched. Links and pictures need their
+				full address, starting with <code>https://</code>. Names and fields work in its text and its links.
 			</p>
 			<p>
 				While you edit a block, the line under its HTML points out tags that don&apos;t match up, like a <code>&lt;table&gt;</code>{" "}
@@ -146,14 +147,18 @@ export default function WritingPage() {
 			<h2 id="moving-blocks">Moving blocks</h2>
 			<p>
 				With a mouse, a grip appears to the left of the paragraph, heading, list, picture, box, button, HTML block or section under the pointer. Drag
-				it to move the block, and a line shows where it lands. Click it to select the block. From the keyboard,{" "}
+				it to move the block: it lifts from its place, and a box its size shows where it lands, the blocks around gliding aside to
+				make room. Near
+				the top or the bottom of the screen the page scrolls, and so does your trackpad or mouse wheel, so a block can go anywhere in
+				the issue. It lands between blocks, never inside a section, which moves as one block. Escape puts it back. Click the grip to
+				select the block. From the keyboard,{" "}
 				<kbd>⌘ Shift ↑</kbd> and{" "}
 				<kbd>⌘ Shift ↓</kbd> (<kbd>Ctrl</kbd> instead of <kbd>⌘</kbd> on Windows) move the block the cursor is in. Moves undo like any
 				other change.
 			</p>
 			<FigureHelp
 				src="/help/writing/moving-blocks.webp"
-				alt="A paragraph dragged by its grip, with the line where it will land."
+				alt="A heading dragged by its grip, over a box its size where it will land, the blocks under it making room."
 				caption="Dragging a block by its grip"
 			/>
 
@@ -232,14 +237,17 @@ export default function WritingPage() {
 			<p>
 				Select the text of the blocks you want in it, then click Who sees this, the dashed square at the end of the bar above them.
 				Or type <kbd>/</kbd>, pick Section and write in it. A dashed outline shows where the section starts and ends, and its label
-				says who sees it and where, like &ldquo;Only readers tagged vip · Email only&rdquo;. Click the label to change them:
+				says who sees it and where, like <strong>Only readers tagged “vip” · Email only</strong>, the tag or the segment in quotes.
+				Click the label to change them:
 			</p>
 			<ul>
 				<li>
 					<strong>Who sees this section</strong>: everyone, readers with a <Link href={getHelpHref("contacts", "tags")}>tag</Link>,
 					or readers in a <Link href={getHelpHref("contacts", "segments")}>segment</Link>, like your newest subscribers or those who
-					opened lately. Everyone except them turns it around, for readers without the tag or outside the segment. New segment, at
-					the bottom of the list, makes one without leaving the issue.
+					opened lately. Each one in the list shows how many of the readers you send the issue to it has, and the one you picked
+					shows it in parentheses, like Readers tagged “vip” (12). Everyone except them turns it around, for readers without the tag
+					or outside the segment. New segment, at the bottom of the list, or Add segments while you have none, makes one without
+					leaving the issue.
 				</li>
 				<li>
 					<strong>Show it in</strong>: email and web, email only or web only. Your website doesn&apos;t know who&apos;s reading, so
@@ -247,13 +255,13 @@ export default function WritingPage() {
 				</li>
 			</ul>
 			<p>
-				Under them, how many of the readers who get the issue see the section in their email. Add a version for everyone else puts
-				the opposite section right under it, for the readers this one leaves out, like a thank you for your VIPs and an invitation
-				for everyone else. Remove the section, keep its content puts its blocks back in the issue for everyone.
+				Add a version for everyone else puts the opposite section right under it, for the readers this one leaves out, like a thank
+				you for your VIPs and an invitation for everyone else. Remove the section, keep its content puts its blocks back in the issue
+				for everyone.
 			</p>
 			<FigureHelp
 				src="/help/writing/section.webp"
-				alt="A section in the editor with its settings open: only readers tagged member, in emails only, which 12 of the issue's 48 readers see."
+				alt="A section in the editor with its settings open: only readers tagged member, 12 of the issue's readers, in emails only."
 				caption="A section and who sees it"
 			/>
 			<p>
@@ -285,7 +293,7 @@ export default function WritingPage() {
 				find one by typing any part of their email address or first name. The subject, the preview text and the email then read as
 				that person gets them, with their first name and field values, or the fallbacks where they have none, and the{" "}
 				<Link href={getHelpHref("writing", "sections")}>sections</Link> their tags and segments get them. They stay picked while the
-				campaign is open. An issue with sections also lists the readers they name, like readers tagged vip, each called Jane: Jane
+				campaign is open. An issue with sections also lists the readers they name, like readers tagged “vip”, each called Jane: Jane
 				has no tags and is in no segment. How to add names and fields to contacts, at the bottom of the list, opens{" "}
 				<Link href={getHelpHref("contacts", "fields")}>Adding fields, step by step</Link>.
 			</p>

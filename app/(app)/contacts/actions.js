@@ -48,11 +48,16 @@ export async function bringBackContact(importId, email) {
 	return { ...(result.error && { error: result.error }), broughtBack: result.broughtBack, import: output.import };
 }
 
-// With the box ticked, the contact is active at once: no confirmation email, the welcome email if it's on.
+// With the box ticked, the contact is active at once: no confirmation email, the welcome email if it's on. A first name
+// and tags, a "tags" entry each, are optional; an address already on the list keeps its own.
 export async function addContact(_state, formData) {
+	const firstName = String(formData.get("firstName") ?? "").trim();
+	const tags = formData.getAll("tags").filter((tag) => typeof tag === "string");
 	const { output, failure } = await runDashboardAction("add_contact", {
 		newsletter: String(formData.get("newsletterId") ?? ""),
 		email: String(formData.get("email") ?? ""),
+		...(firstName && { firstName }),
+		...(tags.length > 0 && { tags }),
 		consent: formData.get("consent") === "on",
 	});
 	if (failure) return toFormError(failure);

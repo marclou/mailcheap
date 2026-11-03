@@ -136,13 +136,14 @@ describe("first sends in steps", () => {
 	});
 
 	test("a first step with too many bounces blocks the account; once an admin unblocks it, resuming sends the rest", async () => {
-		const user = await setup("bought-list@example.com", { neverMailed: 3000 });
+		const user = await setup("bought-list@example.com", { neverMailed: 400 });
 		await as(user, () => m.campaigns.sendCampaign(user.campaignId, {}));
 		await runJobs();
 		const step = await m.Message.find({ accountId: user.accountId, campaignId: user.campaignId, firstSend: true, status: "sent" })
 			.limit(12)
 			.lean();
 		await m.Message.updateMany({ accountId: user.accountId, _id: { $in: step.map(({ _id }) => _id) } }, { $set: { status: "bounced", bouncedAt: new Date() } });
+		await m.Campaign.updateOne({ accountId: user.accountId, _id: user.campaignId }, { $inc: { "stats.bounced": 12 } });
 
 		const [check] = await runJobs({ checks: true });
 		assert.equal(check.result.blocked, true);
@@ -155,14 +156,36 @@ describe("first sends in steps", () => {
 			[account.status, account.pausedBy, account.pauseReason],
 			["paused", "slice", "The first 200 new contacts had a bounce rate of 6.00% (limit 5.00%)"]
 		);
-		assert.equal(await count(user, "held"), 2800);
+		assert.equal(await count(user, "held"), 200);
 
 		assert.equal((await as(user, () => m.campaigns.resumeCampaign(user.campaignId))).code, "account_blocked");
 		await m.blocks.unblockAccount(user.accountId);
 		assert.deepEqual(await as(user, () => m.campaigns.resumeCampaign(user.campaignId)), { ok: true });
 		assert.equal(await count(user, "held"), 0, "the customer chose to send the rest");
-		assert.equal(await count(user, "queued"), 2800);
+		assert.equal(await count(user, "queued"), 200);
 		assert.equal((await campaignOf(user)).status, "sending");
+		await runJobs();
+		assert.equal((await campaignOf(user)).status, "sent", "the first step's bounces don't block it again");
+		assert.equal((await m.Account.findById(user.accountId).lean()).status, "active");
+		skipPublished();
+	});
+
+	test("a step out when the account was blocked counts only what goes out after the unblock", async () => {
+		const user = await setup("blocked-midway@example.com", { neverMailed: 3000 });
+		await as(user, () => m.campaigns.sendCampaign(user.campaignId, {}));
+		await runJobs();
+		const step = await m.Message.find({ accountId: user.accountId, campaignId: user.campaignId, firstSend: true, status: "sent" })
+			.limit(12)
+			.lean();
+		await m.Message.updateMany({ accountId: user.accountId, _id: { $in: step.map(({ _id }) => _id) } }, { $set: { status: "bounced", bouncedAt: new Date() } });
+		await m.blocks.blockAccount(user.accountId, { reason: "Review" });
+		skipPublished();
+
+		await m.blocks.unblockAccount(user.accountId);
+		assert.deepEqual(await as(user, () => m.campaigns.resumeCampaign(user.campaignId)), { ok: true });
+		const [check] = await runJobs({ checks: true });
+		assert.deepEqual([check.result.blocked, check.result.released, check.result.step], [undefined, 200, 2]);
+		assert.equal((await m.Account.findById(user.accountId).lean()).status, "active");
 		skipPublished();
 	});
 

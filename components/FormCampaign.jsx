@@ -19,11 +19,16 @@ import {
 	Trash2,
 	UserRound,
 } from "lucide-react";
-import { countSectionReaders, duplicateCampaign, saveCampaign, sendTestCampaign, setCampaignPublishTo } from "@/app/(app)/campaigns/actions";
-import { getContactOptions } from "@/app/(app)/contacts/actions";
+import {
+	countAllSectionReaders,
+	countSectionReaders,
+	duplicateCampaign,
+	saveCampaign,
+	sendTestCampaign,
+	setCampaignPublishTo,
+} from "@/app/(app)/campaigns/actions";
 import AvatarNewsletter from "@/components/AvatarNewsletter";
 import BadgeStatus from "@/components/BadgeStatus";
-import CardSections from "@/components/CardSections";
 import CardSettings from "@/components/CardSettings";
 import CardTips from "@/components/CardTips";
 import DialogDiscardCampaign from "@/components/DialogDiscardCampaign";
@@ -63,11 +68,13 @@ import { useCollapsedSidebar } from "@/lib/use-collapsed-sidebar";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { usePaywall } from "@/lib/use-paywall";
 import { useSendCampaign } from "@/lib/use-send-campaign";
+import { useHasRole } from "@/lib/use-team-role";
 import { useToastError } from "@/lib/use-toast-error";
 import { useAutosave } from "@/lib/use-autosave";
 import { cn } from "@/lib/utils";
 
 const UPLOADING_MESSAGE = "Wait for images to finish uploading";
+const SEND_BY_ADMIN = "Only the newsletter's admins send and schedule issues. Your draft is saved for them in Campaigns.";
 const NO_FIELDS = [];
 const SUBJECT_MAX = 200;
 // Below lg, as the step bar's classes.
@@ -94,6 +101,7 @@ export default function FormCampaign({
 	newContacts,
 	gmailShare = 0,
 	tips: storedTips = [],
+	otherPictures = [],
 }) {
 	const isHtml = campaign.format === "html";
 	// The account's fields as the page got them, or as the editor left them once one was added or deleted there.
@@ -125,6 +133,7 @@ export default function FormCampaign({
 	const toastError = useToastError();
 	const paywall = usePaywall();
 	const hasPlan = paywall?.hasPlan ?? true;
+	const canSend = useHasRole("admin");
 	const deferredValues = useDeferredValue(values);
 	// The editor's own pictures: an HTML block's code is text.
 	const isUploading = /<img\b[^>]*\ssrc="blob:/.test(values.body);
@@ -159,7 +168,7 @@ export default function FormCampaign({
 		[format, deferredValues, newsletter]
 	);
 	const previewHtml = useMemo(() => toPreviewFrame(rendered.html), [rendered.html]);
-	const sections = useSections({ campaignId: campaign._id, newsletterId: newsletter._id, segments });
+	const sections = useSections({ campaignId: campaign._id, segments });
 	const isWithSections = format === "rich" && hasSections(deferredValues.body);
 	// The preview's readers for an issue with sections: as one of its contacts, their tags and segments, or as any reader a
 	// section names, all called Jane. Only its live segments count: one deleted shows its sections to nobody.
@@ -362,14 +371,17 @@ export default function FormCampaign({
 	const action = {
 		write: { label: "Next: review", icon: ArrowRight, isIconAfter: true, onClick: () => goToStep("review") },
 		review: { label: "Next: send", icon: ArrowRight, isIconAfter: true, onClick: () => goToStep("send") },
-		send: {
-			label: sendAction.label,
-			icon: sendAction.icon,
-			onClick: () => (hasPlan ? sendAction.run() : paywall.open(sendAction.reason)),
-			problems: sending.problems,
-			problemsTitle: sendAction.title,
-			isPending: sending.isPending,
-		},
+		// A team's members write drafts: the newsletter's admins send them.
+		send: canSend
+			? {
+					label: sendAction.label,
+					icon: sendAction.icon,
+					onClick: () => (hasPlan ? sendAction.run() : paywall.open(sendAction.reason)),
+					problems: sending.problems,
+					problemsTitle: sendAction.title,
+					isPending: sending.isPending,
+				}
+			: { label: "Admins send it", icon: Send, onClick: () => toast.message(SEND_BY_ADMIN), problems: [], isPending: false },
 	}[step];
 
 	// Saved shows for a moment after each save, first in every step so a step change doesn't replay it. In the top bar its
@@ -512,15 +524,6 @@ export default function FormCampaign({
 					<p role="status" className="sr-only">
 						{tips.length > 0 ? `${formatCount(tips.length, "tip")} for more opens` : ""}
 					</p>
-					{isWithSections && step === "review" && (
-						<CardSections
-							body={deferredValues.body}
-							segments={sections.segments}
-							countReaders={sections.context.countReaders}
-							isWebOnly={isWebOnly}
-							onPreview={(event) => openPreview(event.currentTarget)}
-						/>
-					)}
 					<CardSettings title="Test and preview" stagger={1}>
 						<ButtonRow
 							icon={FlaskConical}
@@ -545,6 +548,12 @@ export default function FormCampaign({
 						campaign={campaign}
 						newsletter={newsletter}
 						subject={values.subject}
+						previewText={deferredValues.previewText}
+						body={deferredValues.body}
+						format={format}
+						contactFields={contactFields}
+						otherPictures={otherPictures}
+						onBeforeSave={persist}
 						everyoneCount={everyoneCount}
 						segments={segments}
 						isSegmentDeleted={isSegmentDeleted}
@@ -844,35 +853,32 @@ function ButtonRow({ icon: Icon, title, description, onClick, isDisabled = false
 }
 
 // What the editor's sections pick from (components/BlockSection.jsx): the newsletter's segments, with one made here
-// until the page brings it back; its tags, read once; how many of the draft's readers a tag or a segment picks, null
-// for one the newsletter doesn't have; and the segment editor, whose new segment the section picks.
-function useSections({ campaignId, newsletterId, segments }) {
+// until the page brings it back; every tag and segment with how many of the draft's readers each picks, null when
+// that can't be read; how many of them a tag or a segment picks, or everyone without one, null for a segment the
+// newsletter doesn't have; and the segment editor, whose new segment the section picks.
+function useSections({ campaignId, segments }) {
 	const router = useRouter();
 	const [made, setMade] = useState([]);
 	const [picking, setPicking] = useState(null);
-	const tagsRef = useRef(null);
 	const all = useMemo(() => [...segments, ...made.filter(({ id }) => !segments.some((segment) => segment.id === id))], [segments, made]);
 
-	const loadTags = useCallback(() => {
-		tagsRef.current ??= getContactOptions(newsletterId).then(
-			(result) => (result?.error ? [] : result.tags),
-			() => []
-		);
-		return tagsRef.current;
-	}, [newsletterId]);
+	const countAll = useCallback(async () => {
+		const result = await countAllSectionReaders(campaignId).catch(() => null);
+		return result && !result.error ? result : null;
+	}, [campaignId]);
 
 	const countReaders = useCallback(
 		async (group) => {
-			const result = await countSectionReaders(campaignId, [group]).catch(() => null);
-			const readers = result?.groups?.[0]?.readers;
+			const result = await countSectionReaders(campaignId, group ? [group] : []).catch(() => null);
+			const readers = group ? result?.groups?.[0]?.readers : result?.readers;
 			return result && !result.error && typeof readers === "number" ? { readers: result.readers, count: readers } : null;
 		},
 		[campaignId]
 	);
 
 	const context = useMemo(
-		() => ({ segments: all, loadTags, countReaders, newSegment: (onSaved) => setPicking({ onSaved }) }),
-		[all, loadTags, countReaders]
+		() => ({ segments: all, countAll, countReaders, newSegment: (onSaved) => setPicking({ onSaved }) }),
+		[all, countAll, countReaders]
 	);
 
 	return {

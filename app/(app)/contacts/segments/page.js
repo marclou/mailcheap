@@ -10,20 +10,23 @@ import { formatNumber, formatRate } from "@/lib/format";
 import { countActivity, listLiveSegments } from "@/lib/segment-queries";
 import { ACTIVITY_DAYS, compileSegment, describeSegment } from "@/lib/segments";
 import { getSelectedNewsletter } from "@/lib/selected-newsletter";
+import { hasRole } from "@/lib/team-rules";
 
 export const metadata = { title: "Segments" };
 
 // The open newsletter's segments: the active contacts each picks now, their share of the list, and how many of them
 // opened lately.
 export default async function SegmentsPage() {
-	const { account, selected } = await getSelectedNewsletter();
+	const { account, selected, role } = await getSelectedNewsletter();
 	const newsletterId = selected ? String(selected._id) : null;
+	// Segments are the newsletter's admins' to make.
+	const canCreate = hasRole(role, "admin");
 	const segments = newsletterId ? await listLiveSegments(account, newsletterId) : [];
 	const [list, ...activities] = newsletterId
 		? await Promise.all([null, ...segments].map((segment) => countActivity(account, newsletterId, segment && compileSegment(segment))))
 		: [];
 	const fields = getFieldOptions(account);
-	const newSegment = newsletterId && (
+	const newSegment = newsletterId && canCreate && (
 		<DialogSegment
 			newsletterId={newsletterId}
 			trigger={

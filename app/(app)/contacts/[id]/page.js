@@ -50,7 +50,7 @@ import { fieldTag, fillSubject, firstNameTag } from "@/lib/merge-tags";
 import { PROVIDER_DOMAINS, PROVIDER_LABELS, mailboxProvider } from "@/lib/providers";
 import { rootDomain } from "@/lib/root-domain";
 import { findContactSegments, listLiveSegments } from "@/lib/segment-queries";
-import { getSelectedNewsletter, openNewsletter } from "@/lib/selected-newsletter";
+import { findInNewsletters, getSelectedNewsletter, openNewsletter } from "@/lib/selected-newsletter";
 import { TIME_ZONE_COOKIE, resolveTimeZone } from "@/lib/time-zone";
 import { cn } from "@/lib/utils";
 import { isObjectIdString } from "@/lib/validation";
@@ -70,9 +70,10 @@ export default async function ContactPage({ params, searchParams }) {
 	const [{ id }, query, view, cookieStore] = await Promise.all([params, searchParams, getSelectedNewsletter(), cookies()]);
 	if (!isObjectIdString(id)) notFound();
 	const { account, newsletters } = view;
-	const contact = await Contact.findOne(scoped(account, { _id: id })).lean();
+	const contact = await findInNewsletters(view, Contact, id);
 	if (!contact) notFound();
 	openNewsletter(view, contact.newsletterId, `/contacts/${id}`);
+	if (!contact.newsletterId.equals(view.selected._id)) notFound();
 
 	const timeZone = resolveTimeZone(cookieStore.get(TIME_ZONE_COOKIE)?.value);
 	const limit = Math.min(MAX_EMAILS, Math.max(EMAILS_STEP, Number.parseInt(query.emails, 10) || EMAILS_STEP));

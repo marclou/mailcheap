@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Globe, KeyRound, LayoutGrid, Send, Settings, Shield, Users } from "lucide-react";
+import { OWNER_ROLE, hasRole } from "@/lib/team-rules";
 import { cn } from "@/lib/utils";
 
 // The open newsletter's pages, then the account's, which every newsletter shares. notifications: the bell
 // (components/ButtonNotifications.jsx), in a section of its own after them, in the sidebar only: the phone has it in its
-// top bar.
-export default function NavLinks({ isAdmin, onNavigate, notifications = null }) {
+// top bar. role: the user's on the open newsletter, which leaves out the pages it doesn't open (lib/team-rules.js).
+export default function NavLinks({ isAdmin, role = OWNER_ROLE, onNavigate, notifications = null }) {
 	const pathname = usePathname();
-	const groups = [NEWSLETTER_ITEMS, [...ACCOUNT_ITEMS, ...(isAdmin ? [ADMIN_ITEM] : [])]];
+	const groups = [NEWSLETTER_ITEMS, [...ACCOUNT_ITEMS, ...(isAdmin ? [ADMIN_ITEM] : [])]]
+		.map((items) => items.filter((item) => hasRole(role, item.role ?? "member")))
+		.filter((items) => items.length > 0);
 
 	return (
 		<nav className="flex flex-col gap-3">
@@ -54,12 +57,12 @@ const NEWSLETTER_ITEMS = [
 	{ href: "/", label: "Overview", icon: LayoutGrid },
 	{ href: "/campaigns", label: "Campaigns", icon: Send },
 	{ href: "/contacts", label: "Contacts", icon: Users },
-	{ href: "/newsletters", label: "Settings", icon: Settings },
+	{ href: "/newsletters", label: "Settings", icon: Settings, role: "admin" },
 ];
 
 const ACCOUNT_ITEMS = [
-	{ href: "/domains", label: "Domains", icon: Globe },
-	{ href: "/api-keys", label: "API keys", icon: KeyRound },
+	{ href: "/domains", label: "Domains", icon: Globe, role: OWNER_ROLE },
+	{ href: "/api-keys", label: "API keys", icon: KeyRound, role: OWNER_ROLE },
 ];
 
 const ADMIN_ITEM = { href: "/admin", label: "Admin", icon: Shield };

@@ -17,8 +17,8 @@ import {
 import { toast } from "@/lib/toast";
 
 // Opened from a menu, so the caller owns the open state. A web-only issue leaves the campaigns too: redirectTo is where
-// its own page goes then.
-export default function DialogUnpublishCampaign({ id, subject, isWebOnly, isOpen, onOpenChange, redirectTo }) {
+// its own page goes then. onRemoved: called once it's off the website, with whether it left the campaigns.
+export default function DialogUnpublishCampaign({ id, subject, isWebOnly, isOpen, onOpenChange, redirectTo, onRemoved }) {
 	const router = useRouter();
 	const [isRemoving, startRemoving] = useTransition();
 
@@ -29,6 +29,7 @@ export default function DialogUnpublishCampaign({ id, subject, isWebOnly, isOpen
 			onOpenChange(false);
 			toast.success("Removed from your website");
 			if (result.deleted && redirectTo) router.replace(redirectTo);
+			onRemoved?.({ isDeleted: Boolean(result.deleted) });
 		});
 	}
 

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getStatusChanges, getStatusLock, needsConsent } from "@/lib/contact-status";
 import { toast } from "@/lib/toast";
+import { useHasRole } from "@/lib/use-team-role";
 
 // A contact's status on its page, next to its other actions: a button opening the changes lib/contact-status.js allows,
 // or why it can't change. label: what it says instead of the status, like the list hygiene's reason.
@@ -24,6 +25,16 @@ export default function MenuContactStatus({ id, email, status, label, undelivera
 	const [isPending, startTransition] = useTransition();
 	const lock = getStatusLock(status, undeliverableReason);
 	const changes = getStatusChanges(status);
+	// Status changes are for the newsletter's admins: a member sees the status alone.
+	const isAdmin = useHasRole("admin");
+	if (!isAdmin) {
+		return (
+			<span className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm shadow-border">
+				<DotStatus status={status} className="size-2" />
+				{label || statusLabel(status)}
+			</span>
+		);
+	}
 
 	function change(nextStatus) {
 		if (needsConsent(status, nextStatus)) return void setIsConsentOpen(true);

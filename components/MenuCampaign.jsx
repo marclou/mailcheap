@@ -15,15 +15,18 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/lib/toast";
+import { useHasRole } from "@/lib/use-team-role";
 
 const EDITABLE_STATUSES = ["draft", "scheduled"];
 
-// pageUrl: only for an issue on the website, which can leave it.
+// pageUrl: only for an issue on the website, whose page can change or leave it.
 export default function MenuCampaign({ id, status, subject, scheduledAt, pageUrl, isWebOnly }) {
 	const [isDiscardOpen, setIsDiscardOpen] = useState(false);
 	const [isUnpublishOpen, setIsUnpublishOpen] = useState(false);
 	const [isDuplicating, startDuplicating] = useTransition();
-	const isEditable = EDITABLE_STATUSES.includes(status);
+	// A team's members change drafts only: the website and what's scheduled are the admins'.
+	const isAdmin = useHasRole("admin");
+	const isEditable = isAdmin ? EDITABLE_STATUSES.includes(status) : status === "draft";
 
 	function duplicate() {
 		startDuplicating(async () => {
@@ -69,6 +72,14 @@ export default function MenuCampaign({ id, status, subject, scheduledAt, pageUrl
 					{pageUrl && (
 						<>
 							<DropdownMenuSeparator />
+							{isAdmin && (
+								<DropdownMenuItem asChild>
+									<Link href={`/campaigns/${id}/web`}>
+										<PenLine />
+										Edit web page
+									</Link>
+								</DropdownMenuItem>
+							)}
 							<DropdownMenuItem onSelect={copyLink}>
 								<Link2 />
 								Copy link
@@ -79,11 +90,15 @@ export default function MenuCampaign({ id, status, subject, scheduledAt, pageUrl
 									View page
 								</a>
 							</DropdownMenuItem>
-							<DropdownMenuSeparator />
-							<DropdownMenuItem variant="destructive" onSelect={() => setIsUnpublishOpen(true)}>
-								<GlobeOff />
-								Remove from website
-							</DropdownMenuItem>
+							{isAdmin && (
+								<>
+									<DropdownMenuSeparator />
+									<DropdownMenuItem variant="destructive" onSelect={() => setIsUnpublishOpen(true)}>
+										<GlobeOff />
+										Remove from website
+									</DropdownMenuItem>
+								</>
+							)}
 						</>
 					)}
 					{isEditable && (

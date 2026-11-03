@@ -1,7 +1,9 @@
 "use client";
 
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getNotifications, markNotificationsRead } from "@/app/(app)/(notifications)/actions";
+import { clearNotifications, getNotifications, markNotificationsRead } from "@/app/(app)/(notifications)/actions";
+import { hasNewNotifications } from "@/lib/notification-rules";
+import { toast } from "@/lib/toast";
 
 const POLL_MS = 60_000;
 // Coming back to the tab looks again, at most this often.
@@ -16,17 +18,20 @@ export function useNotifications() {
 // The notifications the bells show (components/ButtonNotifications.jsx): the sidebar's and the phone's top bar's share
 // them. One look a minute keeps them fresh while the page is visible, and coming back to the tab looks at once. An open
 // tray marks what it shows read: what it opened on, what comes in while it's open and the older ones it loads, which
-// stay highlighted until it closes (fresh). initial: the layout's page of list_notifications, taken again whenever the
-// layout renders again, like the refresh after an import finishes. supportChatPath: a link the support chat opens in
-// place (siteExtensions), not a page.
+// stay highlighted until it closes (fresh). Clear all takes what it shows and everything older off the list. initial:
+// the layout's page of list_notifications, taken again whenever the layout renders again, like the refresh after an
+// import finishes. supportChatPath: a link the support chat opens in place (siteExtensions), not a page.
 export default function ProviderNotifications({ initial, supportChatPath = null, children }) {
 	const [state, setState] = useState(() => ({ from: initial, ...toState(initial) }));
 	const [fresh, setFresh] = useState(() => new Set());
 	const [isOpen, setIsOpen] = useState(false);
 	const [isLoadingMore, setIsLoadingMore] = useState(false);
 	const isOpenRef = useRef(false);
-	// Bumped by each marking: a look that started before it still has those as unread, and doesn't count.
+	// Bumped by each marking and clearing: a look that started before it still has those as unread or listed, and
+	// doesn't count.
 	const marks = useRef(0);
+	// Bumped by each clearing: older ones loaded from before it are cleared too.
+	const clears = useRef(0);
 	if (state.from !== initial) setState({ ...state, from: initial, ...mergePage(state, initial) });
 
 	const markShown = useCallback((shown) => {
@@ -97,12 +102,29 @@ export default function ProviderNotifications({ initial, supportChatPath = null,
 			},
 			async loadMore() {
 				if (!nextCursor || isLoadingMore) return;
+				const started = clears.current;
 				setIsLoadingMore(true);
 				const page = await getNotifications(nextCursor).catch(() => null);
 				setIsLoadingMore(false);
-				if (!page?.notifications) return;
+				if (!page?.notifications || started !== clears.current) return;
 				setState((current) => ({ ...current, notifications: byNewest([...current.notifications, ...page.notifications]), nextCursor: page.nextCursor }));
 				if (isOpenRef.current) markShown(page.notifications);
+			},
+			// What came in since the tray last looked stays: only the newest it shows and older go.
+			async clear() {
+				const until = notifications[0]?.at;
+				if (!until) return;
+				marks.current++;
+				clears.current++;
+				setFresh(new Set());
+				setState((current) => {
+					const kept = current.notifications.filter(({ at }) => at > until);
+					return { ...current, notifications: kept, unread: kept.filter(({ read }) => !read).length, nextCursor: null };
+				});
+				const result = await clearNotifications(until).catch(() => null);
+				if (Number.isInteger(result?.unread)) return void setState((current) => ({ ...current, unread: result.unread }));
+				toast.error(result?.error ?? "Could not clear your notifications");
+				look();
 			},
 		}),
 		[notifications, unread, nextCursor, ringKey, isOpen, isLoadingMore, fresh, supportChatPath, look, markShown]
@@ -116,7 +138,7 @@ function toState(page) {
 }
 
 // A new first page in place of what's loaded: it's what the server has now as far as it goes, and what Show older loaded
-// past it stays. More unread than before rings the bell.
+// past it stays.
 function mergePage(current, page) {
 	if (!Array.isArray(page?.notifications)) return {};
 	const last = page.notifications.at(-1);
@@ -126,7 +148,7 @@ function mergePage(current, page) {
 		notifications: byNewest([...page.notifications, ...older]),
 		unread: page.unread,
 		nextCursor: older.length > 0 ? current.nextCursor : page.nextCursor,
-		ringKey: page.unread > current.unread ? current.ringKey + 1 : current.ringKey,
+		ringKey: hasNewNotifications(current, page) ? current.ringKey + 1 : current.ringKey,
 	};
 }
 

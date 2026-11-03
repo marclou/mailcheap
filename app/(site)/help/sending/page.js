@@ -7,7 +7,7 @@ import { CLASSIFIER_CHECKS } from "@/lib/content-review-codes";
 import { getFirstSendSteps } from "@/lib/first-send";
 import { formatCount, formatNumber, formatPercent } from "@/lib/format";
 import { getHelpHref, getHelpPageMetadata } from "@/lib/help";
-import { COMPARED_ISSUES, TIMELINE_HOURS } from "@/lib/report-stats";
+import { COMPARED_ISSUES, MAX_VIEW_DAYS, TIMELINE_HOURS } from "@/lib/report-stats";
 
 export const metadata = getHelpPageMetadata("sending");
 
@@ -72,8 +72,7 @@ export default function SendingPage() {
 			<p>
 				Edit content takes you to each one in the issue, lit for a moment, where a{" "}
 				<Link href={getHelpHref("writing", "problems")}>dot beside it</Link> says what&apos;s wrong. Warnings don&apos;t stop you.
-				An issue with sections lists them under the checklist, each with who sees it, where, and how many of the readers it goes
-				to get it in their email. The size check counts the biggest email, with every section in.
+				The size check counts the biggest email, with every section in.
 				{isCloud() &&
 					" Problems with your account show in red above the steps: your plan's limits, and on the send step a send bigger than what your plan has left this month."}{" "}
 				A web-only issue sends no email, so it only needs a subject, content and the website on.
@@ -133,8 +132,10 @@ export default function SendingPage() {
 				<Link href={getHelpHref("writing", "sections")}>section</Link>&apos;s, which never changes who gets it.
 			</p>
 			<p>
-				The same step shows the issue&apos;s web page address, which you can change, and what the{" "}
-				<Link href={getHelpHref("list-cleanup")}>list cleanup</Link> will do at this send.
+				The same step shows what the <Link href={getHelpHref("list-cleanup")}>list cleanup</Link> will do at this send, and for an
+				issue that goes on your website, its page there: the picture, title and description of its card on your website and in
+				link previews, and its address, which you can change.{" "}
+				<Link href={getHelpHref("website", "issue-pages")}>Issue pages</Link>
 			</p>
 
 			<h2 id="when">Send now or schedule</h2>
@@ -242,7 +243,8 @@ export default function SendingPage() {
 
 			<h2 id="report">The report</h2>
 			<p>
-				Each sent campaign&apos;s page shows at the top how many emails were delivered, opened and clicked, and how many bounced or
+				Under its subject, a sent campaign&apos;s page says when it went out and, once it&apos;s on your website, links to its page
+				there. Each sent campaign&apos;s page shows at the top how many emails were delivered, opened and clicked, and how many bounced or
 				led to an unsubscribe. It counts the list cleanup&apos;s last-chance emails apart. Bounced only counts hard bounces, like an
 				address that doesn&apos;t exist: an email still on its way, or that an inbox refused for another reason, like a full
 				mailbox, shows under Delivered as not delivered. Opens are an estimate: some inboxes, like Gmail, load an email&apos;s
@@ -251,8 +253,10 @@ export default function SendingPage() {
 			<p>
 				Under those numbers, tabs break the send down: Timeline, its opens and clicks hour by hour; Links, what readers clicked,
 				with the click map; Recipients, who it went to and what each did; Inboxes, its results by inbox provider, like Gmail or
-				Outlook, where you also see how many were marked as spam; and Website, for an issue on your website, its page&apos;s views
-				and its address, which you can change there.
+				Outlook, where you also see how many were marked as spam; and Website, for an issue on your website, its page and its
+				views. Edit web page, at the top, changes the page itself, its title, picture and content, while the email stays as it was
+				sent.{" "}
+				<Link href={getHelpHref("website", "edit-page")}>Changing a page after it&apos;s out</Link>
 			</p>
 			<FigureHelp
 				src="/help/sending/report.webp"
@@ -279,7 +283,7 @@ export default function SendingPage() {
 				each one, every click, and each link&apos;s share of the contacts who clicked a link. A link counts once
 				whatever its tracking parameters, like utm_source, and link scanners and the unsubscribe link don&apos;t count. An issue
 				sent before clicks were counted per link only has the clicks since then. The API and AI assistants get the same numbers,
-				the comparison and the hours included, in the campaign&apos;s report.
+				the comparison, the hours and the page&apos;s views day by day included, in the campaign&apos;s report.
 			</p>
 			<p>
 				Click map, in Links, shows the email as it went out, in a mail app or in Gmail on a phone, as a sample reader or as one
@@ -293,8 +297,20 @@ export default function SendingPage() {
 				caption="The click map"
 			/>
 			<p>
-				A web-only issue&apos;s page shows its views on the website instead, once per reader a day, and when it went live. Web-only
-				issues don&apos;t count in the comparison with your last issues.
+				Website shows the page as your website and link previews show it, with Edit web page, View and Pin to top, and its
+				address, which you can change there. Beside it are its views, each reader counted once a day: in all, today, over the
+				last 7 days and on its best day, then day by day since it went on your website, its first month and the days still to
+				come at least, its last {MAX_VIEW_DAYS} days at most. A page that had views before they were counted day by day shows its
+				days from then, and those views count in its total.
+			</p>
+			<FigureHelp
+				src="/help/sending/website-tab.webp"
+				alt="A sent issue's Website tab: its card with its picture, title and description, Edit web page, View and Pin to top, its address, and beside it its page views, day by day."
+				caption="An issue's page and its views"
+			/>
+			<p>
+				A web-only issue&apos;s report shows the same, in place of the email&apos;s numbers. Web-only issues don&apos;t count in the
+				comparison with your last issues.
 			</p>
 
 			<h2 id="recipients">Who opened and clicked</h2>

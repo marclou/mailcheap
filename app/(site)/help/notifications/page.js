@@ -15,18 +15,19 @@ export default function NotificationsPage() {
 				The bell in the sidebar, in a section of its own under <LinkApp href="/domains">Domains</LinkApp> and{" "}
 				<LinkApp href="/api-keys">API keys</LinkApp>, or at the top of the screen on a phone, shows what happened in your account.
 				Its red badge counts the new ones. Opening it marks what it shows as read, so the badge goes away, and the new ones stay
-				highlighted until you close it.
+				highlighted until you close it. Clear all, at its top, empties it.
 			</p>
 			<FigureHelp
 				src="/help/notifications/bell.webp"
-				alt="The notifications open beside the sidebar's Notifications section: an import, a sent campaign and an issue under review marked new, above a paused campaign."
+				alt="The notifications open beside the sidebar's Notifications section, with Clear all at the top: an import, a sent campaign and an issue under review marked new, above a paused campaign."
 				caption="Your notifications"
 			/>
 			<p>
 				Click one to open the page it&apos;s about: the campaign that paused or was sent, the{" "}
 				<LinkApp href="/contacts">Contacts page</LinkApp> of the newsletter an import went to, or the{" "}
 				<LinkApp href="/domains">Domains page</LinkApp> for a domain to fix. When the same thing happens again, like a second spam
-				complaint, its notification comes back on top as new instead of adding another. Notifications stay 90 days.
+				complaint, its notification comes back on top as new instead of adding another, even after you cleared it. Notifications
+				stay 90 days.
 			</p>
 
 			<h2 id="what">What shows there</h2>
@@ -38,13 +39,10 @@ export default function NotificationsPage() {
 				</li>
 				<li>
 					<strong>News</strong>, in the dashboard only: a campaign sent to everyone on its list, an issue under review and then
-					approved, and an import that ran in the background, once it&apos;s done or if it stopped.
+					approved, and an import as it starts, then how it went: what it added, what was already there and what it left out, or
+					why it stopped.
 				</li>
 			</ul>
-			<p>
-				A small file goes in while you wait and its result shows right away, so it doesn&apos;t get a notification.{" "}
-				<Link href={getHelpHref("importing-contacts", "background")}>Big files</Link>
-			</p>
 
 			<h2 id="emails">Emails</h2>
 			<p>
@@ -62,8 +60,8 @@ export default function NotificationsPage() {
 			<h2 id="api">From the API and AI assistants</h2>
 			<p>
 				<Link href="/docs/api#list-notifications">List notifications</Link> returns the same notifications, with the page each one
-				is about, and mark_notifications_read marks them read, as opening the bell does. An AI assistant connected to MailCheap can
-				tell you what needs you.{" "}
+				is about. mark_notifications_read marks them read, as opening the bell does, and clear_notifications clears them, as Clear
+				all does. An AI assistant connected to MailCheap can tell you what needs you.{" "}
 				<Link href={getHelpHref("api-and-ai")}>API and AI assistants</Link>
 			</p>
 		</ArticleHelp>

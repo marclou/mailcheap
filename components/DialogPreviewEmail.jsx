@@ -26,7 +26,7 @@ import LogoGmail from "@/components/LogoGmail";
 import OverlayClicks from "@/components/OverlayClicks";
 import PickerReader from "@/components/PickerReader";
 import { Dialog, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
-import { openLinksOutside } from "@/lib/email-preview";
+import { forwardEscape, openLinksOutside } from "@/lib/email-preview";
 import { SAMPLE_READER, fillForReader } from "@/lib/merge-tags";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
@@ -277,7 +277,8 @@ function FramePhone({ sender, subject, previewText, html, clicks, hasOpened, onO
 	);
 }
 
-function BarStatus() {
+// A phone's status bar, its notch in the middle.
+export function BarStatus() {
 	return (
 		<div className="relative flex h-11 shrink-0 items-center justify-between pr-6 pl-8 text-[15px] font-semibold tabular-nums">
 			<span>9:41</span>
@@ -515,14 +516,6 @@ function fitToEmail(frame) {
 	fit();
 	email.fonts?.ready.then(fit);
 	email.addEventListener("load", fit, true);
-}
-
-// A click in the email puts the focus in its frame, whose key presses never reach the dashboard: Escape there is passed
-// on to the dialog, which closes on it. Each new email is a new document, so each load listens again.
-function forwardEscape(frame) {
-	frame.contentDocument?.addEventListener("keydown", (event) => {
-		if (event.key === "Escape") document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-	});
 }
 
 // What inboxes show after the subject without preview text: the email's first words, a space between blocks.

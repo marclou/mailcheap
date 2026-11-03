@@ -26,7 +26,7 @@ export async function GET(_request, { params }) {
 		'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
 		entry(urls.siteIndex, latestDate),
 		entry(urls.absoluteAuthor(getArchiveAuthor(newsletter).slug), latestDate),
-		...issues.map((issue) => entry(urls.absolutePost(issue.archiveSlug), getIssueDate(issue))),
+		...issues.map((issue) => entry(urls.absolutePost(issue.archiveSlug), issue.editedAt ?? getIssueDate(issue))),
 		"</urlset>",
 	].join("\n");
 

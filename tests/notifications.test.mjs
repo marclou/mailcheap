@@ -3,7 +3,14 @@ import { after, before, describe, test } from "node:test";
 import mongoose from "mongoose";
 import { getAlertType } from "../lib/alert-rules.js";
 import { formatRelativeShort } from "../lib/format.js";
-import { NOTIFICATION_KINDS, NOTIFICATION_TONES, cleanNotificationPath, getNotificationTone, joinSentences } from "../lib/notification-rules.js";
+import {
+	NOTIFICATION_KINDS,
+	NOTIFICATION_TONES,
+	cleanNotificationPath,
+	getNotificationTone,
+	hasNewNotifications,
+	joinSentences,
+} from "../lib/notification-rules.js";
 import { findAlertCalls, isAdminAlert, kindsOf } from "./helpers/alert-calls.mjs";
 import { activate, as, callApi, catchRedirect, form, jsonRequest, signIn, startTestApp } from "./helpers/app.mjs";
 import { flushAfter } from "./stubs/next-server.mjs";
@@ -58,6 +65,16 @@ describe("what the bell shows of each kind", () => {
 		assert.equal(formatRelativeShort("2026-10-07T12:00:00Z", now), "Oct 7");
 		assert.equal(formatRelativeShort("2025-12-20T12:00:00Z", now), "Dec 20, 2025");
 		assert.equal(formatRelativeShort(null, now), null);
+	});
+
+	test("the bell rings for one more unread, and for an unread one back on top, like an import that started and then ended", () => {
+		const started = { id: "a", at: "2026-10-30T12:00:00.000Z", read: false };
+		const loaded = { notifications: [started], unread: 1 };
+		assert.equal(hasNewNotifications(loaded, loaded), false, "the same page again");
+		assert.equal(hasNewNotifications(loaded, { notifications: [{ ...started, at: "2026-10-30T12:01:00.000Z" }], unread: 1 }), true, "same count, newer");
+		assert.equal(hasNewNotifications(loaded, { notifications: [{ ...started, at: "2026-10-30T12:01:00.000Z", read: true }], unread: 0 }), false, "read elsewhere");
+		assert.equal(hasNewNotifications({ notifications: [], unread: 0 }, loaded), true);
+		assert.equal(hasNewNotifications(loaded, { notifications: [{ id: "b", at: "2026-10-30T11:00:00.000Z", read: false }, started], unread: 2 }), true, "one more");
 	});
 
 	test("an alert's lines read as one text, and one starting with an address or a domain keeps it", () => {
@@ -223,19 +240,60 @@ describe("an account's notifications", () => {
 		assert.ok((await callApi("GET", "/api/v1/notifications?limit=50", { key })).body.notifications.every(({ read }) => read));
 	});
 
-	test("a blocked account still lists its notifications and marks them read, and so does one without a plan", async () => {
+	test("a blocked account still lists its notifications, marks them read and clears them, and so does one without a plan", async () => {
 		const user = await customer("bell-blocked@example.com");
 		await m.blocks.blockAccount(user.accountId, { reason: "Too many bounces", by: "rates" });
 		const [blocked] = (await listFor(user)).notifications;
 		assert.deepEqual([blocked.kind, blocked.tone, blocked.title], ["account-blocked", "urgent", "Account blocked"]);
 		assert.match(blocked.body, /^Too many bounces\. Nothing is sent from this account/);
 		assert.deepEqual(await as(user, () => m.notifications.markNotificationsRead([blocked.id])), { marked: 1, unread: 0 });
+		assert.deepEqual(await as(user, () => m.notifications.clearNotifications(blocked.at)), { cleared: 1, unread: 0 });
 
 		const trial = await customer("bell-trial@example.com", { hasPlan: false });
 		await m.lib.notify({ accountId: trial.accountId, key: "welcome", kind: "import-done", title: "Imported 3 new contacts" });
 		const listed = await listFor(trial);
 		assert.equal(listed.unread, 1);
 		assert.deepEqual(await as(trial, () => m.notifications.markNotificationsRead([listed.notifications[0].id])), { marked: 1, unread: 0 });
+		assert.deepEqual(await as(trial, () => m.notifications.clearNotifications(listed.notifications[0].at)), { cleared: 1, unread: 0 });
+		assert.deepEqual((await listFor(trial)).notifications, []);
+	});
+
+	test("Clear all takes what the tray showed and everything older off the list; what came since stays, and one comes back if it happens again", async () => {
+		const user = await customer("bell-clear@example.com");
+		const other = await customer("bell-clear-other@example.com");
+		const start = Date.now() - 60_000;
+		for (const [index, key] of ["older", "shown", "since"].entries()) {
+			await m.lib.notify({ accountId: user.accountId, key, kind: "campaign-sent", title: `Campaign ${key}`, at: new Date(start + index * 1000) });
+		}
+		await m.lib.notify({ accountId: other.accountId, key: "theirs", kind: "campaign-sent", title: "Their campaign" });
+		const shown = (await listFor(user)).notifications.find(({ title }) => title === "Campaign shown");
+
+		assert.deepEqual(await as(user, () => m.notifications.clearNotifications(shown.at)), { cleared: 2, unread: 1 });
+		assert.deepEqual((await listFor(user)).notifications.map(({ title }) => title), ["Campaign since"]);
+		assert.deepEqual(await as(user, () => m.notifications.clearNotifications(shown.at)), { cleared: 0, unread: 1 }, "twice is the same");
+
+		await m.lib.notify({ accountId: user.accountId, key: "older", kind: "campaign-sent", title: "Campaign older, again" });
+		const again = await listFor(user);
+		assert.equal(again.unread, 2);
+		assert.deepEqual(
+			again.notifications.map(({ title, read }) => ({ title, read })),
+			[
+				{ title: "Campaign older, again", read: false },
+				{ title: "Campaign since", read: false },
+			],
+			"the same thing again brings it back, new"
+		);
+
+		const key = await createKey(user);
+		const theirs = (await listFor(other)).notifications[0];
+		const refused = await callApi("POST", "/api/v1/notifications/clear", { key, body: { ids: [theirs.id] } });
+		assert.equal(refused.status, 200, JSON.stringify(refused.body));
+		assert.deepEqual(refused.body, { cleared: 0, unread: 2 }, "another account's ids clear nothing");
+		assert.equal((await callApi("POST", "/api/v1/notifications/clear", { key, body: { until: "last week" } })).status, 400);
+		assert.deepEqual((await callApi("POST", "/api/v1/notifications/read", { key, body: {} })).body, { marked: 2, unread: 0 }, "cleared ones aren't counted");
+		assert.deepEqual((await callApi("POST", "/api/v1/notifications/clear", { key, body: {} })).body, { cleared: 2, unread: 0 });
+		assert.deepEqual((await callApi("GET", "/api/v1/notifications", { key })).body.notifications, []);
+		assert.deepEqual((await listFor(other)).notifications.map(({ title }) => title), ["Their campaign"]);
 	});
 
 	test("a link that leads off the dashboard isn't kept", async () => {
@@ -245,31 +303,42 @@ describe("an account's notifications", () => {
 		assert.deepEqual((await listFor(user)).notifications.map(({ path }) => path), [null, null]);
 	});
 
-	test("a big import says how it went once its job is done; a small one, which goes in while its owner waits, doesn't", async () => {
+	test("an import says it started, then how it went in the same notification, back on top and unread; a small one at once", async () => {
 		const user = await customer("bell-import@example.com");
+		const path = `/newsletters/${user.newsletterId}?next=%2Fcontacts`;
 		const started = await as(user, () => m.contacts.importContacts({ newsletterId: user.newsletterId, consent: true, rows: rowsOf(250), total: 250, fileName: "readers.csv" }));
 		assert.equal(started.status, "processing");
-		assert.deepEqual((await listFor(user)).notifications, [], "nothing while it runs");
+		const running = await listFor(user);
+		assert.deepEqual(
+			running.notifications.map(({ kind, tone, title, body, path }) => ({ kind, tone, title, body, path })),
+			[{ kind: "import-started", tone: "info", title: "Importing readers.csv", body: "250 rows into bell-import news", path }],
+			"as soon as it starts"
+		);
+		const [notification] = running.notifications;
+		await as(user, () => m.notifications.markNotificationsRead([notification.id]));
 		await m.jobs.runImport(importJob().body);
 		await m.jobs.runImport(importJob().body);
 
-		const { notifications } = await listFor(user);
+		const done = await listFor(user);
+		assert.equal(done.unread, 1, "its end is new again");
 		assert.deepEqual(
-			notifications.map(({ kind, tone, title, body, path }) => ({ kind, tone, title, body, path })),
-			[
-				{
-					kind: "import-done",
-					tone: "success",
-					title: "Imported 250 new contacts",
-					body: "readers.csv into bell-import news",
-					path: `/newsletters/${user.newsletterId}?next=%2Fcontacts`,
-				},
-			],
+			done.notifications.map(({ id, kind, tone, title, body, path }) => ({ id, kind, tone, title, body, path })),
+			[{ id: notification.id, kind: "import-done", tone: "success", title: "Imported 250 new contacts", body: "readers.csv into bell-import news", path }],
 			"once, however many times its job is delivered"
 		);
+		assert.ok(done.notifications[0].at > notification.at, "back on top");
+
 		const small = await as(user, () => m.contacts.importContacts({ newsletterId: user.newsletterId, consent: true, rows: rowsOf(3, "small"), total: 3 }));
 		assert.equal(small.status, "done");
-		assert.equal((await listFor(user)).notifications.length, 1);
+		const listed = await listFor(user);
+		assert.equal(listed.unread, 2);
+		assert.deepEqual(
+			listed.notifications.map(({ kind, title, body }) => ({ kind, title, body })),
+			[
+				{ kind: "import-done", title: "Imported 3 new contacts", body: "Into bell-import news" },
+				{ kind: "import-done", title: "Imported 250 new contacts", body: "readers.csv into bell-import news" },
+			]
+		);
 	});
 
 	test("an upload that stopped halfway is ended by the hourly run, and its owner hears it", async () => {

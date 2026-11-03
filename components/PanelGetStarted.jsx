@@ -1,18 +1,23 @@
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, ChevronRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import ButtonNewCampaign from "@/components/ButtonNewCampaign";
-import CircleStep from "@/components/CircleStep";
 import IconBrand, { AGENTS } from "@/components/IconBrand";
+import ListSteps from "@/components/ListSteps";
+import PickerTheme from "@/components/PickerTheme";
 import ShellGetStarted from "@/components/ShellGetStarted";
 import { Button } from "@/components/ui/button";
 import { getGetStartedSteps, isGetStartedOpen } from "@/lib/get-started";
+import { DESIGN_SECTION, getSectionPath } from "@/lib/newsletter-sections";
 import { ADD_DOMAIN_PATH } from "@/lib/newsletters";
 import { getSelectedNewsletter } from "@/lib/selected-newsletter";
+import { getFontFaceCss, getFontStack } from "@/lib/theme-fonts";
+import { ADAPTIVE_COLORS, THEME_PRESETS, resolveTheme } from "@/lib/themes";
 import { cn } from "@/lib/utils";
 
-// The open newsletter's steps to a first send (lib/get-started.js), on every dashboard page. The first one left that
-// isn't optional says how to do it; the others link to where they're done. Keyed by newsletter: switching from one
-// whose panel was just closed or finished still opens the next one's.
+// The open newsletter's steps to a first send (lib/get-started.js), on every dashboard page. Each one says what it
+// takes and how to do it, or takes the click itself, like the design's themes; ListSteps opens the first one left that
+// isn't optional. Keyed by newsletter: switching from one whose panel was just closed or finished still opens the next
+// one's.
 export default async function PanelGetStarted({ account }) {
 	const { selected } = await getSelectedNewsletter();
 	if (!isGetStartedOpen(account, selected)) return null;
@@ -29,85 +34,45 @@ export default async function PanelGetStarted({ account }) {
 				</h2>
 				<ProgressSteps done={doneCount} total={steps.length} />
 			</header>
-			<ol className="flex flex-col gap-0.5">
-				{steps.map((step, index) => (
-					<ItemStep
-						key={step.id}
-						step={step}
-						number={index + 1}
-						isNext={step.id === nextId}
-						link={getLink(step.id, draftId)}
-						newsletterId={newsletterId}
-					/>
-				))}
-			</ol>
+			<ListSteps
+				nextId={nextId}
+				steps={steps.map((step, index) => ({
+					id: step.id,
+					number: index + 1,
+					title: STEPS[step.id].title,
+					isDone: step.isDone,
+					isOptional: Boolean(step.isOptional),
+					decoration: step.id === "agent" ? <IconsAgents /> : null,
+					content: <ContentStep id={step.id} link={getLink(step.id, draftId)} newsletterId={newsletterId} />,
+				}))}
+			/>
 		</ShellGetStarted>
 	);
 }
 
 // The docs open in a new tab, so the dashboard and this list stay where they were.
-function ItemStep({ step, number, isNext, link, newsletterId }) {
-	const { title, description } = STEPS[step.id];
+function ContentStep({ id, link, newsletterId }) {
 	const isDocs = link.href.startsWith("/docs");
-	const target = isDocs ? "_blank" : undefined;
-
-	if (step.isDone) {
-		return (
-			<li className="flex h-10 items-center gap-3 px-3 text-sm text-muted-foreground">
-				<CircleStep isDone />
-				<span className="truncate">{title}</span>
-				<span className="sr-only">(done)</span>
-			</li>
-		);
-	}
-
-	if (isNext) {
-		const Arrow = isDocs ? ArrowUpRight : ArrowRight;
-		return (
-			<li aria-current="step" className="group flex gap-3 rounded-lg bg-muted/60 px-3 py-3">
-				<CircleStep number={number} isNext />
-				<div className="flex min-w-0 flex-1 flex-col items-start gap-3 pt-0.5">
-					<div>
-						<p className="flex items-center gap-2.5 text-sm font-medium">
-							{title}
-							{step.id === "agent" && <IconsAgents />}
-						</p>
-						<p className="text-sm text-muted-foreground">{description}</p>
-					</div>
-					{step.id === "write" ? (
-						<ButtonNewCampaign newsletterId={newsletterId} label="New draft" size="sm" />
-					) : (
-						<Button asChild size="sm">
-							<Link href={link.href} target={target}>
-								{link.label}
-								<Arrow data-icon="inline-end" />
-							</Link>
-						</Button>
-					)}
-				</div>
-			</li>
-		);
-	}
-
-	const Arrow = isDocs ? ArrowUpRight : ChevronRight;
+	const Arrow = isDocs ? ArrowUpRight : ArrowRight;
 	return (
-		<li>
-			<Link
-				href={link.href}
-				target={target}
-				className="group flex h-10 items-center gap-3 rounded-lg px-3 text-sm transition-colors duration-150 hover:bg-muted/60"
-			>
-				<CircleStep number={number} />
-				<span className="truncate">{title}</span>
-				{step.id === "agent" && <IconsAgents />}
-				{step.isOptional && (
-					<span className="inline-flex h-5 shrink-0 items-center rounded-full px-2 text-xs text-muted-foreground inset-ring inset-ring-foreground/10">
-						Optional
-					</span>
-				)}
-				<Arrow className="ml-auto size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5" />
-			</Link>
-		</li>
+		<>
+			<p className="text-sm text-pretty text-muted-foreground">{STEPS[id].description}</p>
+			{id === "design" ? (
+				<>
+					<style dangerouslySetInnerHTML={{ __html: THEME_FONT_FACES }} />
+					<PickerTheme newsletterId={newsletterId} themes={THEME_TILES} designPath={DESIGN_PATH} />
+				</>
+			) : id === "write" ? (
+				<ButtonNewCampaign newsletterId={newsletterId} label="New draft" size="sm" />
+			) : (
+				<Button asChild size="sm">
+					<Link href={link.href} target={isDocs ? "_blank" : undefined}>
+						{link.label}
+						<Arrow data-icon="inline-end" />
+					</Link>
+				</Button>
+			)}
+		</>
 	);
 }
 
@@ -155,7 +120,15 @@ function getLink(id, draftId) {
 	return { href: STEPS[id].href, label: STEPS[id].action };
 }
 
+const DESIGN_PATH = getSectionPath(DESIGN_SECTION.id);
+
 const STEPS = {
+	design: {
+		title: "Choose your design",
+		description: "Pick the look of your website and emails. You can change it anytime.",
+		href: DESIGN_PATH,
+		action: "Open design",
+	},
 	write: {
 		title: "Write your first issue",
 		description: "Start a draft in the editor. It saves as you type.",
@@ -187,3 +160,18 @@ const STEPS = {
 		action: "Open campaigns",
 	},
 };
+
+// The design step's tiles: each theme's colors, MailCheap's following the dashboard's light or dark mode, and its
+// heading font, whose files only load while the tiles show. The dashboard has Geist already.
+const THEMES = THEME_PRESETS.map(({ id }) => resolveTheme({ preset: id }));
+const THEME_TILES = THEMES.map(({ id, name, isAdaptive, colors, fonts, headingWeight, tracking }) => ({
+	id,
+	name,
+	colors: isAdaptive ? ADAPTIVE_COLORS : colors,
+	font: {
+		...(fonts.heading.id !== "geist" && { fontFamily: getFontStack(fonts.heading) }),
+		fontWeight: headingWeight,
+		letterSpacing: `${tracking}em`,
+	},
+}));
+const THEME_FONT_FACES = getFontFaceCss(THEMES.map(({ fonts }) => fonts.heading).filter(({ id }) => id !== "geist"));

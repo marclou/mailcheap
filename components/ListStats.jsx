@@ -3,12 +3,12 @@ import TooltipChange from "@/components/TooltipChange";
 import { LIMITS } from "@/lib/config";
 import { formatChange, formatCompact, formatNumber, formatRate } from "@/lib/format";
 import { rateTone } from "@/lib/health";
-import { PERIOD_DAYS, compareCount, compareRate } from "@/lib/overview-series";
+import { compareCount, compareRate } from "@/lib/overview-series";
 import { cn } from "@/lib/utils";
 
-// The email stats of a period, each with its change from the period before. A rate changes by the
-// difference between the two rates.
-export default function ListStats({ current, previous }) {
+// The email stats of a period, each with its change from the period before, span long, like "30 days". A rate changes
+// by the difference between the two rates.
+export default function ListStats({ current, previous, span }) {
 	const reached = current.delivered || current.sent;
 	const previousReached = previous.delivered || previous.sent;
 	const rate = (key, total, previousTotal, digits = 1) => ({
@@ -47,7 +47,7 @@ export default function ListStats({ current, previous }) {
 		<dl className="grid grid-cols-3 gap-px bg-border/60 lg:grid-cols-6">
 			{stats.map(({ label, value, title, previousValue, change, digits, isCount, higherIsBetter, tone = "default" }) => {
 				const text = formatChange(change, { digits });
-				const previousLabel = `${previousValue} in the previous ${PERIOD_DAYS} days`;
+				const previousLabel = `${previousValue} in the previous ${span}`;
 				return (
 					<div key={label} className="flex min-w-0 flex-col gap-1 bg-card px-4 py-3.5 sm:px-5">
 						<dt className="text-xs text-muted-foreground">{label}</dt>

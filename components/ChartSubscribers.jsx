@@ -2,30 +2,34 @@ import { Suspense } from "react";
 import ChartFrame from "@/components/ChartFrame";
 import ChartHover from "@/components/ChartHover";
 import { areaPath, linePath, niceScale, toRatio } from "@/lib/charts";
-import { formatNumber } from "@/lib/format";
+import { formatHour, formatNumber } from "@/lib/format";
 import { formatDateKey } from "@/lib/time-zone";
 
 // The SVG stretches to the plot; strokes keep their width with non-scaling-stroke.
 const BOX = { width: 600, height: 200 };
+const DAY = { month: "short", day: "numeric" };
+const WEEKDAY = { weekday: "short", ...DAY };
 
-// Subscribers at the end of each day of the period, over the period before as a dashed line.
+// Subscribers at the end of each point of the period, its days or its hours ("2026-10-08" or "2026-10-08 14" keys),
+// over the period before as a dashed line.
 export default function ChartSubscribers({ current, previous }) {
 	const values = current.map(({ total }) => total);
 	const previousValues = previous.map(({ total }) => total);
 	const scale = niceScale([...values, ...previousValues]);
 	const xOf = (index) => (current.length > 1 ? index / (current.length - 1) : 0);
 	const last = current.at(-1);
+	const year = last.key.slice(0, 4);
 
 	const points = current.map((day, index) => {
 		const before = previous[index];
 		return {
 			x: xOf(index),
-			title: formatDateKey(day.key, { weekday: "short", month: "short", day: "numeric" }),
+			title: formatPoint(day.key, year, WEEKDAY),
 			rows: [
 				{ label: "Subscribers", value: formatNumber(day.total), swatch: "line" },
 				{ label: "Joined", value: formatNumber(day.joined) },
 				{ label: "Left", value: formatNumber(day.left) },
-				before && { label: formatDateKey(before.key), value: formatNumber(before.total), swatch: "dashed" },
+				before && { label: formatPoint(before.key, year), value: formatNumber(before.total), swatch: "dashed" },
 			].filter(Boolean),
 			dots: [
 				before && { y: toRatio(before.total, scale), className: "bg-muted-foreground" },
@@ -34,21 +38,11 @@ export default function ChartSubscribers({ current, previous }) {
 		};
 	});
 
-	// A label every 7 days, ending today; every other one on small screens.
-	const xLabels = [];
-	for (let index = current.length - 1, position = 0; index >= 0; index -= 7, position += 1) {
-		xLabels.push({
-			x: xOf(index),
-			label: formatDateKey(current[index].key),
-			className: position % 2 ? "hidden sm:block" : undefined,
-		});
-	}
-
 	return (
-		<ChartFrame scale={scale} xLabels={xLabels} className="h-52 sm:h-64">
+		<ChartFrame scale={scale} xLabels={getXLabels(current, year, xOf)} className="h-52 sm:h-64">
 			<div
 				role="img"
-				aria-label={`Subscribers from ${formatDateKey(current[0].key)} to ${formatDateKey(last.key)}: ${formatNumber(current[0].total)} to ${formatNumber(last.total)}`}
+				aria-label={`Subscribers from ${formatPoint(current[0].key, year)} to ${formatPoint(last.key, year)}: ${formatNumber(current[0].total)} to ${formatNumber(last.total)}`}
 				className="absolute inset-0"
 			>
 				<svg
@@ -93,4 +87,37 @@ export default function ChartSubscribers({ current, previous }) {
 			</Suspense>
 		</ChartFrame>
 	);
+}
+
+// Days: about five labels, whole weeks apart (each day of a week), ending today. Hours: every 6 (every 12 over two
+// days), a day's first by its date. Every other one only on wider screens.
+function getXLabels(current, year, xOf) {
+	const isHourly = current[0].key.length > 10;
+	const indexes = [];
+	if (isHourly) {
+		const every = current.length > 24 ? 12 : 6;
+		current.forEach(({ key }, index) => Number(key.slice(11)) % every === 0 && indexes.unshift(index));
+	} else {
+		const step = current.length <= 7 ? 1 : 7 * Math.max(1, Math.round(current.length / 35));
+		for (let index = current.length - 1; index >= 0; index -= step) indexes.push(index);
+	}
+	return indexes.map((index, position) => {
+		const { key } = current[index];
+		return {
+			x: xOf(index),
+			label: isHourly && Number(key.slice(11)) ? formatHour(Number(key.slice(11))) : formatDay(key.slice(0, 10), year),
+			className: position % 2 ? "hidden sm:block" : undefined,
+		};
+	});
+}
+
+// "Mon, Oct 8" or "Oct 8" for a day, "Mon, Oct 8, 2 PM" or "Oct 8, 2 PM" for an hour.
+function formatPoint(key, year, options = DAY) {
+	const day = formatDay(key.slice(0, 10), year, options);
+	return key.length > 10 ? `${day}, ${formatHour(Number(key.slice(11)))}` : day;
+}
+
+// "Oct 8", with its year when it isn't the year of the chart's last day.
+function formatDay(key, year, options = DAY) {
+	return formatDateKey(key, key.startsWith(year) ? options : { ...options, year: "numeric" });
 }

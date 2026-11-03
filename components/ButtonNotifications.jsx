@@ -10,6 +10,7 @@ import {
 	CircleAlert,
 	CircleCheck,
 	CirclePause,
+	FileUp,
 	FileWarning,
 	Flag,
 	Hourglass,
@@ -106,14 +107,19 @@ export default function ButtonNotifications({ variant = "sidebar" }) {
 }
 
 function TrayNotifications({ titleId, onNavigate }) {
-	const { notifications, fresh, hasMore, isLoadingMore, loadMore, supportChatPath } = useNotifications();
+	const { notifications, fresh, hasMore, isLoadingMore, loadMore, clear, supportChatPath } = useNotifications();
 	return (
 		<div className="flex max-h-[min(34rem,var(--radix-popover-content-available-height))] flex-col">
-			<div className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border/60 px-4">
+			<div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/60 pr-2 pl-4">
 				<h2 id={titleId} className="text-sm font-semibold">
 					Notifications
 				</h2>
 				{fresh.size > 0 && <span className="text-xs text-muted-foreground tabular-nums">{fresh.size} new</span>}
+				{notifications.length > 0 && (
+					<Button variant="ghost" size="xs" onClick={clear} className="ml-auto text-muted-foreground">
+						Clear all
+					</Button>
+				)}
 			</div>
 			{notifications.length === 0 ? (
 				<EmptyNotifications />
@@ -211,7 +217,7 @@ function EmptyNotifications() {
 			<span className="grid size-10 place-items-center rounded-full bg-muted text-muted-foreground">
 				<Bell className="size-[1.125rem]" aria-hidden="true" />
 			</span>
-			<p className="mt-3 text-sm font-medium">No notifications yet</p>
+			<p className="mt-3 text-sm font-medium">No notifications</p>
 			<p className="mt-1 max-w-64 text-[13px] leading-5 text-pretty text-muted-foreground">
 				A paused campaign, a finished import or anything else that needs you shows up here.{" "}
 				<LinkHelp article="notifications" />
@@ -251,6 +257,7 @@ const KIND_ICONS = {
 	"embed-plain-off": ShieldAlert,
 	complaints: Flag,
 	"campaign-sent": Send,
+	"import-started": FileUp,
 	"import-done": UserPlus,
 	"import-stopped": FileWarning,
 	"issue-review": Hourglass,

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { LIMITS } from "../lib/config.js";
 import { getFirstSendProblem } from "../lib/first-send.js";
 import { judgeRates } from "../lib/rate-levels.js";
-import { getAccountRateProblem, getCampaignRateProblem } from "../lib/sending-rules.js";
+import { getAccountCheckWindow, getAccountRateProblem, getCampaignRateProblem } from "../lib/sending-rules.js";
 
 const level = (counts) => judgeRates(counts)?.level ?? null;
 
@@ -57,4 +57,15 @@ test("each place words its level: a campaign, a first send's slice, the last 7 d
 	});
 	assert.match(getAccountRateProblem({ sent: 600, bounced: 16 }).reason, /^Bounce rate of 2.67% over the last 7 days \(limit 2.50%\)\. Nothing is paused/);
 	assert.equal(getAccountRateProblem({ sent: 600, bounced: 16 }).level, "pause");
+});
+
+test("the account check adds up the last 7 days, or the days since an admin unblocked it", () => {
+	const now = new Date("2026-11-02T16:00:00Z");
+	const weekAgo = new Date("2026-10-26T16:00:00Z");
+	assert.deepEqual(getAccountCheckWindow(now, undefined), { since: weekAgo, where: "over the last 7 days" });
+	assert.deepEqual(getAccountCheckWindow(now, new Date("2026-10-20T09:00:00Z")), { since: weekAgo, where: "over the last 7 days" }, "an older unblock");
+	const unblockedAt = new Date("2026-11-02T15:27:00Z");
+	const window = getAccountCheckWindow(now, unblockedAt);
+	assert.deepEqual(window, { since: unblockedAt, where: "since the account was unblocked" });
+	assert.equal(getAccountRateProblem({ sent: 120, bounced: 11 }, window.where).reason, "Bounce rate of 9.17% since the account was unblocked (limit 5.00%)");
 });

@@ -9,6 +9,7 @@ import { getHelpHref, getHelpPageMetadata } from "@/lib/help";
 import { INBOX_CHECK_LIMIT } from "@/lib/inbox-check";
 import { MAX_NEWSLETTERS_PER_ACCOUNT, SLUG_CHANGES } from "@/lib/newsletters";
 import { SUMMARY_BARS, SUMMARY_HOUR } from "@/lib/summary";
+import { MAX_TEAM_MEMBERS } from "@/lib/team-rules";
 
 export const metadata = getHelpPageMetadata("newsletters");
 
@@ -180,6 +181,13 @@ export default function NewslettersPage() {
 				<Link href={getHelpHref("design")}>Design and themes</Link>
 			</p>
 
+			<h2 id="team">Team</h2>
+			<p>
+				Invite up to {MAX_TEAM_MEMBERS} people to work on the newsletter with you, as admins or members, from its{" "}
+				<LinkApp href="/newsletters/team">Team page</LinkApp>. Each newsletter has its own team, and only you, the account&apos;s
+				owner, see that page. <Link href={getHelpHref("team")}>Team members</Link>
+			</p>
+
 			{isCloud() && (
 				<>
 					<h2 id="notifications" data-cloud>Notifications</h2>
@@ -196,9 +204,10 @@ export default function NewslettersPage() {
 					/>
 					<p>
 						Each newsletter has its own summary: pick Weekly, Daily for yesterday&apos;s numbers every morning, which skips the days
-						with no news, or Off. Preview there shows the next one. The link at the bottom of each summary changes it without signing
-						in, and your mail app&apos;s Unsubscribe button turns it off in one click. &quot;Your time&quot; is your browser&apos;s, the
-						last time you opened the dashboard. Summaries don&apos;t count toward your plan&apos;s emails.
+						with no news, or Off. Preview there shows the next one, and Sent to shows where it goes: the address you sign in with. The
+						link at the bottom of each summary changes it without signing in, and your mail app&apos;s Unsubscribe button turns it off
+						in one click. &quot;Your time&quot; is your browser&apos;s, the last time you opened the dashboard. Summaries don&apos;t count
+						toward your plan&apos;s emails.
 					</p>
 					<p>
 						Share this week opens a page with your newsletter&apos;s name and its own totals, never a subscriber, to post on X or

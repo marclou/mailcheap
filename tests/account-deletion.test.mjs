@@ -141,11 +141,12 @@ async function customer(email, slug) {
 	await m.Suppression.create({ accountId: user.accountId, email: `gone@${slug}.org`, reason: "bounce" });
 	await m.Alert.create({ accountId: user.accountId, key: `test-${slug}`, title: "Test", lastSentAt: new Date() });
 	await m.Notification.create({ accountId: user.accountId, key: `test-${slug}`, kind: "import-done", title: "Imported 2 new contacts", at: new Date() });
+	await m.PageView.create({ accountId: user.accountId, campaignId: user.campaignId, hour: new Date("2026-11-02T10:00:00Z"), views: 3 });
 	user.account = await m.Account.findById(user.accountId).lean();
 	return user;
 }
 
-const ACCOUNT_MODELS = ["Newsletter", "Contact", "ContactImport", "LeftOutContact", "DeletedContact", "Campaign", "Message", "Event", "Suppression", "Upload", "Domain", "ApiKey", "Alert", "Notification"];
+const ACCOUNT_MODELS = ["Newsletter", "Contact", "ContactImport", "LeftOutContact", "DeletedContact", "Campaign", "Message", "Event", "Suppression", "Upload", "Domain", "ApiKey", "Alert", "Notification", "PageView"];
 
 async function countData(user) {
 	const counts = {};
@@ -194,6 +195,7 @@ before(async () => {
 		Message: (await import("../models/Message.js")).default,
 		Newsletter: (await import("../models/Newsletter.js")).default,
 		Notification: (await import("../models/Notification.js")).default,
+		PageView: (await import("../models/PageView.js")).default,
 		Suppression: (await import("../models/Suppression.js")).default,
 		Upload: (await import("../models/Upload.js")).default,
 	};

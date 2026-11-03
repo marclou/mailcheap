@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useActionState, useId, useState } from "react";
+import { Loader2, Plus } from "lucide-react";
 import { addContact } from "@/app/(app)/contacts/actions";
+import InputTags from "@/components/InputTags";
+import { useContactOptions } from "@/components/ProviderContactOptions";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -14,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ERROR_CODES } from "@/lib/account-state";
+import { MAX_FIRST_NAME } from "@/lib/contact-fields";
 import { toast } from "@/lib/toast";
 import { usePaywall } from "@/lib/use-paywall";
 
@@ -37,7 +40,13 @@ export default function DialogAddContact({ newsletter, isOpen, onOpenChange, onC
 
 function FormContact({ newsletter, onClose }) {
 	const paywall = usePaywall();
+	const { tags: tagOptions } = useContactOptions();
+	const nameId = useId();
+	const emailId = useId();
+	const [firstName, setFirstName] = useState("");
 	const [email, setEmail] = useState("");
+	const [isTagging, setIsTagging] = useState(false);
+	const [tags, setTags] = useState([]);
 	const [hasConsent, setHasConsent] = useState(false);
 	const [state, action, isPending] = useActionState(async (previous, formData) => {
 		const result = await addContact(previous, formData);
@@ -47,6 +56,9 @@ function FormContact({ newsletter, onClose }) {
 		} else if (!result?.error) {
 			onClose();
 			toast.success(getAddedMessage(result));
+		} else {
+			// React resets the form after its action, which unticks the box but leaves its state.
+			setHasConsent(false);
 		}
 		return result;
 	}, null);
@@ -61,19 +73,54 @@ function FormContact({ newsletter, onClose }) {
 				</DialogDescription>
 			</DialogHeader>
 			<input type="hidden" name="newsletterId" value={newsletter?.id ?? ""} />
-			<Input
-				type="email"
-				name="email"
-				value={email}
-				onChange={(event) => setEmail(event.target.value)}
-				placeholder="Email, e.g. jane@example.com"
-				aria-label="Email"
-				required
-				autoFocus
-				maxLength={320}
-				autoComplete="email"
-				spellCheck={false}
-			/>
+			<div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+				<div className="flex flex-col gap-1.5">
+					<label htmlFor={nameId} className="text-sm font-medium">
+						First name
+					</label>
+					<Input
+						id={nameId}
+						name="firstName"
+						value={firstName}
+						onChange={(event) => setFirstName(event.target.value)}
+						placeholder="Optional"
+						maxLength={MAX_FIRST_NAME}
+						autoComplete="off"
+						autoFocus
+					/>
+				</div>
+				<div className="flex flex-col gap-1.5">
+					<label htmlFor={emailId} className="text-sm font-medium">
+						Email
+					</label>
+					<Input
+						id={emailId}
+						type="email"
+						name="email"
+						value={email}
+						onChange={(event) => setEmail(event.target.value)}
+						placeholder="jane@example.com"
+						required
+						maxLength={320}
+						autoComplete="email"
+						spellCheck={false}
+					/>
+				</div>
+			</div>
+			{isTagging ? (
+				<div className="flex flex-col gap-1.5 animate-enter">
+					<span className="text-sm font-medium">Tags</span>
+					<InputTags value={tags} onChange={setTags} suggestions={tagOptions} maxSuggestions={6} autoFocus />
+				</div>
+			) : (
+				<Button type="button" variant="ghost" size="sm" onClick={() => setIsTagging(true)} className="-ml-1.5 self-start text-muted-foreground">
+					<Plus data-icon="inline-start" />
+					Add tags
+				</Button>
+			)}
+			{tags.map((tag) => (
+				<input key={tag} type="hidden" name="tags" value={tag} />
+			))}
 			<label className="flex items-start gap-2.5 text-sm">
 				<input
 					type="checkbox"

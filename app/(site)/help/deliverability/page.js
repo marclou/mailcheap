@@ -56,6 +56,11 @@ export default function DeliverabilityPage() {
 					? "Chat with us from the dashboard's banner: we review it and unblock it when it's safe."
 					: "An admin of this server unblocks it from the admin page."}
 			</p>
+			<p>
+				Once it&apos;s unblocked, the bounces and complaints from before don&apos;t count again: only the emails sent from then on
+				count toward these levels. A send the block stopped waits for you to resume it from its page, and goes on from where it
+				stopped.
+			</p>
 
 			<h2 id="test-in-spam">When a test lands in spam</h2>
 			<p>

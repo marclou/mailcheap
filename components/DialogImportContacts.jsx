@@ -51,6 +51,7 @@ import { CONSENT_TEXT } from "@/lib/import-checks";
 import { toast } from "@/lib/toast";
 import { acceptsFile, useFileDrop, usePageFileDrop } from "@/lib/use-file-drop";
 import { usePaywall } from "@/lib/use-paywall";
+import { useHasRole } from "@/lib/use-team-role";
 import { cn } from "@/lib/utils";
 
 const MAX_FILE_MB = 100;
@@ -80,6 +81,7 @@ export default function DialogImportContacts({
 	const [file, setFile] = useState(null);
 	const [parsed, setParsed] = useState(null);
 	const [plan, setPlan] = useState([]);
+	const canCreateFields = useHasRole("admin");
 	const [mode, setMode] = useState("file");
 	const [importTags, setImportTags] = useState([]);
 	const [hasConsent, setHasConsent] = useState(false);
@@ -153,7 +155,9 @@ export default function DialogImportContacts({
 				}
 				setFile(selected);
 				setParsed({ rows: data });
-				setPlan(planColumns(meta.fields ?? [], fields, data));
+				// The account's fields are shared by its newsletters: a team's members map columns to them, and leave the others out.
+				const planned = planColumns(meta.fields ?? [], fields, data);
+				setPlan(canCreateFields ? planned : planned.map((item) => (item.target.startsWith("new:") ? { ...item, target: "skip" } : item)));
 			},
 			error: () => toast.error("Could not read this file"),
 		});
@@ -240,13 +244,7 @@ export default function DialogImportContacts({
 						onChange={(event) => setHasConsent(event.target.checked)}
 						className="mt-0.5 size-4 shrink-0 accent-foreground"
 					/>
-					<span>
-						{CONSENT_TEXT}
-						<span className="block text-xs text-muted-foreground">
-							Role addresses, throwaway inboxes and addresses that bounced or complained are left out. You can bring back role
-							addresses and throwaway inboxes after.
-						</span>
-					</span>
+					{CONSENT_TEXT}
 				</label>
 			</div>
 		);
@@ -501,7 +499,8 @@ function GroupColumns({ title, items, hidden = [], hiddenLabel, isFolded = false
 function RowColumn({ item, plan, fields, onChange }) {
 	const options = getColumnTargetOptions(item);
 	const newTarget = `new:${item.newType}`;
-	const isNewFieldAllowed = canBeNewField(item, plan, fields);
+	const canCreateFields = useHasRole("admin");
+	const isNewFieldAllowed = canCreateFields && canBeNewField(item, plan, fields);
 	const describe = (target) => describeColumnTarget(target, { column: item.column, fields, newType: item.newType });
 	return (
 		<li className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-4">

@@ -184,7 +184,8 @@ export default function ContactsPage() {
 				caption="Tagging a contact"
 			/>
 			<p>
-				To tag many contacts at once, tag everyone an import adds, or use the{" "}
+				To tag someone as they join, click Add tags when you <a href="#add">add them by hand</a>. To tag many contacts at once, tag
+				everyone an import adds, or use the{" "}
 				<Link href={getHelpHref("api-and-ai")}>API and AI assistants</Link>, which can also tag people as they sign up from your own
 				site. Click a tag on a contact&apos;s page to list everyone who has it.
 			</p>
@@ -328,8 +329,10 @@ export default function ContactsPage() {
 				its issue pages.
 			</p>
 			<p>
-				To add someone by hand, pick By hand, type their email address and tick that they agreed to get your emails. They join at
-				once, without a confirmation email, and get your welcome email if it&apos;s on.
+				To add someone by hand, pick By hand and type their email address. Their first name is optional, and so are tags: click Add
+				tags, then type a tag and press Enter, or pick one you&apos;ve given other contacts. Tick that they agreed to get your emails
+				and click Add. They join at once, without a confirmation email, and get your welcome email if it&apos;s on. Someone already
+				on your list stays as they are: <a href="#details">edit their first name and tags</a> on their page.
 				{isCloud() && ` Without a plan, you can add ${TRIAL_CONTACTS.limit} contacts a day, enough to try it on yourself.`}
 			</p>
 

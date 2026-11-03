@@ -14,11 +14,12 @@ import { getFieldOptions } from "@/lib/contact-fields";
 import { LIST_STATUSES, hasContactFilters, readContactFilters, toFilterQuery, toListQuery } from "@/lib/contact-filters";
 import { CONTACTS_PAGE_SIZE, findContactsPage, listContactSources, listContactTags } from "@/lib/contacts";
 import { formatDate, formatNumber, formatRate, formatRateChange } from "@/lib/format";
-import { countActivity, findLiveSegment } from "@/lib/segment-queries";
+import { countActivity } from "@/lib/segment-queries";
 import { ACTIVITY_DAYS, compileSegment, describeSegment } from "@/lib/segments";
-import { getSelectedNewsletter, openNewsletter } from "@/lib/selected-newsletter";
+import { findInNewsletters, getSelectedNewsletter, openNewsletter } from "@/lib/selected-newsletter";
 import { isObjectIdString } from "@/lib/validation";
 import Campaign from "@/models/Campaign";
+import Segment from "@/models/Segment";
 
 export const metadata = { title: "Segment" };
 
@@ -28,9 +29,10 @@ export default async function SegmentPage({ params, searchParams }) {
 	const [{ id }, query, view] = await Promise.all([params, searchParams, getSelectedNewsletter()]);
 	if (!isObjectIdString(id)) notFound();
 	const { account } = view;
-	const segment = await findLiveSegment(account, id);
-	if (!segment) notFound();
+	const segment = await findInNewsletters(view, Segment, id);
+	if (!segment || segment.deletedAt) notFound();
 	openNewsletter(view, segment.newsletterId, `/contacts/segments/${id}`);
+	if (!segment.newsletterId.equals(view.selected._id)) notFound();
 
 	const newsletterId = String(segment.newsletterId);
 	const filters = readContactFilters(query, LIST_STATUSES);

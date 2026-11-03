@@ -5,11 +5,13 @@ import { TRIAL_CONTACTS } from "@/lib/actions/contacts";
 import { isGoogleEnabled } from "@/lib/auth";
 import { getSharedDomain, isCloud } from "@/lib/config";
 import { getHelpHref, getHelpPageMetadata } from "@/lib/help";
+import { BAR_DAYS, PERIODS, PERIOD_DAYS } from "@/lib/overview-series";
 
 export const metadata = getHelpPageMetadata("getting-started");
 
 export default function GettingStartedPage() {
 	const sharedDomain = getSharedDomain();
+	const otherSpans = PERIODS.filter(({ days }) => days !== PERIOD_DAYS).map(({ span }) => span);
 
 	return (
 		<ArticleHelp slug="getting-started">
@@ -51,9 +53,10 @@ export default function GettingStartedPage() {
 			<h2 id="first-issue">Send your first issue</h2>
 			<p>
 				Until they&apos;re done, a list of these steps sits at the bottom right of the <LinkApp href="/">dashboard</LinkApp>, for the
-				newsletter that&apos;s open: its issues and subscribers count for it alone, while your domain and AI agent count for all your
-				newsletters. Close the list and it stays closed for that newsletter, on every device. Your other newsletters, and the ones you
-				add later, keep theirs.
+				newsletter that&apos;s open: its design, issues and subscribers count for it alone, while your domain and AI agent count for
+				all your newsletters. The step to do next is open, and a click on any other shows what it takes, one step at a time. Close
+				the list and it stays closed for that newsletter, on every device. Your other newsletters, and the ones you add later, keep
+				theirs.
 				{isCloud() && (
 					<>
 						{" "}
@@ -63,6 +66,12 @@ export default function GettingStartedPage() {
 				)}
 			</p>
 			<ol>
+				<li>
+					<strong>Choose your design.</strong> Click one of the themes in the list, and your website and emails take its colors
+					and fonts: Customize, in the message that follows, changes them. Preview all themes opens the{" "}
+					<LinkApp href="/newsletters/design">Design page</LinkApp>, which shows each one on your website and in an email.{" "}
+					<Link href={getHelpHref("design")}>Design and themes</Link>
+				</li>
 				<li>
 					<strong>Add your subscribers.</strong> On the <LinkApp href="/contacts">Contacts page</LinkApp>, import a CSV file from the
 					platform you&apos;re leaving, take signups with a form on your site, or add people with the API or by hand.{" "}
@@ -92,6 +101,29 @@ export default function GettingStartedPage() {
 					schedule issues for you. <Link href={getHelpHref("api-and-ai")}>API and AI assistants</Link>
 				</li>
 			</ol>
+
+			<h2 id="overview">The overview</h2>
+			<p>
+				The <LinkApp href="/">overview</LinkApp> shows how the newsletter that&apos;s open is doing over a period, the last{" "}
+				{PERIOD_DAYS} days at first: the emails it sent, the share delivered, opened and clicked, bounces and spam complaints, each
+				next to the period before, and its subscribers day by day, or hour by hour over {BAR_DAYS.hour} days or less, with the period
+				before as a dashed line. Opened from the sidebar, the overview starts on the last {PERIOD_DAYS} days.
+			</p>
+			<p>
+				To see another period, click Last {PERIOD_DAYS} days, the button at the top right, and pick the last{" "}
+				{otherSpans.slice(0, -1).join(", ")} or {otherSpans.at(-1)}. Under Custom range, pick the first and last day of any period
+				up to {PERIODS.at(-1).span} long, like a launch week, then Apply: the numbers cover those days, today at the latest, next to
+				as many days before them.
+			</p>
+			<p>
+				Below, a chart shows the issues and welcome emails sent over the same period, in front of the period before&apos;s, in your
+				timezone: a bar for each hour over {BAR_DAYS.hour} days or less, each day up to {BAR_DAYS.day} days, each week up to{" "}
+				{BAR_DAYS.week} days, and each month over longer periods. Over the last 24 hours, Now marks the hour you&apos;re in. Then come
+				your latest campaigns.
+				{isCloud() && " With a plan, the overview ends on how much of your plan you've used this month."} The API and AI assistants
+				get the same numbers, for any of these periods.
+			</p>
+
 			<h2 id="sidebar">The sidebar</h2>
 			<p>
 				The sidebar lists your newsletter&apos;s pages, then your account&apos;s, like the <LinkApp href="/domains">Domains page</LinkApp>.

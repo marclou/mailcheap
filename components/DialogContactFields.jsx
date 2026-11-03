@@ -12,13 +12,17 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FIELD_TYPES, MAX_CONTACT_FIELDS, MAX_FIELD_LABEL } from "@/lib/contact-fields";
 import { SAMPLE_FIRST_NAME, fieldTag, firstNameTag } from "@/lib/merge-tags";
+import { OWNER_ROLE } from "@/lib/team-rules";
 import { toast } from "@/lib/toast";
+import { useHasRole } from "@/lib/use-team-role";
 
 // The account's own contact fields, shared by its newsletters: add one, or delete one (contacts keep their values).
 // onCloseAutoFocus: where the focus goes back, as what opened it is outside the dialog. onAdded(field) and
 // onDeleted(key): after one is added or deleted, for the editor, which puts one added where its slash was.
 export default function DialogContactFields({ isOpen, onOpenChange, onCloseAutoFocus, onAdded, onDeleted }) {
 	const { fields } = useContactOptions();
+	// The account's fields are shared by its newsletters: a team's admins add them.
+	const canAdd = useHasRole("admin");
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -46,7 +50,7 @@ export default function DialogContactFields({ isOpen, onOpenChange, onCloseAutoF
 					</ul>
 				)}
 
-				{fields.length < MAX_CONTACT_FIELDS && <FormAddField onAdded={onAdded} />}
+				{fields.length < MAX_CONTACT_FIELDS && canAdd && <FormAddField onAdded={onAdded} />}
 			</DialogContent>
 		</Dialog>
 	);
@@ -55,6 +59,8 @@ export default function DialogContactFields({ isOpen, onOpenChange, onCloseAutoF
 function RowField({ field, onDeleted }) {
 	const [isConfirming, setIsConfirming] = useState(false);
 	const [isDeleting, startDeleting] = useTransition();
+	// Fields are shared by every newsletter of the account: its owner deletes them.
+	const canDelete = useHasRole(OWNER_ROLE);
 
 	function remove() {
 		if (!isConfirming) return setIsConfirming(true);
@@ -73,18 +79,20 @@ function RowField({ field, onDeleted }) {
 				<span className="block truncate text-xs text-muted-foreground">{FIELD_TYPES[field.type]?.label}</span>
 			</span>
 			<ButtonMergeTag tag={fieldTag(field.key)} className="max-w-[65%] shrink-0" />
-			<Button
-				type="button"
-				variant="ghost"
-				size={isConfirming ? "sm" : "icon-sm"}
-				onClick={remove}
-				onBlur={() => setIsConfirming(false)}
-				disabled={isDeleting}
-				aria-label={isConfirming ? undefined : `Delete ${field.label}`}
-				className="shrink-0 text-muted-foreground hover:text-destructive"
-			>
-				{isDeleting ? <Loader2 className="animate-spin" /> : isConfirming ? "Delete it?" : <Trash2 />}
-			</Button>
+			{canDelete && (
+				<Button
+					type="button"
+					variant="ghost"
+					size={isConfirming ? "sm" : "icon-sm"}
+					onClick={remove}
+					onBlur={() => setIsConfirming(false)}
+					disabled={isDeleting}
+					aria-label={isConfirming ? undefined : `Delete ${field.label}`}
+					className="shrink-0 text-muted-foreground hover:text-destructive"
+				>
+					{isDeleting ? <Loader2 className="animate-spin" /> : isConfirming ? "Delete it?" : <Trash2 />}
+				</Button>
+			)}
 		</li>
 	);
 }

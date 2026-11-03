@@ -19,6 +19,7 @@ import { hasContactFilters } from "@/lib/contact-filters";
 import { formatCount } from "@/lib/format";
 import { getHelpHref } from "@/lib/help";
 import { toast } from "@/lib/toast";
+import { useHasRole } from "@/lib/use-team-role";
 import { cn } from "@/lib/utils";
 
 // The actions at the top of the Contacts page, the same before the list has anyone, to show what it can do: Segments,
@@ -34,7 +35,9 @@ export default function ButtonsContacts({ hasContacts, newsletter, filters, coun
 	const moreRef = useRef(null);
 	const openerRef = useRef(null);
 	const isOpeningDialogRef = useRef(false);
-	const canDelete = hasContactFilters(filters) && count > 0;
+	// Exporting and deleting are for the newsletter's admins.
+	const isAdmin = useHasRole("admin");
+	const canDelete = isAdmin && hasContactFilters(filters) && count > 0;
 
 	function open(name, opener) {
 		openerRef.current = opener;
@@ -106,7 +109,7 @@ export default function ButtonsContacts({ hasContacts, newsletter, filters, coun
 						<Rows3 />
 						Contact fields
 					</DropdownMenuItem>
-					{hasContacts && (
+					{hasContacts && isAdmin && (
 						<DropdownMenuItem onSelect={download} disabled={count === 0 || isExporting}>
 							<Download />
 							Export {formatCount(count, "contact")}

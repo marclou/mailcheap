@@ -1,22 +1,31 @@
-import { AtSign, Bell, BrushCleaning, CodeXml, Globe, Hand, MailCheck, Palette } from "lucide-react";
+import { AtSign, Bell, BrushCleaning, CodeXml, Globe, Hand, MailCheck, Palette, UsersRound } from "lucide-react";
 import AvatarNewsletter from "@/components/AvatarNewsletter";
 import CardSettingsSection from "@/components/CardSettingsSection";
 import HeaderPage from "@/components/HeaderPage";
 import LayoutNarrow from "@/components/LayoutNarrow";
 import RedirectSettingsField from "@/components/RedirectSettingsField";
-import { DESIGN_SECTION, FORM_SECTION, NOTIFICATIONS_SECTION, SETTINGS_SECTIONS, getSectionPath } from "@/lib/newsletter-sections";
+import { DESIGN_SECTION, FORM_SECTION, NOTIFICATIONS_SECTION, SETTINGS_SECTIONS, TEAM_SECTION, getSectionPath } from "@/lib/newsletter-sections";
 import { getSettingsPage } from "@/lib/settings-page";
-import { getDesignSummary, getSettingsSummary } from "@/lib/settings-summary";
+import { getDesignSummary, getSettingsSummary, getTeamSummary } from "@/lib/settings-summary";
+import { listTeam } from "@/lib/team";
+import { OWNER_ROLE } from "@/lib/team-rules";
 import { getThemeSummary } from "@/lib/themes";
 
 export const metadata = { title: "Settings" };
 
 // The open newsletter's settings at a glance, a card for each section's page; /newsletters/<id> opens another one first.
+// Its team and the owner's notifications are the owner's alone.
 export default async function SettingsPage() {
 	const page = await getSettingsPage();
 	const { newsletter } = page;
 	const summary = getSettingsSummary(page);
 	const design = getDesignSummary(getThemeSummary(newsletter));
+	const isOwner = page.role === OWNER_ROLE;
+	const team = isOwner ? await listTeam(page.account, newsletter._id) : null;
+	const ownerCards = [
+		team && { ...TEAM_SECTION, icon: UsersRound, state: getTeamSummary(team) },
+		isOwner && page.isCloud && { ...NOTIFICATIONS_SECTION, icon: Bell, state: summary.notifications },
+	].filter(Boolean);
 
 	return (
 		<LayoutNarrow>
@@ -54,17 +63,11 @@ export default async function SettingsPage() {
 						stagger={SETTINGS_SECTIONS.length + 2}
 					/>
 				</li>
-				{page.isCloud && (
-					<li>
-						<CardSettingsSection
-							href={getSectionPath(NOTIFICATIONS_SECTION.id)}
-							icon={Bell}
-							label={NOTIFICATIONS_SECTION.label}
-							state={summary.notifications}
-							stagger={SETTINGS_SECTIONS.length + 3}
-						/>
+				{ownerCards.map(({ id, label, icon, state }, index) => (
+					<li key={id}>
+						<CardSettingsSection href={getSectionPath(id)} icon={icon} label={label} state={state} stagger={SETTINGS_SECTIONS.length + 3 + index} />
 					</li>
-				)}
+				))}
 			</ul>
 		</LayoutNarrow>
 	);

@@ -6,8 +6,9 @@ import { updateArchiveSlug } from "@/app/(app)/campaigns/actions";
 import { Button } from "@/components/ui/button";
 import { toSlugInput } from "@/lib/slug";
 
-// A draft's URL saves when the field loses focus. A sent issue's URL is live, so it waits for Save.
-export default function InputCampaignSlug({ campaignId, initialSlug = "", placeholder, urlBase, isPublished = false }) {
+// A draft's URL saves when the field loses focus. A sent issue's URL is live, so it waits for Save. isCompact: its path
+// only, where its host shows nearby.
+export default function InputCampaignSlug({ campaignId, initialSlug = "", placeholder, urlBase, isPublished = false, isCompact = false }) {
 	const [savedSlug, setSavedSlug] = useState(initialSlug);
 	const [value, setValue] = useState(initialSlug);
 	const [error, setError] = useState(null);
@@ -50,7 +51,7 @@ export default function InputCampaignSlug({ campaignId, initialSlug = "", placeh
 		<div className="flex min-w-0 flex-col gap-1.5 py-2.5">
 			<div className="flex min-h-6 min-w-0 items-center gap-2">
 				<label className="flex min-w-0 flex-1 items-center text-sm">
-					<span className="hidden shrink-0 text-muted-foreground sm:inline">{host}</span>
+					{!isCompact && <span className="hidden shrink-0 text-muted-foreground sm:inline">{host}</span>}
 					<span className="shrink-0 text-muted-foreground">{pathname}</span>
 					<input
 						value={value}

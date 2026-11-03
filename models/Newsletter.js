@@ -139,10 +139,12 @@ const newsletterSchema = new mongoose.Schema(
 			at: { type: Date },
 		},
 		// Its get-started panel (lib/get-started.js), closed by its owner or finished: either hides it for good, on every
-		// device. The account's other newsletters keep theirs.
+		// device. The account's other newsletters keep theirs. themeChosenAt: a theme preset picked, MailCheap's own
+		// included, which does the panel's design step.
 		getStarted: {
 			dismissedAt: { type: Date },
 			finishedAt: { type: Date },
+			themeChosenAt: { type: Date },
 		},
 		// Its look on its website and in its emails (lib/themes.js): a preset, and only what was changed on top of it.
 		theme: {

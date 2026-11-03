@@ -350,7 +350,8 @@ describe("the content check before a send", () => {
 		assert.equal((viaApi.body.data ?? viaApi.body).pauseCode, "content_review");
 		assert.ok(!JSON.stringify(viaApi.body).includes("fake bank"), "the API never shows the check's reasons");
 		await catchNotFound(as(user, () => m.admin.approveContentReview(id)));
-		const held = (await as(user, () => m.notifications.getNotifications())).notifications;
+		const listed = (await as(user, () => m.notifications.getNotifications())).notifications;
+		const held = listed.filter(({ path }) => path === `/campaigns/${id}`);
 		assert.deepEqual(
 			held.map(({ kind, title, path, read }) => ({ kind, title, path, read })),
 			[{ kind: "issue-review", title: "Issue under review", path: `/campaigns/${id}`, read: false }],
@@ -358,7 +359,7 @@ describe("the content check before a send", () => {
 		);
 		assert.equal(held[0].body, "A person checks “Issue” before it goes out, usually within a few hours.");
 		assert.ok(!JSON.stringify(held).includes("fake bank"), "the notification never says why");
-		await as(user, () => m.notifications.markNotificationsRead([held[0].id]));
+		await as(user, () => m.notifications.markNotificationsRead(listed.map(({ id: shown }) => shown)));
 
 		assert.deepEqual(await as(admin, () => m.admin.approveContentReview(id)), { ok: true });
 		campaign = await load(user, id);
@@ -369,7 +370,7 @@ describe("the content check before a send", () => {
 		const approved = await as(user, () => m.notifications.getNotifications());
 		assert.equal(approved.unread, 1, "the decision brings it back as new");
 		assert.deepEqual(
-			approved.notifications.map(({ id: notificationId, kind, title, body }) => ({ notificationId, kind, title, body })),
+			approved.notifications.filter(({ read }) => !read).map(({ id: notificationId, kind, title, body }) => ({ notificationId, kind, title, body })),
 			[{ notificationId: held[0].id, kind: "issue-approved", title: "Issue approved", body: "“Issue” passed its review and is on its way." }]
 		);
 	});

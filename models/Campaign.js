@@ -56,7 +56,20 @@ const campaignSchema = new mongoose.Schema(
 		finishedAt: { type: Date },
 		testSentAt: { type: Date },
 		archiveSlug: { type: String, trim: true, lowercase: true },
+		// The first picture its website shows, from the content.
 		thumbnailUrl: { type: String, trim: true },
+		// Its page on the website where it differs from the email (lib/web-page.js): the title, description and picture shown
+		// there, the picture an https:// address or "card" for the card MailCheap draws, and once the page is out, content of
+		// its own, which leaves the email as it was sent. editedAt: when a page that was out last changed its words.
+		web: {
+			title: { type: String, trim: true },
+			description: { type: String, trim: true },
+			image: { type: String, trim: true },
+			format: { type: String, enum: ["markdown", "html", "rich"] },
+			markdown: { type: String },
+			html: { type: String },
+			editedAt: { type: Date },
+		},
 		// Unlisted issues keep their /p/slug page but stay off the archive index.
 		archiveListed: { type: Boolean, default: true },
 		// Pinned issues sit in the Featured row at the top of the archive.
@@ -67,6 +80,8 @@ const campaignSchema = new mongoose.Schema(
 		review: { type: contentReviewSchema, select: false },
 		// The same check at the review step, before any send: a send of the content it read uses it as its own.
 		draftReview: { type: contentReviewSchema, select: false },
+		// The check of its page's latest change once it was out, which went live unless the check would hold it.
+		webReview: { type: contentReviewSchema, select: false },
 		stats: {
 			recipients: counter,
 			sent: counter,

@@ -524,6 +524,37 @@ describe("contacts", () => {
 		);
 	});
 
+	test("the dashboard's Add contact saves a first name and tags on a new contact, and leaves one already on the list as it is", async () => {
+		const user = await customer("signups-details@example.com");
+		const add = (email, { firstName, tags = [] } = {}) => {
+			const data = form({ newsletterId: user.newsletterId, email, consent: "on", ...(firstName !== undefined && { firstName }) });
+			for (const tag of tags) data.append("tags", tag);
+			return as(user, () => m.contacts.addContact(null, data));
+		};
+		const read = async (email) => {
+			const { firstName, tags, source } = (await api(user.key, "GET", `/contacts/${encodeURIComponent(email)}`)).body;
+			return { firstName, tags, source };
+		};
+
+		assert.deepEqual(await add("jane@example.org", { firstName: " Jane ", tags: ["VIP", "podcast"] }), { email: "jane@example.org", status: "active" });
+		assert.deepEqual(await read("jane@example.org"), { firstName: "Jane", tags: ["vip", "podcast"], source: "dashboard" });
+		assert.deepEqual(await add("sam@example.org", { firstName: "  " }), { email: "sam@example.org", status: "active" });
+		assert.deepEqual(await read("sam@example.org"), { firstName: null, tags: [], source: "dashboard" }, "both are optional");
+
+		assert.deepEqual(await add("jane@example.org", { firstName: "Janet", tags: ["customer"] }), { error: "jane@example.org is already a contact" });
+		assert.deepEqual(await add("sam@example.org", { firstName: "Sam", tags: ["customer"] }), { error: "sam@example.org is already a contact" });
+		assert.deepEqual(await read("jane@example.org"), { firstName: "Jane", tags: ["vip", "podcast"], source: "dashboard" }, "as the dashboard says");
+		assert.deepEqual(await read("sam@example.org"), { firstName: null, tags: [], source: "dashboard" }, "what's missing too");
+
+		const long = "x".repeat(41);
+		assert.deepEqual(await add("long@example.org", { tags: [long] }), { error: `tags: "${long}" isn't a tag (40 characters at most, no commas)` });
+		assert.equal(await m.Contact.countDocuments({ accountId: user.accountId, email: "long@example.org" }), 0);
+
+		const signup = await api(user.signupsKey, "POST", "/contacts", { email: "sam@example.org", firstName: "Sam", tags: ["customer"] });
+		assert.deepEqual([signup.status, signup.body.created], [200, false]);
+		assert.deepEqual(await read("sam@example.org"), { firstName: "Sam", tags: ["customer"], source: "dashboard" }, "a signup still fills in what's missing");
+	});
+
 	test("the empty contacts page's request adds a contact once YOUR_API_KEY is a key", async () => {
 		const user = await customer("curl-api@example.com");
 		const curl = m.reference.getAddContactCurl("http://localhost:3000", user.slug);

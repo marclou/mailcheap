@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { Eye } from "lucide-react";
 import { previewSummaryEmail, saveNotifications } from "@/app/(app)/newsletters/actions";
+import AvatarUser from "@/components/AvatarUser";
 import CardSettings, { RowSettings } from "@/components/CardSettings";
 import DialogPreviewEmail from "@/components/DialogPreviewEmail";
 import { Segmented } from "@/components/FieldsTheme";
@@ -10,9 +11,10 @@ import LinkHelp from "@/components/LinkHelp";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 
-// A newsletter's summary email (lib/summary.js): how often it comes, and a preview of it with the newsletter's own
-// numbers in the editor's preview. isEligible: the account pays for a plan, without which none goes out.
-export default function CardSummaryEmail({ newsletterId, frequency: savedFrequency, isEligible, hour, sender, stagger }) {
+// A newsletter's summary email (lib/summary.js): how often it comes, the address it goes to, and a preview of it with
+// the newsletter's own numbers in the editor's preview. isEligible: the account pays for a plan, without which none goes
+// out. recipient: the owner, as AvatarUser shows them.
+export default function CardSummaryEmail({ newsletterId, frequency: savedFrequency, isEligible, hour, sender, recipient, stagger }) {
 	const [frequency, setFrequency] = useState(savedFrequency);
 	const [preview, setPreview] = useState(null);
 	const [isOpen, setIsOpen] = useState(false);
@@ -68,6 +70,12 @@ export default function CardSummaryEmail({ newsletterId, frequency: savedFrequen
 				<div className="max-w-72">
 					<Segmented label="How often" size="sm" value={frequency} onChange={choose} options={OPTIONS} />
 				</div>
+			</RowSettings>
+			<RowSettings label="Sent to" hint="The address you sign in with.">
+				<span className="flex min-w-0 items-center gap-2 text-sm sm:pt-2">
+					<AvatarUser {...recipient} />
+					<span className="truncate">{recipient.email}</span>
+				</span>
 			</RowSettings>
 			{preview && (
 				<DialogPreviewEmail

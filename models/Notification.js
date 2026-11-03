@@ -3,7 +3,8 @@ import { accountScoped } from "../lib/account-scope.js";
 
 // What the dashboard's bell shows an account (lib/notifications.js). One per key: the same thing happening again
 // brings its notification back on top, unread, instead of adding another. kind: what it's about (lib/notification-rules.js).
-// path: the dashboard page it's about. at: when it last happened. readAt: when the tray showed it.
+// path: the dashboard page it's about. at: when it last happened. readAt: when the tray showed it. clearedAt: when its
+// owner cleared it, which hides it until the same thing happens again.
 const notificationSchema = new mongoose.Schema(
 	{
 		key: { type: String, required: true, maxlength: 200 },
@@ -15,6 +16,7 @@ const notificationSchema = new mongoose.Schema(
 		domain: { type: String, maxlength: 253 },
 		at: { type: Date, required: true },
 		readAt: { type: Date },
+		clearedAt: { type: Date },
 	},
 	{ timestamps: true }
 );

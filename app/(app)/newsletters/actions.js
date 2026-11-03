@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { runDashboardAction, toFormError } from "@/lib/actions/dashboard";
+import { runAccountAction, runDashboardAction, toFormError } from "@/lib/actions/dashboard";
 import { SETTINGS_PATH, readSettingsForm } from "@/lib/newsletter-sections";
 import { getSelectedNewsletter, saveSelectedNewsletter, switchNewsletter } from "@/lib/selected-newsletter";
 
@@ -30,7 +30,7 @@ export async function saveNewsletter(_state, formData) {
 	const settings = readSettingsForm(formData);
 	const { output, failure } = id
 		? await runDashboardAction("update_newsletter", { id, ...settings })
-		: await runDashboardAction("create_newsletter", settings);
+		: await runAccountAction("create_newsletter", settings);
 	if (failure) return toFormError(failure);
 	revalidatePath(SETTINGS_PATH, "layout");
 	if (!id) redirect(`/newsletters/${output.id}`);
@@ -42,19 +42,21 @@ export async function selectNewsletter(id, pathname) {
 	return switchNewsletter(id, pathname);
 }
 
-// Add a newsletter: a name and a description. The sender's name and postal address are the newsletter's that was
-// open, so it can send once its settings look right; without a shared domain, the form also asks for its address.
+// Add a newsletter: a name and a description, in the user's own account whichever newsletter is open. The sender's name
+// and postal address are the open newsletter's when it's theirs, so it can send once its settings look right; without a
+// shared domain, the form also asks for its address.
 export async function createNewsletter(_state, formData) {
 	const name = readText(formData, "name");
 	if (!name) return { error: "Name your newsletter" };
 	const { selected } = await getSelectedNewsletter();
+	const from = selected?.team ? null : selected;
 	const fromEmail = readText(formData, "fromEmail");
-	const { output, failure } = await runDashboardAction("create_newsletter", {
+	const { output, failure } = await runAccountAction("create_newsletter", {
 		name,
 		description: readText(formData, "description"),
 		...(fromEmail && { fromEmail }),
-		...(selected?.fromName && { fromName: selected.fromName }),
-		...(selected?.postalAddress && { postalAddress: selected.postalAddress }),
+		...(from?.fromName && { fromName: from.fromName }),
+		...(from?.postalAddress && { postalAddress: from.postalAddress }),
 	});
 	if (failure) return toFormError(failure);
 	await saveSelectedNewsletter(output.id);
@@ -69,11 +71,12 @@ export async function saveSignupForm(newsletterId, signupForm) {
 	return { ok: true, signupForm: output.signupForm };
 }
 
-// Design (FormTheme): a preset alone applies it as it comes; the customizer sends a theme's full values.
+// Design (FormTheme) and the get-started panel's design step (PickerTheme): a preset alone applies it as it comes; the
+// customizer sends a theme's full values. The panel, on every page, moves on to its next step.
 export async function saveTheme(newsletterId, theme) {
 	const { output, failure } = await runDashboardAction("update_newsletter", { id: String(newsletterId ?? ""), theme });
 	if (failure) return toFormError(failure);
-	revalidatePath("/newsletters", "layout");
+	revalidatePath("/", "layout");
 	return { ok: true, theme: output.theme };
 }
 

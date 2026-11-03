@@ -44,7 +44,9 @@ function assertInert(html, label) {
 			if (name === "src") assert.match(value, /^https?:\/\//i, `${label}: src="${value}"`);
 			if (name === "style") {
 				for (const declaration of value.replaceAll("&quot;", '"').split(";")) {
-					assert.ok(HTML_BLOCK_STYLES.includes(declaration.split(":")[0]), `${label}: ${declaration}`);
+					const property = declaration.split(":")[0];
+					assert.ok(HTML_BLOCK_STYLES.includes(property), `${label}: ${declaration}`);
+					assert.ok(tag !== "img" || property !== "overflow", `${label}: a picture's overflow in ${html}`);
 				}
 			}
 		}
@@ -78,6 +80,8 @@ const payloads = {
 	cssEscapes: '<div style="background:u\\72 l(x)">a</div><div style="background:u&#114;l(x)">b</div><div style="color:/**/red;background:url/**/(x)">c</div>',
 	cssCovers:
 		'<div style="position:fixed;inset:0;z-index:9999;transform:scale(9);outline:9999px solid red;box-shadow:0 0 0 9999px red;margin-top:-900px">x</div>',
+	imageOverflow:
+		'<img src="https://ok.test/a.png" style="width:1px;height:1px;object-fit:none;object-position:-900px -900px;overflow:visible;OVERFLOW : visible"><IMG src="https://ok.test/b.png" style="object-fit:cover;overflow&#58;visible">',
 	classes: '<div class="fixed inset-0 z-50" id="__next" name="body" data-state="open" role="dialog" aria-hidden="true" tabindex="0">x</div>',
 	targets: '<a href="https://ok.test" target="_top">t</a><a href="https://ok.test" target="evil">u</a>',
 	valueBreakout: '<a href="https://ok.test/<img src=x//">x</a><p>" onmouseover="alert(1)" x="</p>',
@@ -138,6 +142,22 @@ describe("what an HTML block keeps", () => {
 		]) {
 			assert.equal(styleOf(style), null, style);
 		}
+	});
+
+	test("a picture fills the size it's given as object-fit says, cropped rather than stretched, and never past its box", () => {
+		const thumbnail =
+			'<img src="https://cdn.example.com/house.jpg" width="80" height="80" alt="" style="display:block;width:80px;height:80px;object-fit:cover;object-position:center top;border-radius:8px">';
+		const issue = block(thumbnail);
+		assert.equal(cleanBlockHtml(thumbnail), thumbnail);
+		assert.ok(emailBody(renderEmail({ format: "rich", html: issue, subject: "Hi", newsletter: NEWSLETTER }).html).includes(thumbnail), "in emails");
+		assert.ok(renderIssueBody({ format: "rich", html: issue }).html.includes("object-fit:cover;object-position:center top;"), "on the website");
+		assert.ok(renderBlockPreview(thumbnail, NEWSLETTER).includes(thumbnail), "in the editor's preview");
+
+		assert.equal(
+			cleanBlockHtml('<img src="https://cdn.example.com/a.png" style="width:1px;height:1px;object-fit:none;overflow:visible">'),
+			'<img src="https://cdn.example.com/a.png" style="width:1px;height:1px;object-fit:none">'
+		);
+		assert.equal(cleanBlockHtml('<div style="overflow:hidden;border-radius:8px">x</div>'), '<div style="overflow:hidden;border-radius:8px">x</div>', "a box still clips what's in it");
 	});
 
 	test("links need a web, mail or phone address or a #, and pictures a web address, however they're spelled", () => {

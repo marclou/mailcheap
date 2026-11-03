@@ -99,6 +99,23 @@ function sentMessages(user, count) {
 	);
 }
 
+// Emails the account sent at a given time, the first `bounced` of them hard bounced. campaignId: a send of its own.
+function sendsAt(user, { at, sent, bounced, campaignId }) {
+	return m.Message.insertMany(
+		Array.from({ length: sent }, (_, index) => ({
+			kind: "campaign",
+			accountId: user.accountId,
+			newsletterId: user.newsletterId,
+			campaignId: campaignId ?? new mongoose.Types.ObjectId(),
+			contactId: new mongoose.Types.ObjectId(),
+			email: `gone${index}@${user.slug}.example.org`,
+			status: index < bounced ? "bounced" : "delivered",
+			sentAt: at,
+			...(index < bounced && { bouncedAt: at }),
+		}))
+	);
+}
+
 function event(user, message, fields) {
 	return m.events.handleEmailEvent({ accountId: String(user.accountId), messageId: String(message._id), email: message.email, emails: [message.email], ...fields });
 }
@@ -353,6 +370,55 @@ describe("unblocking", () => {
 		assert.deepEqual(await as(user, () => m.campaigns.resumeCampaign(id)), { ok: true });
 		assert.equal(sentCount(await runJobs(user)), 1);
 		assert.equal((await loadCampaign(user, id)).status, "sent");
+	});
+
+	test("a send that blocked its account goes on once unblocked: the bounces before don't count again", async () => {
+		const user = await customer("resume-after-block@example.com", { contacts: 3 });
+		const id = await draft(user);
+		assert.deepEqual(await as(user, () => m.campaigns.sendCampaign(id, {})), { ok: true });
+		await m.Campaign.updateOne({ accountId: user.accountId, _id: id }, { $set: { "stats.sent": 50, "stats.bounced": 11 } });
+		assert.equal(sentCount(await runJobs(user)), 0);
+		assert.deepEqual([(await loadAccount(user)).pausedBy, (await loadCampaign(user, id)).pauseCode], ["campaign", "account_blocked"]);
+
+		assert.deepEqual(await as(admin, () => m.admin.unblockAccountAction(String(user.accountId))), { ok: true });
+		assert.deepEqual(await as(user, () => m.campaigns.resumeCampaign(id)), { ok: true });
+		assert.equal(sentCount(await runJobs(user)), 3, "11 bounces out of its first 50 emails don't stop the rest");
+		assert.equal((await loadAccount(user)).status, "active");
+		const sent = await loadCampaign(user, id);
+		assert.deepEqual([sent.status, sent.stats.bounced], ["sent", 11], "its report keeps them");
+	});
+
+	test("once unblocked, a send's new bounces still block the account", async () => {
+		const user = await customer("bounces-after-unblock@example.com", { contacts: 3 });
+		const id = await draft(user);
+		assert.deepEqual(await as(user, () => m.campaigns.sendCampaign(id, {})), { ok: true });
+		await m.Campaign.updateOne({ accountId: user.accountId, _id: id }, { $set: { "stats.sent": 50, "stats.bounced": 11 } });
+		await runJobs(user);
+		assert.deepEqual(await as(admin, () => m.admin.unblockAccountAction(String(user.accountId))), { ok: true });
+
+		await sendsAt(user, { at: new Date(), sent: 20, bounced: 10, campaignId: new mongoose.Types.ObjectId(id) });
+		assert.deepEqual(await as(user, () => m.campaigns.resumeCampaign(id)), { ok: true });
+		assert.equal(sentCount(await runJobs(user)), 0);
+		const account = await loadAccount(user);
+		assert.deepEqual([account.status, account.pausedBy, account.pauseReason], ["paused", "campaign", "Bounce rate of 50.00% on a campaign (limit 5.00%)"]);
+	});
+
+	test("once unblocked, the 7-day check adds up only the emails sent since", async () => {
+		const user = await customer("week-after-unblock@example.com", { contacts: 0 });
+		await sendsAt(user, { at: new Date(Date.now() - 3_600_000), sent: 50, bounced: 11 });
+		await m.health.checkAccountHealth(user.accountId, { isUrgent: true });
+		assert.equal((await loadAccount(user)).pauseReason, "Bounce rate of 22.00% over the last 7 days (limit 5.00%)");
+		assert.deepEqual(await as(admin, () => m.admin.unblockAccountAction(String(user.accountId))), { ok: true });
+
+		await sendsAt(user, { at: new Date(), sent: 100, bounced: 1 });
+		await m.health.checkAccountHealth(user.accountId, { isUrgent: true });
+		assert.equal((await loadAccount(user)).status, "active", "1 bounce since, not 12 out of 150");
+
+		await sendsAt(user, { at: new Date(), sent: 20, bounced: 10 });
+		await m.health.checkAccountHealth(user.accountId, { isUrgent: true });
+		const account = await loadAccount(user);
+		assert.deepEqual([account.status, account.pausedBy], ["paused", "rates"]);
+		assert.equal(account.pauseReason, "Bounce rate of 9.17% since the account was unblocked (limit 5.00%)");
 	});
 });
 

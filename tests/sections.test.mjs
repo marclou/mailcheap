@@ -138,7 +138,7 @@ describe("section rules", () => {
 		assert.equal(listSections(ISSUE).length, 4);
 		assert.match('# Hi\n\n<section data-show="tag:vip">', SECTION_ATTRIBUTE_PATTERN);
 		assert.doesNotMatch("<section><p>A designed email's own layout</p></section>", SECTION_ATTRIBUTE_PATTERN);
-		assert.equal(describeSectionReaders(listSections(ISSUE)[1], [{ id: SEGMENT, name: "New" }]), "Everyone except readers in New");
+		assert.equal(describeSectionReaders(listSections(ISSUE)[1], [{ id: SEGMENT, name: "New" }]), "Everyone except readers in “New”");
 		assert.equal(describeSectionReaders(listSections(ISSUE)[1], []), "Everyone except readers in a deleted segment");
 	});
 
@@ -267,8 +267,8 @@ describe("sections in sends, previews, the API and the website", () => {
 
 		const detail = (await callApi("GET", `/api/v1/campaigns/${id}`, { key: alice.key })).body;
 		assert.deepEqual(detail.sections, [
-			{ readers: "Only readers tagged vip", where: "email", count: 1 },
-			{ readers: "Everyone except readers in New", where: "both", count: 2 },
+			{ readers: "Only readers tagged “vip”", where: "email", count: 1 },
+			{ readers: "Everyone except readers in “New”", where: "both", count: 2 },
 			{ readers: "Everyone", where: "web", count: null },
 			{ readers: "Everyone", where: "email", count: 3 },
 		]);
@@ -353,5 +353,36 @@ describe("sections in sends, previews, the API and the website", () => {
 		assert.deepEqual(detail.sections, [{ readers: "Only readers in a deleted segment", where: "email", count: null }]);
 		const saved = await as(erin, () => m.campaigns.saveCampaign(scheduled, { subject: "Still saves", body: section(` data-show="segment:${segmentId}" data-where="email"`, "<p>Welcome!</p>") }));
 		assert.deepEqual(saved, { ok: true }, "a segment it named before can stay, so the draft keeps saving");
+	});
+
+	test("a section's menu counts every tag and segment among the readers a campaign goes to, a tag only unsubscribed contacts have at 0, and only for its own account", async () => {
+		const dana = await customer("sections-dana@example.com");
+		const contact = (email, fields) => ({ accountId: dana.accountId, newsletterId: dana.newsletterId, email, status: "active", ...fields });
+		await m.Contact.insertMany([
+			contact("vip1@dana.example.com", { tags: ["vip", "club"], subscribedAt: new Date(Date.now() - 2 * DAY_MS) }),
+			contact("vip2@dana.example.com", { tags: ["vip"], subscribedAt: new Date(Date.now() - 400 * DAY_MS) }),
+			contact("gone@dana.example.com", { tags: ["former"], status: "unsubscribed", subscribedAt: new Date(Date.now() - 2 * DAY_MS) }),
+		]);
+		const segmentId = await newSegment(dana);
+		const id = await draft(dana, "<p>Hi</p>");
+
+		const { status, body } = await callApi("POST", `/api/v1/campaigns/${id}/sections/count`, { key: dana.key, body: { all: true } });
+		assert.equal(status, 200, JSON.stringify(body));
+		assert.deepEqual(body, {
+			readers: 2,
+			groups: [
+				{ group: "tag:vip", name: "vip", readers: 2 },
+				{ group: "tag:club", name: "club", readers: 1 },
+				{ group: "tag:former", name: "former", readers: 0 },
+				{ group: `segment:${segmentId}`, name: "New", readers: 1 },
+			],
+		});
+		assert.deepEqual(await as(dana, () => m.campaigns.countAllSectionReaders(id)), body, "the dashboard's menu reads the same");
+		const everyone = await callApi("POST", `/api/v1/campaigns/${id}/sections/count`, { key: dana.key, body: { groups: [] } });
+		assert.deepEqual(everyone.body, { readers: 2, groups: [] }, "no groups counts everyone, for the menu's button");
+
+		const eve = await customer("sections-eve@example.com");
+		const theirs = await callApi("POST", `/api/v1/campaigns/${id}/sections/count`, { key: eve.key, body: { all: true } });
+		assert.equal(theirs.status, 404, JSON.stringify(theirs.body));
 	});
 });

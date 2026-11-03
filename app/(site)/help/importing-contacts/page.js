@@ -104,8 +104,8 @@ export default function ImportingContactsPage() {
 				it is, then what it added, what was already there and what it left out, and why. A small file goes in at once.
 			</p>
 			<p>
-				When a big file is done, or if it stopped, the bell in the dashboard tells you how it went, with a link to the Contacts
-				page, even after you&apos;ve left it.{" "}
+				The bell in the dashboard tells you when an import starts, then how it went once it&apos;s done or if it stopped, with a
+				link to the Contacts page, even after you&apos;ve left it.{" "}
 				<Link href={getHelpHref("notifications")}>Notifications</Link>
 			</p>
 			<p>

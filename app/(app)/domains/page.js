@@ -27,8 +27,9 @@ import {
 	isSharedSenderReady,
 	withActiveProvider,
 } from "@/lib/sender-rules";
-import { getSelectedNewsletter } from "@/lib/selected-newsletter";
+import { requireRole } from "@/lib/selected-newsletter";
 import { refreshSharedSender } from "@/lib/shared-sender";
+import { OWNER_ROLE } from "@/lib/team-rules";
 import { cn } from "@/lib/utils";
 import Domain from "@/models/Domain";
 import Newsletter from "@/models/Newsletter";
@@ -37,7 +38,7 @@ export const metadata = { title: "Domains" };
 
 // The account's domains, which any of its newsletters can send from. "Check now" asks the email provider and DNS again.
 export default async function DomainsPage() {
-	const { account, selected } = await getSelectedNewsletter();
+	const { account, selected } = await requireRole(OWNER_ROLE);
 	const [stored, saved] = await Promise.all([
 		Domain.find(scoped(account)).sort({ createdAt: 1 }).lean(),
 		Newsletter.find(scoped(account)).sort({ createdAt: 1, _id: 1 }).select({ name: 1, slug: 1, fromEmail: 1, sharedSender: 1 }).lean(),

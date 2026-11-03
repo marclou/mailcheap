@@ -41,9 +41,9 @@ function select(user, id, pathname) {
 	return as(user, () => m.newsletters.selectNewsletter(id, pathname));
 }
 
-function open(user, id, next) {
+function open(user, id, next, headers = {}) {
 	const url = `http://localhost:3000/newsletters/${id}${next ? `?next=${encodeURIComponent(next)}` : ""}`;
-	return as(user, () => m.openRoute.GET(new Request(url), { params: Promise.resolve({ id }) }));
+	return as(user, () => m.openRoute.GET(new Request(url, { headers }), { params: Promise.resolve({ id }) }));
 }
 
 async function shownContacts(user) {
@@ -154,6 +154,21 @@ describe("the open newsletter", () => {
 		for (const next of ["//evil.example", "https://evil.example", "/\\evil.example"]) {
 			assert.equal(await catchRedirect(open(jane, beta, next)), "/", next);
 		}
+	});
+
+	test("only a page load switches: a link's prefetch opens nothing, and an in-app navigation to another newsletter loads the page", async () => {
+		await select(jane, alpha, "/domains");
+		const prefetches = [{ rsc: "1", "next-router-prefetch": "1" }, { "sec-purpose": "prefetch" }, { purpose: "prefetch" }];
+		for (const headers of prefetches) {
+			assert.equal((await open(jane, beta, "/contacts", headers)).status, 204, JSON.stringify(headers));
+			assert.equal(jane.jar.get(m.rules.NEWSLETTER_COOKIE), alpha, JSON.stringify(headers));
+		}
+		assert.equal((await open(jane, beta, "/contacts", { rsc: "1" })).status, 204, "Next.js loads the page instead");
+		assert.equal(jane.jar.get(m.rules.NEWSLETTER_COOKIE), alpha);
+		assert.equal(await catchRedirect(open(jane, alpha, "/newsletters/sender", { rsc: "1" })), "/newsletters/sender", "the open newsletter's own links stay in the app");
+
+		assert.equal(await catchRedirect(open(jane, beta, "/contacts")), "/contacts", "the page load");
+		assert.equal(jane.jar.get(m.rules.NEWSLETTER_COOKIE), beta);
 	});
 
 	test("a page of another of the account's newsletters goes through it first; other IDs change nothing", async () => {

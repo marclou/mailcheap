@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { scoped } from "@/lib/account-scope";
-import { runDashboardAction, toFormError } from "@/lib/actions/dashboard";
+import { runAccountAction, toFormError } from "@/lib/actions/dashboard";
 import { requireAccount } from "@/lib/auth";
 import { LIST_SIZES, LIST_SOURCES, OTHER_LIST_SOURCE, findFreeSlug, needsOnboarding } from "@/lib/onboarding";
 import { OWN_DOMAIN_STEPS } from "@/lib/sender-rules";
@@ -28,7 +28,7 @@ export async function completeOnboarding(_state, formData) {
 	const name = readText(formData, "name");
 	if (!name) return { error: "Name your newsletter" };
 	if (await needsOnboarding(account)) {
-		const { failure } = await runDashboardAction("create_newsletter", {
+		const { failure } = await runAccountAction("create_newsletter", {
 			name,
 			slug: await findFreeSlug(name),
 			description: readText(formData, "description"),

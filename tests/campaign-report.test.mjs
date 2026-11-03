@@ -107,6 +107,50 @@ test("the report's numbers stay on top, and its details are in tabs: Timeline op
 	assert.doesNotMatch(unsent, /role="tablist"/, "nothing to break down before an email goes out");
 });
 
+test("under its subject, when it went out and where; the Website tab has its page, which it pins, beside its views day by day", () => {
+	const newsletter = { _id: "6ad87a2affc219b3be2cc72d", name: "Weekly", slug: "weekly", fromName: "Weekly", fromEmail: "hi@example.com", archiveEnabled: true };
+	const campaign = {
+		_id: "6ad87a2affc219b3be2cc72c",
+		subject: "Hello",
+		status: "sent",
+		format: "markdown",
+		markdown: "Hi",
+		stats: STATS,
+		archiveSlug: "hello",
+		webViews: 1204,
+		sentAt: new Date("2026-10-15T13:29:00Z"),
+	};
+	const days = Array.from({ length: 30 }, (_, index) => ({ key: `2026-10-${String(15 + index).padStart(2, "0")}`, views: index < 3 ? [800, 300, 104][index] : null }));
+	const render = (props) =>
+		renderToStaticMarkup(
+			createElement(
+				TooltipProvider,
+				null,
+				createElement(CampaignReport, { campaign, newsletter, providers: [], links: null, timeZone: "UTC", ...props })
+			)
+		);
+	const pageViews = { total: 1204, days, today: "2026-10-17", published: "2026-10-15", since: null };
+	const html = render({ pageViews, webPage: { title: "Hello", description: "This week", imageUrl: "https://cdn.example.com/card.png" } });
+	const header = html.slice(0, html.indexOf('role="tablist"'));
+	assert.match(header, />Sent<\/span>[\s\S]*>Oct 15, 2026, 1:29 PM<\/time>/, "the date it went out, next to where it stands");
+	assert.match(header, /href="http:\/\/localhost:3000\/archive\/weekly\/p\/hello"[^>]*>[\s\S]*?On your website<\/a>/);
+	const website = panelOf(html, "website");
+	assert.match(website, /href="\/campaigns\/6ad87a2affc219b3be2cc72c\/web"[^>]*>[\s\S]*?Edit web page/);
+	assert.match(website, />Pin to top<\/button>/);
+	assert.match(website, />Best day<\/dt><dd[^>]*>800<span[^>]*> · Oct 15<\/span>/, "its best day");
+	assert.match(website, /aria-label="1,204 page views from Oct 15 to Oct 17"/);
+	assert.doesNotMatch(website, />Published</, "the date is under the subject");
+
+	const pinned = panelOf(render({ campaign: { ...campaign, archivePinned: true }, pageViews }), "website");
+	assert.match(pinned, />Unpin<\/button>/);
+	assert.match(pinned, />Pinned<\/span>/);
+	const unlisted = panelOf(render({ campaign: { ...campaign, archiveListed: false }, pageViews }), "website");
+	assert.doesNotMatch(unlisted, /Pin to top/, "only a page the website lists takes a pin");
+
+	const emailOnly = render({ campaign: { ...campaign, publishTo: "email" } });
+	assert.match(emailOnly.slice(0, emailOnly.indexOf('role="tablist"')), />Email only</);
+});
+
 // The first element of a type in a rendered tree, through each element's props: its children and the elements it's given.
 function findElement(node, type) {
 	if (Array.isArray(node)) return node.reduce((found, child) => found ?? findElement(child, type), null);

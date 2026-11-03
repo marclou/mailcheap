@@ -24,11 +24,11 @@ import {
 	describeSignupDays,
 	fromSignupDays,
 	getSourceLabel,
-	readDayKey,
 	toSignupDays,
 } from "@/lib/contact-filters";
 import { formatCount, formatNumber } from "@/lib/format";
 import { getHelpHref } from "@/lib/help";
+import { readDateKey } from "@/lib/time-zone";
 import { cn } from "@/lib/utils";
 
 const ALL = "__all";
@@ -48,8 +48,8 @@ export default function FilterContacts({ statuses = [], total = 0, tags = [], so
 	const tag = searchParams.get("tag") ?? "";
 	const source = searchParams.get("source") ?? "";
 	const signupDays = {
-		signedUpSince: readDayKey(searchParams.get("signedUpSince")),
-		signedUpBefore: readDayKey(searchParams.get("signedUpBefore")),
+		signedUpSince: readDateKey(searchParams.get("signedUpSince")),
+		signedUpBefore: readDateKey(searchParams.get("signedUpBefore")),
 	};
 	const signupLabel = describeSignupDays(signupDays);
 	const hasFilters = Boolean(status || tag || source || signupLabel);

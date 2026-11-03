@@ -5,7 +5,9 @@ import CampaignReport from "@/components/CampaignReport";
 import FormCampaign from "@/components/FormCampaign";
 import { scoped } from "@/lib/account-scope";
 import { getAccountSendProblem, hasActiveSubscription, isBlocked } from "@/lib/account-state";
+import { getArchiveIssue, listOtherIssuePictures } from "@/lib/archive-data";
 import { getArchiveUrls } from "@/lib/archive-hosts";
+import { getShareCardUrl } from "@/lib/archive-seo";
 import { findCampaignLinks } from "@/lib/campaign-links";
 import { readRecipientFilter } from "@/lib/campaign-recipient-rules";
 import { listCampaignRecipients } from "@/lib/campaign-recipients";
@@ -14,11 +16,12 @@ import { countCampaignGmail, countRemainingContacts, sendTimesPipeline } from "@
 import { getSharedDomain, isSendingEnabled } from "@/lib/config";
 import { getFieldOptions } from "@/lib/contact-fields";
 import { getStoredTips } from "@/lib/content-review";
+import { getPageViews } from "@/lib/page-views";
 import { getPostalAddress } from "@/lib/postal-address";
 import { sendsEmail } from "@/lib/publish-to";
 import { countAudience, countSegmentCards, findCampaignSegmentFilter, listLiveSegments } from "@/lib/segment-queries";
 import { compileSegment, describeSegment } from "@/lib/segments";
-import { getSelectedNewsletter, openNewsletter } from "@/lib/selected-newsletter";
+import { findInNewsletters, getSelectedNewsletter, openNewsletter } from "@/lib/selected-newsletter";
 import { getPace } from "@/lib/send-spread";
 import { serialize } from "@/lib/serialize";
 import { findAccountDomains, loadSender } from "@/lib/sender";
@@ -41,9 +44,10 @@ export default async function CampaignPage({ params, searchParams }) {
 	const { user, account } = view;
 	if (!isValidObjectId(id)) notFound();
 
-	const campaign = await Campaign.findOne(scoped(account, { _id: id })).lean();
+	const campaign = await findInNewsletters(view, Campaign, id);
 	if (!campaign) notFound();
 	openNewsletter(view, campaign.newsletterId, `/campaigns/${id}`);
+	if (!campaign.newsletterId.equals(view.selected._id)) notFound();
 	const stored = await Newsletter.findOne(scoped(account, { _id: campaign.newsletterId })).lean();
 	if (!stored) notFound();
 	// The previews and the checks show the address its emails print.
@@ -53,23 +57,33 @@ export default async function CampaignPage({ params, searchParams }) {
 	if (!["draft", "scheduled"].includes(campaign.status)) {
 		const filter = readRecipientFilter(query.recipients);
 		const shown = Math.min(MAX_RECIPIENTS, Math.max(RECIPIENTS_STEP, Number.parseInt(query.shown, 10) || RECIPIENTS_STEP));
-		const [{ providers, timeline, recipients: counts }, comparison, remainingCount, links, cookieStore, list] = await Promise.all([
+		const [{ providers, timeline, recipients: counts }, comparison, remainingCount, links, cookieStore, list, issue] = await Promise.all([
 			getCampaignActivity(campaign),
 			getCampaignComparison(campaign),
 			countRemainingContacts(campaign),
 			findCampaignLinks(campaign),
 			cookies(),
 			sendsEmail(campaign) ? listCampaignRecipients(account, campaign, { filter, limit: shown }) : null,
+			newsletter.archiveEnabled && campaign.archiveSlug ? getArchiveIssue(newsletter, campaign.archiveSlug) : null,
 		]);
+		// Its card as the website shows it: its page's title, description and picture, or the card MailCheap draws.
+		const webPage = issue && {
+			title: issue.subject,
+			description: issue.previewText,
+			imageUrl: issue.thumbnailUrl || getShareCardUrl(newsletter, issue),
+		};
+		const timeZone = resolveTimeZone(cookieStore.get(TIME_ZONE_COOKIE)?.value);
 		// For a next step's dialog, and how a send going out reaches Gmail's readers.
 		const isGoingOut = ["sending", "paused"].includes(campaign.status);
-		const [audience, senderVolumes, gmail] = await Promise.all([
+		const [audience, senderVolumes, gmail, pageViews] = await Promise.all([
 			remainingCount > 0 ? countAudience(account, newsletter._id, await findCampaignSegmentFilter(campaign)) : null,
 			remainingCount > 0 || isGoingOut ? loadSenderVolumes(account, newsletter) : null,
 			isGoingOut ? countCampaignGmail(campaign) : null,
+			issue || !sendsEmail(campaign) ? getPageViews(campaign, timeZone) : null,
 		]);
 		return (
 			<CampaignReport
+				role={view.role}
 				campaign={serialize(campaign)}
 				newsletter={serialize(newsletter)}
 				contactFields={getFieldOptions(account)}
@@ -87,7 +101,7 @@ export default async function CampaignPage({ params, searchParams }) {
 				}
 				timeline={timeline}
 				comparison={comparison}
-				timeZone={resolveTimeZone(cookieStore.get(TIME_ZONE_COOKIE)?.value)}
+				timeZone={timeZone}
 				remainingCount={remainingCount}
 				emailsLeft={plan.emailsLeft}
 				isBlocked={isBlocked(account)}
@@ -96,6 +110,8 @@ export default async function CampaignPage({ params, searchParams }) {
 				gmail={gmail}
 				gmailShare={getGmailShare(audience)}
 				isSharedSender={isOnSharedDomain(newsletter.fromEmail, getSharedDomain())}
+				webPage={webPage}
+				pageViews={pageViews}
 			/>
 		);
 	}
@@ -104,13 +120,14 @@ export default async function CampaignPage({ params, searchParams }) {
 	const segments = await listLiveSegments(account, newsletter._id);
 	const segment = campaign.segmentId ? segments.find(({ _id }) => _id.equals(campaign.segmentId)) : null;
 	const isSegmentDeleted = Boolean(campaign.segmentId && !segment);
-	const [audience, everyone, sender, sendTimes, domains, tips] = await Promise.all([
+	const [audience, everyone, sender, sendTimes, domains, tips, otherPictures] = await Promise.all([
 		isSegmentDeleted ? { contacts: 0, neverMailed: 0, gmail: 0 } : countAudience(account, newsletter._id, segment && compileSegment(segment)),
 		campaign.segmentId ? countSegmentCards(account, newsletter._id, []) : null,
 		loadSender(account, newsletter),
 		getSendTimes(campaign),
 		findAccountDomains(account._id),
 		getStoredTips({ campaign, newsletter }),
+		newsletter.archiveEnabled ? listOtherIssuePictures(newsletter, campaign._id) : [],
 	]);
 	const senderVolumes = sender.identity ? await getSenderVolumes(account, newsletter, sender.identity) : null;
 	const sharedDomain = getSharedDomain();
@@ -144,6 +161,7 @@ export default async function CampaignPage({ params, searchParams }) {
 			newContacts={audience.neverMailed}
 			gmailShare={getGmailShare(audience)}
 			tips={tips}
+			otherPictures={otherPictures}
 		/>
 	);
 }

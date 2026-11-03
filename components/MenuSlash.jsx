@@ -225,7 +225,7 @@ function ChipField({ item, isSelected, onPoint, onPick }) {
 	);
 }
 
-// An empty slot, dashed like the place a new field takes.
+// Plain text after the fields, not outlined: a dashed outline is what a section looks like.
 function ChipAddField({ isSelected, onPoint, onPick }) {
 	return (
 		<button
@@ -237,11 +237,11 @@ function ChipAddField({ isSelected, onPoint, onPick }) {
 			onMouseDown={keepEditorFocus}
 			onClick={onPick}
 			className={cn(
-				"flex items-center gap-1 rounded-md border border-dashed border-foreground/25 px-1.5 py-px text-[13px] text-muted-foreground transition-colors duration-150",
-				isSelected && cn("border-foreground/45", SELECTED)
+				"flex items-center gap-0.5 rounded-md px-1 py-0.5 text-xs text-muted-foreground transition-colors duration-150",
+				isSelected && SELECTED
 			)}
 		>
-			<Plus aria-hidden="true" className="size-3.5" />
+			<Plus aria-hidden="true" className="size-3" />
 			{SLASH_ADD_FIELD.title}
 		</button>
 	);

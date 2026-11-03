@@ -20,6 +20,12 @@ export default function DesignPage() {
 				your emails in it, and a click applies it. A message lets you undo it.
 			</p>
 			<p>
+				A new newsletter&apos;s get-started list, at the bottom right of the <LinkApp href="/">dashboard</LinkApp>, starts with
+				the same choice: each theme is a tile in its colors and heading font, in a row that scrolls sideways, and a click on one
+				applies it. Customize, in the message that follows, opens its customizer here, and the list moves on to its next step.{" "}
+				<Link href={getHelpHref("getting-started", "first-issue")}>Getting started</Link>
+			</p>
+			<p>
 				There are {THEME_PRESETS.length}: {mailcheap.name}, the black and white look newsletters start with, then{" "}
 				{presets.map(({ name }) => name).join(", ")}.
 			</p>

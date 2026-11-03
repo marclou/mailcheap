@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import mongoose from "mongoose";
+import { renderToStaticMarkup } from "react-dom/server";
+import { gravatarHash } from "../lib/gravatar.js";
 import { activate, anonymous, as, callApi, catchRedirect, form, platformEmails, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
 import { published } from "./stubs/qstash.mjs";
 
@@ -263,6 +265,14 @@ test("the Notifications page saves each newsletter's summary on its own and prev
 	assert.equal((await as(user, () => m.newsletters.previewSummaryEmail(stranger.newsletterId))).error, "Newsletter not found");
 });
 
+test("the Notifications page shows the address the summary goes to, with its owner's picture", async () => {
+	const user = await customer("notifications-to@example.com");
+	const NotificationsPage = (await import("../app/(app)/newsletters/notifications/page.js")).default;
+	const page = renderToStaticMarkup(await as(user, () => NotificationsPage()));
+	assert.match(page, /Sent to.+notifications-to@example\.com.+The address you sign in with\./s);
+	assert.ok(page.includes(`gravatar.com/avatar/${gravatarHash(user.email)}`), "their picture next to it");
+});
+
 test("saving a newsletter's other settings keeps its summary as it was, chosen or not", async () => {
 	const user = await customer("settings-keep@example.com");
 	const rename = () =>
@@ -308,6 +318,7 @@ test("the API reads and changes each newsletter's summary, previews it, and give
 	assert.equal(preview.status, 200, JSON.stringify(preview.body));
 	assert.equal(preview.body.frequency, "weekly", "off previews the weekly");
 	assert.equal(preview.body.newsletter.id, user.newsletterId);
+	assert.equal(preview.body.to, user.email, "where it goes: the owner's address");
 	assert.match(preview.body.subject, /^summary-api news: \+6 subscribers this week$/);
 	assert.match(preview.body.text, /New: 6/);
 

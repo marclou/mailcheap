@@ -111,8 +111,16 @@ export default function WebsitePage() {
 			<h2 id="issue-pages">Issue pages</h2>
 			<p>
 				Every issue on your website gets a page at <code>/p/</code> followed by its slug, made from the subject. Change the slug in
-				the send step&apos;s Web page row before it goes out, or later from the campaign&apos;s page. There you can also pin an issue:
-				pinned issues lead the home page, in its Featured row.
+				the send step&apos;s On your website card before it goes out, or later in the Website tab of the campaign&apos;s page or in
+				its web page&apos;s editor. Both pin it too, with Pin to top: pinned issues lead the home page, in its Featured row.
+			</p>
+			<p>
+				The page, its card on your website and its link previews, on X, LinkedIn or in a message, show the issue&apos;s subject,
+				its preview text and its first picture. In the send step&apos;s On your website card, pick another of its pictures, upload
+				one, or use the card MailCheap draws with the title, and give the page a title and a description of its own: a subject
+				written for the inbox can have a title written for the web. Left empty, they stay the subject and the preview text. When
+				several issues start with the same picture, like a banner, their cards on your website show the drawn card instead, unless
+				you pick that picture for them.
 			</p>
 			<p>
 				The send step decides where each issue goes. An email-only issue never gets a page, and a web-only issue goes on the
@@ -125,11 +133,34 @@ export default function WebsitePage() {
 				their emails unless you put it on the web too. Its share picture comes from the page, never from an email-only section.
 			</p>
 
+			<h2 id="edit-page">Changing a page after it&apos;s out</h2>
+			<p>
+				Edit web page, at the top of a sent issue&apos;s page or in its <strong>⋯</strong> menu in your{" "}
+				<LinkApp href="/campaigns">campaigns</LinkApp>, opens its page in the editor: its title and description at the top, as the
+				page shows them, then its content. Beside them, its card as your website and link previews show it, with its picture to
+				pick, its address, and Pin to top. Preview shows the page as your website will, on a desktop or a phone, in your
+				website&apos;s theme. Update page puts your changes on your website at once, and the email stays as it was sent, in
+				inboxes and in its report. Readers who click Read online in it see the page as it is now.
+			</p>
+			<FigureHelp
+				src="/help/website/web-page.webp"
+				alt="A sent issue's web page in the editor: its title and description over its content, and beside them its card as link previews show it, its pictures to pick from, its address, Pin to top and Remove from website."
+				caption="Changing an issue's page"
+			/>
+			<p>
+				It&apos;s also how a page can differ from its email: take out what only fits an inbox, like a banner or a line asking to
+				reply, add a link, or fix a typo. Restore the email&apos;s content, in the page&apos;s <strong>⋯</strong> menu, brings the
+				email&apos;s back.
+				{isCloud() &&
+					" The content check reads each change before it goes live: one it would hold stays off your website, and the page keeps what it showed."}{" "}
+				AI assistants and the API change pages too, with update_campaign_archive.
+			</p>
+
 			<h2 id="remove-issue">Removing an issue</h2>
 			<p>
-				Remove from website, in an issue&apos;s <strong>⋯</strong> menu on the <LinkApp href="/campaigns">Campaigns page</LinkApp>{" "}
-				or on its own page, takes it off your website: its page stops working, and it leaves the home page and the sitemap. This
-				can&apos;t be undone.
+				Remove from website, in an issue&apos;s <strong>⋯</strong> menu on the <LinkApp href="/campaigns">Campaigns page</LinkApp>, on
+				its own page or in its web page&apos;s editor, takes it off your website: its page stops working, and it leaves the home
+				page and the sitemap. This can&apos;t be undone.
 			</p>
 			<p>
 				An issue you also sent by email stays in your campaigns with its report, as email only, and the Read online link in its

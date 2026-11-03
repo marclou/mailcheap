@@ -19,12 +19,13 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { getKeyLevel, listApiKeys } from "@/lib/api-keys";
-import { requireAccount } from "@/lib/auth";
 import { getAppUrl } from "@/lib/config";
 import { connectDb } from "@/lib/db";
 import { getMcpClients, getMcpConnectors, getMcpUrl } from "@/lib/docs/mcp-clients";
 import { formatDate, formatRelative } from "@/lib/format";
 import { listConnectedApps } from "@/lib/oauth";
+import { requireRole } from "@/lib/selected-newsletter";
+import { OWNER_ROLE } from "@/lib/team-rules";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "API keys" };
@@ -32,7 +33,7 @@ export const metadata = { title: "API keys" };
 const LEVEL_LABELS = { full: "Full access", signups: "Signups only" };
 
 export default async function ApiKeysPage() {
-	const { account } = await requireAccount();
+	const { account } = await requireRole(OWNER_ROLE);
 	await connectDb();
 	const [apiKeys, connectedApps] = await Promise.all([listApiKeys(account), listConnectedApps(account)]);
 	const appUrl = getAppUrl();

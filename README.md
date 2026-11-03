@@ -132,6 +132,8 @@ Only the emails you list: `ADMIN_EMAILS` (who can also open `/admin`) and `ALLOW
 
 Everyone gets an account of their own, with up to 3 newsletters and their contacts and campaigns, and the account's domains and API keys. There's no billing on a self-hosted server: no plans, no limits.
 
+To work on a newsletter together, its owner invites people from the newsletter's Team settings, up to 5, as admins or members. Invitations only go to the emails these lists let in, so add your teammates to `ALLOWED_EMAILS` first.
+
 ### 4. Email provider
 
 Pick Amazon SES or PostShiba (invite only for now). `EMAIL_PROVIDER` picks one; without it, MailCheap uses PostShiba when `POSTSHIBA_API_KEY` is set and SES otherwise. Every account gets its own tenant there, with its own domains, suppression list and pause switch. MailCheap creates them; you set up the provider account and its events once.

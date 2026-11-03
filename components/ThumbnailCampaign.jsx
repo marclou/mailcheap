@@ -2,9 +2,10 @@ import Image from "next/image";
 import AvatarNewsletter from "@/components/AvatarNewsletter";
 import { isOptimizableImage } from "@/lib/thumbnail";
 import { cn } from "@/lib/utils";
+import { getWebImageUrl } from "@/lib/web-page";
 
 export default function ThumbnailCampaign({ campaign, newsletter, width = 64, height = 40, hasBadge = true, className }) {
-	const src = campaign.thumbnailUrl || null;
+	const src = getWebImageUrl(campaign);
 
 	return (
 		<span style={{ width, height }} className={cn("relative shrink-0", className)}>

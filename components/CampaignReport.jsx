@@ -1,18 +1,18 @@
 import Link from "next/link";
-import { ChartColumn, Globe, Inbox, Link2, Pause, Play, Users } from "lucide-react";
+import { ChartColumn, Globe, Inbox, Link2, Pause, PenLine, Play, Users } from "lucide-react";
 import { pauseCampaign, resumeCampaign } from "@/app/(app)/campaigns/actions";
 import AvatarNewsletter from "@/components/AvatarNewsletter";
 import BadgeStatus from "@/components/BadgeStatus";
 import ButtonCampaignAction from "@/components/ButtonCampaignAction";
 import ButtonClickMap from "@/components/ButtonClickMap";
-import ButtonCopy from "@/components/ButtonCopy";
+import CardPageViews from "@/components/CardPageViews";
+import CardPublishedPage from "@/components/CardPublishedPage";
 import CardStat from "@/components/CardStat";
 import ChartOpens from "@/components/ChartOpens";
 import DialogSendMore from "@/components/DialogSendMore";
 import GatePlan from "@/components/GatePlan";
 import HeaderPage from "@/components/HeaderPage";
 import ImageFavicon from "@/components/ImageFavicon";
-import InputCampaignSlug from "@/components/InputCampaignSlug";
 import LinkHelp from "@/components/LinkHelp";
 import ListLegend from "@/components/ListLegend";
 import MenuReport from "@/components/MenuReport";
@@ -21,12 +21,13 @@ import SectionRecipients from "@/components/SectionRecipients";
 import TableCampaignLinks from "@/components/TableCampaignLinks";
 import TabsPage, { PanelTab } from "@/components/TabsPage";
 import TextEmpty from "@/components/TextEmpty";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { isPlanLimitCode } from "@/lib/account-state";
 import { getArchiveUrls } from "@/lib/archive-hosts";
 import { LIMITS, isSendingEnabled } from "@/lib/config";
 import { REVIEW_CODES, REVIEW_PAUSE_CODE } from "@/lib/content-review-codes";
-import { formatCount, formatDate, formatNumber, formatRate, formatRateChange, formatWeekdayHour } from "@/lib/format";
+import { formatCount, formatDateTime, formatNumber, formatRate, formatRateChange, formatWeekdayHour } from "@/lib/format";
 import { rateTone } from "@/lib/health";
 import { toPreviewFrame } from "@/lib/email-preview";
 import { withLinkKeys } from "@/lib/link-stats";
@@ -37,6 +38,7 @@ import { withEmailSections } from "@/lib/sections";
 import { TIMELINE_HOURS, findPeak, hoursToHalf, reachedOf } from "@/lib/report-stats";
 import { formatPaceTime } from "@/lib/send-spread";
 import { getIssueWebUrl } from "@/lib/sending-rules";
+import { OWNER_ROLE, hasRole } from "@/lib/team-rules";
 import { timeZoneLabel } from "@/lib/time-zone";
 import { cn } from "@/lib/utils";
 import { BACKOFF_WHY, GMAIL_WHY, STEPS_WHY, getGmailLaterTrack, getGmailTrack, getStepItems } from "@/lib/warmup-status";
@@ -44,7 +46,10 @@ import { BACKOFF_WHY, GMAIL_WHY, STEPS_WHY, getGmailLaterTrack, getGmailTrack, g
 // A sent campaign: its numbers on top, the details in tabs under them. readOnly: an admin looking at a customer's
 // campaign (app/admin/campaigns/[id]): its numbers without its owner's actions, and children above them. contactFields:
 // the account's, for the preview and the click map to fill in. recipients: who it went to and what they did
-// (components/SectionRecipients.jsx), for its owner only.
+// (components/SectionRecipients.jsx), for its owner only. webPage: its card as its website shows it, { title,
+// description, imageUrl }, for an issue on the website. pageViews: its page's views by day (lib/page-views.js). role: the
+// user's on the newsletter (lib/team-rules.js): sending more, pausing and the page's actions are its admins', the plan
+// its owner's.
 export default function CampaignReport({
 	campaign,
 	newsletter,
@@ -65,8 +70,12 @@ export default function CampaignReport({
 	isSharedSender = false,
 	readOnly = false,
 	backHref = "/campaigns",
+	webPage = null,
+	pageViews = null,
+	role = OWNER_ROLE,
 	children,
 }) {
+	const canManage = !readOnly && hasRole(role, "admin");
 	const { stats } = campaign;
 	const id = campaign._id.toString();
 	// Held by the content check (lib/content-review.js): only MailCheap's review starts it, so it has no Resume.
@@ -125,22 +134,36 @@ export default function CampaignReport({
 	const clickMap = !readOnly && !isWebOnly && (
 		<ButtonClickMap {...email} html={clicks ? toPreviewFrame(withLinkKeys(html)) : email.html} clicks={clicks} />
 	);
-	const page = !readOnly && hasPage && <RowPageUrl id={id} slug={campaign.archiveSlug} newsletter={newsletter} />;
+	const pageUrl = hasPage ? getArchiveUrls(newsletter).absolutePost(campaign.archiveSlug) : null;
+	const views = <CardPageViews views={pageViews ?? { total: campaign.webViews ?? 0, days: null }} />;
+	const page = !readOnly && hasPage && (
+		<CardPublishedPage
+			id={id}
+			page={webPage ?? { title: campaign.subject, description: campaign.previewText, imageUrl: null }}
+			slug={campaign.archiveSlug}
+			newsletter={newsletter}
+			isPinned={Boolean(campaign.archivePinned)}
+			isListed={campaign.archiveListed !== false}
+		/>
+	);
 
 	return (
 		<>
 			<HeaderPage
 				title={campaign.subject || "Untitled"}
 				backHref={backHref}
-				icon={<AvatarNewsletter newsletter={newsletter} size={28} />}
-				meta={
-					<span className="flex items-center gap-2">
-						<BadgeStatus status={campaign.status} label={statusLabel} />
-						{publishTo !== "both" && <span className="text-xs text-muted-foreground">{describePublishTo(campaign)}</span>}
-					</span>
+				icon={<AvatarNewsletter newsletter={newsletter} size={40} className="rounded-xl" />}
+				details={
+					<LineCampaign
+						campaign={campaign}
+						statusLabel={statusLabel}
+						publishTo={publishTo}
+						pageUrl={pageUrl}
+						timeZone={timeZone}
+					/>
 				}
 			>
-				{!readOnly && (
+				{canManage && (
 					<>
 						{campaign.status === "sent" && remainingCount > 0 && isSendingEnabled() && !isBlocked && (
 							<GatePlan reason="send">
@@ -175,6 +198,14 @@ export default function CampaignReport({
 								</ButtonCampaignAction>
 							</GatePlan>
 						)}
+						{hasPage && (
+							<Button asChild variant="outline">
+								<Link href={`/campaigns/${id}/web`}>
+									<PenLine data-icon="inline-start" />
+									Edit web page
+								</Link>
+							</Button>
+						)}
 						<MenuReport
 							id={id}
 							subject={campaign.subject}
@@ -203,7 +234,7 @@ export default function CampaignReport({
 					/>
 				) : (
 					campaign.status === "paused" &&
-					campaign.pauseReason && <TextPauseReason reason={campaign.pauseReason} code={campaign.pauseCode} canUpgrade={!readOnly} />
+					campaign.pauseReason && <TextPauseReason reason={campaign.pauseReason} code={campaign.pauseCode} canUpgrade={!readOnly && role === OWNER_ROLE} />
 				)}
 				{["sending", "paused"].includes(campaign.status) && !(reviewCode && !stats.recipients) && (
 					<div className="flex flex-col gap-2 animate-enter">
@@ -246,10 +277,7 @@ export default function CampaignReport({
 				{children}
 
 				{isWebOnly ? (
-					<>
-						{!reviewCode && <CardsPage campaign={campaign} detail="No email went out" className="animate-enter" style={{ "--stagger": 1 }} />}
-						{page}
-					</>
+					!reviewCode && <GridPage page={page} views={views} style={{ "--stagger": 1 }} className="animate-enter" />
 				) : (
 					<EmailResults
 						campaign={campaign}
@@ -265,6 +293,7 @@ export default function CampaignReport({
 						recipients={readOnly ? null : recipients}
 						clickMap={clickMap}
 						page={page}
+						views={views}
 						showComplaints={readOnly}
 					/>
 				)}
@@ -291,6 +320,7 @@ function EmailResults({
 	recipients,
 	clickMap,
 	page,
+	views,
 	showComplaints,
 }) {
 	// Bounced is hard bounces only: the rest are on their way, or an inbox refused them for now, like a full mailbox.
@@ -352,9 +382,8 @@ function EmailResults({
 						{providers.length > 0 ? <TableProviders providers={providers} /> : <TextPanelEmpty>No emails sent yet</TextPanelEmpty>}
 					</PanelTab>
 					{page && (
-						<PanelTab value="website" className="flex flex-col gap-3">
-							<CardsPage campaign={campaign} detail="On your website" />
-							{page}
+						<PanelTab value="website">
+							<GridPage page={page} views={views} />
 						</PanelTab>
 					)}
 				</TabsPage>
@@ -363,25 +392,54 @@ function EmailResults({
 	);
 }
 
-// The issue's page on the website: its views, and when it went live.
-function CardsPage({ campaign, detail, className, style }) {
+// The issue's page beside its views, on wide screens.
+function GridPage({ page, views, className, style }) {
 	return (
-		<div style={style} className={cn("grid grid-cols-2 gap-3 sm:grid-cols-3", className)}>
-			<CardStat label="Page views" value={formatNumber(campaign.webViews ?? 0)} detail="Once per reader a day" />
-			<CardStat label="Published" value={formatDate(campaign.sentAt ?? campaign.startedAt)} detail={detail} />
+		<div style={style} className={cn("grid gap-3", page && "lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]", className)}>
+			{page}
+			{views}
 		</div>
 	);
 }
 
-// Its address on the website, which its owner can change, with a copy of it.
-function RowPageUrl({ id, slug, newsletter }) {
-	const urls = getArchiveUrls(newsletter);
+// Under its subject: where it stands and since when, and where it went when that's not both email and the website: an
+// issue on the website links to its page.
+function LineCampaign({ campaign, statusLabel, publishTo, pageUrl, timeZone }) {
+	const isOut = campaign.status === "sent";
+	const at = isOut ? (campaign.sentAt ?? campaign.startedAt) : campaign.startedAt;
+	const host = pageUrl && new URL(pageUrl).host;
+	const items = [
+		at && (
+			<time key="at" dateTime={new Date(at).toISOString()} className="tabular-nums">
+				{isOut ? formatDateTime(at, timeZone) : `Started ${formatDateTime(at, timeZone)}`}
+			</time>
+		),
+		pageUrl ? (
+			<a
+				key="page"
+				href={pageUrl}
+				target="_blank"
+				rel="noreferrer"
+				className="inline-flex items-center gap-1.5 transition-colors duration-150 hover:text-foreground"
+			>
+				<ImageFavicon domain={host} size={14} />
+				On your website
+			</a>
+		) : (
+			publishTo !== "both" && <span key="where">{describePublishTo(campaign)}</span>
+		),
+	].filter(Boolean);
+
 	return (
-		<div className="grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-x-2 rounded-xl bg-card px-4 shadow-border transition-colors duration-150 focus-within:bg-muted/40">
-			<span className="text-sm text-muted-foreground">URL</span>
-			<InputCampaignSlug campaignId={id} initialSlug={slug} urlBase={urls.absolutePost("")} isPublished />
-			<ButtonCopy value={urls.absolutePost(slug)} label="Copy link" />
-		</div>
+		<span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+			<BadgeStatus status={campaign.status} label={statusLabel} />
+			{items.map((item, index) => (
+				<span key={item.key} className="flex items-center gap-2">
+					{index > 0 && <span aria-hidden="true">·</span>}
+					{item}
+				</span>
+			))}
+		</span>
 	);
 }
 

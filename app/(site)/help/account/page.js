@@ -58,7 +58,7 @@ export default function AccountPage() {
 			<p>
 				For {DELETION_GRACE_DAYS} days, signing in restores your account as it was. Your API keys and connected apps stay off: create
 				new ones once it&apos;s back. After {DELETION_GRACE_DAYS} days, its newsletters, contacts, campaigns and images are deleted for
-				good, and it can&apos;t be restored.
+				good, along with their teams, you leave the teams of newsletters shared with you, and it can&apos;t be restored.
 			</p>
 		</ArticleHelp>
 	);

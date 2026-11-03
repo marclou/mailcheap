@@ -6,8 +6,8 @@ import { CalendarClock, ChevronsUpDown, Globe, Layers, Loader2, Mail, Plus, Send
 import { setCampaignSegment } from "@/app/(app)/campaigns/actions";
 import CardSettings from "@/components/CardSettings";
 import { ListTips } from "@/components/CardTips";
+import CardWebPage from "@/components/CardWebPage";
 import DialogSegment from "@/components/DialogSegment";
-import InputCampaignSlug from "@/components/InputCampaignSlug";
 import ListCleanupPreview from "@/components/ListCleanupPreview";
 import NoticeOwnDomain from "@/components/NoticeOwnDomain";
 import NoticePace from "@/components/NoticePace";
@@ -35,23 +35,29 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getTipFix } from "@/lib/campaign-steps";
 import { formatCount, formatNumber, formatSendTime } from "@/lib/format";
-import { withoutMergeTags } from "@/lib/merge-tags";
 import { PUBLISH_OPTIONS } from "@/lib/publish-to";
-import { slugify } from "@/lib/slug";
 import { toast } from "@/lib/toast";
 import { useIsClient } from "@/lib/use-is-client";
 import { cn } from "@/lib/utils";
 
 // The send step: where the issue goes (by email, on the website or both), who gets it, everyone unless one of the
-// newsletter's segments narrows it, then now or at a time, and how fast it goes out. Its button is in the editor's bar,
-// and lib/use-send-campaign.js holds what it does, with its count of contacts. everyoneCount: all the newsletter's
-// active contacts, what a segment's count is out of. A web-only issue has no audience or pace: it goes on the website.
-// onEdit(field, words): a tip's fix, from the dialog a send or a schedule stopped in.
+// newsletter's segments narrows it, its page on the website, then now or at a time, and how fast it goes out. Its button
+// is in the editor's bar, and lib/use-send-campaign.js holds what it does, with its count of contacts. everyoneCount: all
+// the newsletter's active contacts, what a segment's count is out of. A web-only issue has no audience or pace: it goes
+// on the website. subject, previewText, body and format: the draft as it's written, which its page's card follows
+// (components/CardWebPage.jsx), and onBeforeSave saves. onEdit(field, words): a tip's fix, from the dialog a send or a
+// schedule stopped in.
 export default function PanelSend({
 	sending,
 	campaign,
 	newsletter,
 	subject,
+	previewText,
+	body,
+	format,
+	contactFields,
+	otherPictures,
+	onBeforeSave,
 	everyoneCount,
 	segments,
 	isSegmentDeleted,
@@ -83,16 +89,6 @@ export default function PanelSend({
 	// As the send and schedule dialogs counted them: a send with its last-chance emails, a schedule its contacts.
 	const paceEmails = isNow ? sending.sendEmails : sending.scheduleRecipients;
 	const isCleanupEnabled = isEmail && Boolean(newsletter.cleanup?.enabled);
-	const slugRow = archiveUrlBase && publishTo !== "email" && (
-		<RowCampaign label="Web page">
-			<InputCampaignSlug
-				campaignId={campaign._id}
-				initialSlug={campaign.archiveSlug ?? ""}
-				placeholder={slugify(withoutMergeTags(subject), 80) || "issue"}
-				urlBase={archiveUrlBase}
-			/>
-		</RowCampaign>
-	);
 	const from = newsletter.fromName ? `${newsletter.fromName} <${newsletter.fromEmail}>` : newsletter.fromEmail;
 	const recipients = sending.scheduleRecipients;
 	const isDeleted = Boolean(segmentId && !segment && isSegmentDeleted && segmentId === campaign.segmentId);
@@ -166,12 +162,6 @@ export default function PanelSend({
 				</div>
 			</CardSettings>
 
-			{!isEmail && slugRow && (
-				<CardSettings title="On your website" stagger={1}>
-					{slugRow}
-				</CardSettings>
-			)}
-
 			{isEmail && (
 				<CardSettings title="Who gets it" stagger={1}>
 					<div>
@@ -223,7 +213,6 @@ export default function PanelSend({
 							</span>
 						</RowCampaign>
 					)}
-					{slugRow}
 					{isCleanupEnabled &&
 						(isNow ? (
 							<div className="p-3">
@@ -235,6 +224,21 @@ export default function PanelSend({
 							</p>
 						))}
 				</CardSettings>
+			)}
+
+			{archiveUrlBase && publishTo !== "email" && (
+				<CardWebPage
+					campaign={campaign}
+					newsletter={newsletter}
+					subject={subject}
+					previewText={previewText}
+					body={body}
+					format={format}
+					contactFields={contactFields}
+					otherPictures={otherPictures}
+					archiveUrlBase={archiveUrlBase}
+					onBeforeSave={onBeforeSave}
+				/>
 			)}
 
 			<CardSettings title="When" stagger={2}>

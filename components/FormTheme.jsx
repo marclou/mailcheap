@@ -9,18 +9,18 @@ import PreviewEmail from "@/components/PreviewEmail";
 import { PreviewThemeCard, PreviewThemeSite } from "@/components/PreviewTheme";
 import { Button } from "@/components/ui/button";
 import { UNSUBSCRIBE_PLACEHOLDER, renderEmail } from "@/lib/render-email";
-import { THEME_PRESETS, getThemeOutput, normalizeTheme, resolveTheme } from "@/lib/themes";
+import { ADAPTIVE_COLORS, THEME_PRESETS, getThemeOutput, normalizeTheme, resolveTheme } from "@/lib/themes";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 // Design: the presets as cards, each showing the newsletter's website and an email in it. A click applies one at once,
 // with an undo; Customize changes its colors, fonts and shapes with both previews live, saved with the bar like the
 // other settings. The draft holds a theme's full values: saving sends them all, so nothing left from before survives.
-export default function FormTheme({ newsletter, postalAddress }) {
+export default function FormTheme({ newsletter, postalAddress, isCustomizingAtStart = false }) {
 	const [saved, setSaved] = useState(() => toValues(newsletter.theme));
 	const [draft, setDraft] = useState(saved);
 	const [savedAt, setSavedAt] = useState(null);
-	const [isCustomizing, setIsCustomizing] = useState(false);
+	const [isCustomizing, setIsCustomizing] = useState(isCustomizingAtStart);
 	const [applyingId, setApplyingId] = useState(null);
 	const [isSaving, startSaving] = useTransition();
 	const isDirty = toKey(draft) !== toKey(saved);
@@ -257,8 +257,6 @@ const VIEWS = [
 	{ id: "website", label: "Website", icon: Monitor },
 	{ id: "email", label: "Email", icon: Mail },
 ];
-// MailCheap's own colors follow the dashboard's light or dark mode, like its preview.
-const ADAPTIVE_COLORS = { background: "var(--background)", text: "var(--foreground)", accent: "var(--primary)" };
 // Without reduced motion, the outer dots move out past their overlap.
 const PALETTE = [
 	{ key: "background", spread: "motion-safe:group-hover/card:-translate-x-1.5" },

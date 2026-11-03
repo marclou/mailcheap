@@ -32,12 +32,16 @@ import {
 import { cn } from "@/lib/utils";
 
 // What the issue's sections pick from, which the campaign's page gives (components/FormCampaign.jsx): the newsletter's
-// segments, { id, name, description }, its tags as loadTags() reads them, how many of the issue's readers a tag or a
-// segment has (countReaders), and a segment made on the spot (newSegment(onSaved)).
+// segments, { id, name, description }, every tag and segment with how many of the issue's readers each picks
+// (countAll), how many of them one tag or segment picks, or everyone (countReaders), and a segment made on the spot
+// (newSegment(onSaved)).
 export const SectionsContext = createContext(null);
 
 const EVERYONE = "everyone";
 const NEW_SEGMENT = "new";
+// A menu item drawn as LinkHelp's link: the arrows still reach it, and picking it closes the menu.
+const LINK_ITEM =
+	"inline rounded-sm p-0 font-normal whitespace-nowrap text-foreground underline decoration-foreground/30 underline-offset-4 transition-colors duration-150 hover:decoration-foreground focus:bg-transparent focus:text-foreground focus:decoration-foreground focus-visible:ring-2 focus-visible:ring-ring/50";
 // A section holds any of the issue's blocks but another section (lib/sections.js).
 const SECTION_CONTENT = "(paragraph | heading | blockquote | bulletList | orderedList | horizontalRule | image | callout | button | htmlBlock)+";
 
@@ -135,21 +139,23 @@ export default function BlockSection({ node, updateAttributes, editor, getPos })
 	);
 }
 
-// Who sees the section and where it shows, with how many of the issue's readers that is.
+// Who sees the section, with how many of the issue's readers that is, and where it shows.
 function SettingsSection({ rule, isDeleted, onChange, onAddOpposite, onRemove }) {
 	const context = use(SectionsContext);
 	const group = rule?.group ?? null;
-	const groupKey = group ? formatSectionGroup(group) : null;
+	const groupKey = group ? formatSectionGroup(group) : EVERYONE;
 	const isExcept = Boolean(rule?.isExcept);
 	const place = rule?.place ?? "both";
 	const [counted, setCounted] = useState(null);
-	const count = counted?.key === groupKey ? counted.result : null;
+	const count = place !== "web" && !isDeleted && counted?.key === groupKey ? counted.count : null;
 
-	// Counted afresh for each group picked, and only the latest answer shows. One that fails shows no count.
+	// Counted afresh for each pick, and only the latest answer shows. One that fails shows no count.
 	useEffect(() => {
-		if (place === "web" || isDeleted || !groupKey || !context) return;
+		if (place === "web" || isDeleted || !context) return;
 		let isCurrent = true;
-		context.countReaders(groupKey).then((result) => isCurrent && setCounted({ key: groupKey, result: result ?? { isMissing: true } }));
+		context
+			.countReaders(groupKey === EVERYONE ? null : groupKey)
+			.then((result) => isCurrent && setCounted({ key: groupKey, count: result?.count ?? null }));
 		return () => {
 			isCurrent = false;
 		};
@@ -164,26 +170,12 @@ function SettingsSection({ rule, isDeleted, onChange, onAddOpposite, onRemove })
 		onChange(next === "web" ? { group: null, isExcept: false, place: next } : { group, isExcept, place: next });
 	}
 
-	const shown = isExcept ? count?.readers - count?.count : count?.count;
-	const status =
-		place === "web"
-			? "Every visitor of your website sees it, and no email has it."
-			: isDeleted
-				? "Its segment was deleted: pick who sees it."
-				: !group
-					? "Everyone who gets this issue sees it in their email."
-					: !count
-						? "Counting readers…"
-						: count.isMissing
-							? "Only the readers it names see it in their email."
-							: `${formatNumber(shown)} of the ${formatNumber(count.readers)} readers who get this issue see it in their email.`;
-
 	return (
 		<div className="flex flex-col">
 			<div className="flex flex-col gap-4 p-4">
 				<div className="flex flex-col gap-2">
 					<p className="text-sm font-medium">Who sees this section</p>
-					<MenuReaders group={group} isDeleted={isDeleted} isDisabled={place === "web"} onPick={pickGroup} />
+					<MenuReaders group={group} count={count} isDeleted={isDeleted} isDisabled={place === "web"} onPick={pickGroup} />
 					<label className={cn("flex items-center justify-between gap-3 text-sm", (!group || place === "web") && "text-muted-foreground")}>
 						Everyone except them
 						<Switch checked={isExcept} disabled={!group || place === "web"} onCheckedChange={(checked) => onChange({ group, isExcept: checked, place })} />
@@ -209,10 +201,6 @@ function SettingsSection({ rule, isDeleted, onChange, onAddOpposite, onRemove })
 						))}
 					</div>
 				</div>
-				<p role="status" className={cn("text-sm text-pretty text-muted-foreground tabular-nums", isDeleted && place !== "web" && "text-destructive")}>
-					{status}
-					{group && place === "both" && " Every visitor of your website sees it too: it doesn't know who's reading."}
-				</p>
 			</div>
 			<div className="flex flex-col border-t p-1">
 				{group && (
@@ -233,19 +221,23 @@ function SettingsSection({ rule, isDeleted, onChange, onAddOpposite, onRemove })
 	);
 }
 
-// Everyone, a tag or one of the newsletter's segments, or a segment made here. The tags are read as it first opens.
-function MenuReaders({ group, isDeleted, isDisabled, onPick }) {
+// Everyone, a tag or one of the newsletter's segments, or a segment made here, each with how many of the issue's readers
+// it picks, read as it first opens and again once a segment is made. count: the picked one's, which its button shows.
+function MenuReaders({ group, count, isDeleted, isDisabled, onPick }) {
 	const context = use(SectionsContext);
 	const segments = context?.segments ?? [];
-	const [tags, setTags] = useState(null);
+	const [loaded, setLoaded] = useState(null);
+	const counts = loaded?.segments === segments ? loaded.result : null;
 	const value = group ? formatSectionGroup(group) : EVERYONE;
-	const tagNames = tags?.map(({ name }) => name) ?? [];
-	// A tag no contact has yet still shows as picked.
-	const shownTags = group?.kind === "tag" && tags && !tagNames.includes(group.value) ? [{ name: group.value, contacts: 0 }, ...tags] : (tags ?? []);
+	const readers = new Map(counts?.groups.map((row) => [row.group, row.readers]));
+	const tags = counts?.groups.filter((row) => row.group.startsWith("tag:")) ?? [];
+	// A tag no contact has still shows as picked.
+	const shownTags = group?.kind === "tag" && counts && !readers.has(value) ? [{ group: value, name: group.value, readers: 0 }, ...tags] : tags;
 	const label = group ? describeSectionGroup(group, segments) : "Everyone";
 
 	function load(open) {
-		if (open && !tags) context?.loadTags().then(setTags);
+		if (!open || counts || !context) return;
+		context.countAll().then((result) => setLoaded({ segments, result: result ?? { readers: null, groups: [] } }));
 	}
 
 	function pick(next) {
@@ -263,45 +255,68 @@ function MenuReaders({ group, isDeleted, isDisabled, onPick }) {
 						isDeleted && "border-destructive/50 text-destructive"
 					)}
 				>
-					<span className="min-w-0 flex-1 truncate">{label}</span>
+					<span className="flex min-w-0 flex-1 items-baseline gap-1">
+						<span className="truncate">{label}</span>
+						{typeof count === "number" && <span className="shrink-0 text-muted-foreground tabular-nums">{`(${formatNumber(count)})`}</span>}
+					</span>
 					<ChevronsUpDown aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
 				</button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" collisionPadding={12} className="max-h-80 w-(--radix-dropdown-menu-trigger-width) min-w-64">
 				<DropdownMenuRadioGroup value={value} onValueChange={pick}>
-					<DropdownMenuRadioItem value={EVERYONE}>Everyone</DropdownMenuRadioItem>
+					<DropdownMenuRadioItem value={EVERYONE}>
+						<span className="min-w-0 flex-1 truncate">Everyone</span>
+						<TextReaders value={counts?.readers} />
+					</DropdownMenuRadioItem>
 					<DropdownMenuSeparator />
 					<DropdownMenuLabel className="text-xs text-muted-foreground">Readers tagged</DropdownMenuLabel>
-					{!tags && <p className="px-2 py-1.5 text-sm text-muted-foreground">Loading tags…</p>}
-					{tags && shownTags.length === 0 && (
+					{!counts && <p className="px-2 py-1.5 text-sm text-muted-foreground">Loading tags…</p>}
+					{counts && shownTags.length === 0 && (
 						<p className="px-2 py-1.5 text-sm text-pretty text-muted-foreground">
 							No tags yet. <LinkHelp article="contacts" section="tags" className="font-normal">Tagging contacts</LinkHelp>
 						</p>
 					)}
-					{shownTags.map(({ name, contacts }) => (
-						<DropdownMenuRadioItem key={name} value={formatSectionGroup({ kind: "tag", value: name })}>
-							<span className="min-w-0 flex-1 truncate">{name}</span>
-							<span className="ml-2 shrink-0 text-xs text-muted-foreground tabular-nums">{formatNumber(contacts)}</span>
+					{shownTags.map((row) => (
+						<DropdownMenuRadioItem key={row.group} value={row.group}>
+							<span className="min-w-0 flex-1 truncate">{row.name}</span>
+							<TextReaders value={row.readers} />
 						</DropdownMenuRadioItem>
 					))}
 					<DropdownMenuSeparator />
 					<DropdownMenuLabel className="text-xs text-muted-foreground">Readers in a segment</DropdownMenuLabel>
-					{segments.map(({ id, name, description }) => (
-						<DropdownMenuRadioItem key={id} value={formatSectionGroup({ kind: "segment", value: id })} className="items-start py-2">
-							<span className="flex min-w-0 flex-col gap-0.5">
-								<span className="truncate">{name}</span>
-								{description && <span className="line-clamp-2 text-xs text-pretty text-muted-foreground">{description}</span>}
-							</span>
-						</DropdownMenuRadioItem>
-					))}
+					{segments.length === 0 && (
+						<p className="px-2 py-1.5 text-sm text-pretty text-muted-foreground">
+							No segments yet.{" "}
+							<DropdownMenuItem asChild onSelect={() => pick(NEW_SEGMENT)} className={LINK_ITEM}>
+								<button type="button">Add segments</button>
+							</DropdownMenuItem>
+						</p>
+					)}
+					{segments.map(({ id, name }) => {
+						const key = formatSectionGroup({ kind: "segment", value: id });
+						return (
+							<DropdownMenuRadioItem key={id} value={key}>
+								<span className="min-w-0 flex-1 truncate">{name}</span>
+								<TextReaders value={readers.get(key)} />
+							</DropdownMenuRadioItem>
+						);
+					})}
 				</DropdownMenuRadioGroup>
-				<DropdownMenuItem onSelect={() => pick(NEW_SEGMENT)} className="text-muted-foreground">
-					<Plus />
-					New segment
-				</DropdownMenuItem>
+				{segments.length > 0 && (
+					<DropdownMenuItem onSelect={() => pick(NEW_SEGMENT)} className="text-muted-foreground">
+						<Plus />
+						New segment
+					</DropdownMenuItem>
+				)}
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
+}
+
+// How many of the issue's readers a row picks, once they're counted.
+function TextReaders({ value }) {
+	if (typeof value !== "number") return null;
+	return <span className="ml-2 shrink-0 text-xs text-muted-foreground tabular-nums">{formatNumber(value)}</span>;
 }
 
 function ButtonSettings({ icon: Icon, onClick, children }) {

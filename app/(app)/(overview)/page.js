@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { ChevronRight, Newspaper, Plus } from "lucide-react";
 import BannerUsage from "@/components/BannerUsage";
+import ButtonPeriod from "@/components/ButtonPeriod";
 import CardUsage from "@/components/CardUsage";
 import ChartSends from "@/components/ChartSends";
 import ChartSubscribers from "@/components/ChartSubscribers";
@@ -17,37 +18,41 @@ import StateEmpty from "@/components/StateEmpty";
 import TableCampaigns from "@/components/TableCampaigns";
 import { Button } from "@/components/ui/button";
 import { hasActiveSubscription } from "@/lib/account-state";
-import { requireAccount } from "@/lib/auth";
 import { listNewsletterCampaigns } from "@/lib/campaign-queries";
 import { getSharedDomain } from "@/lib/config";
 import { formatNumber, formatSigned } from "@/lib/format";
 import { ADD_NEWSLETTER_PATH } from "@/lib/newsletters";
-import { getEmailStats, getHourlySends, getSubscriberHistory } from "@/lib/overview-data";
-import { PERIOD_DAYS } from "@/lib/overview-series";
+import { getEmailStats, getSends, getSubscriberHistory } from "@/lib/overview-data";
+import { buildSendBars, getBarUnit, getPeriodPoints, readPeriod } from "@/lib/overview-series";
 import { getAccountPlan } from "@/lib/plans";
 import { getSelectedNewsletter, openNewsletter } from "@/lib/selected-newsletter";
 import { findAccountDomains } from "@/lib/sender";
 import { getOwnDomainNudge, isOwnDomainNudgeShown } from "@/lib/sender-rules";
-import { TIME_ZONE_COOKIE, resolveTimeZone, timeZoneLabel } from "@/lib/time-zone";
+import { OWNER_ROLE } from "@/lib/team-rules";
+import { TIME_ZONE_COOKIE, resolveTimeZone, timeZoneLabel, toDateKey } from "@/lib/time-zone";
 import { getUsage, hasWelcomeEmailsOn } from "@/lib/usage";
 import { cn } from "@/lib/utils";
 
 // The open newsletter's numbers, then the plan its account's newsletters share. The page waits for the
-// newsletter; every section then loads on its own behind a skeleton of its size.
+// newsletter; every section then loads on its own behind a skeleton of its size. The header's button picks the
+// period of the numbers and both charts (?days=, or ?from= and ?to=), which their Suspense keys leave out: another
+// period replaces them in place, without skeletons.
 export default async function OverviewPage({ searchParams }) {
-	const { account } = await requireAccount();
-	const [view, { newsletter: newsletterParam }, cookieStore, usage] = await Promise.all([
-		getSelectedNewsletter(),
-		searchParams,
-		cookies(),
-		getUsage(account),
-	]);
-	openNewsletter(view, newsletterParam, "/");
-	const { newsletters, selected } = view;
+	const [view, params, cookieStore] = await Promise.all([getSelectedNewsletter(), searchParams, cookies()]);
+	openNewsletter(view, params.newsletter, "/");
+	const { account, selected } = view;
+	// The plan and the sender's domain are the owner's: a team member sees the newsletter's numbers.
+	const isOwner = view.role === OWNER_ROLE;
+	const usage = await getUsage(account);
 	const timeZone = resolveTimeZone(cookieStore.get(TIME_ZONE_COOKIE)?.value);
+	const now = new Date();
+	const todayKey = toDateKey(now, timeZone);
+	const period = readPeriod(params, todayKey);
+	const points = getPeriodPoints(period, { timeZone, now });
+	const fades = "transition-opacity duration-200 group-has-[[data-pending]]/overview:opacity-60";
 	const selectedId = selected?._id.toString();
 	const accountId = account._id;
-	const hasPlan = hasActiveSubscription(account);
+	const hasPlan = isOwner && hasActiveSubscription(account);
 	const isWelcomePaused = usage.welcomeEmailsPaused && (await hasWelcomeEmailsOn(accountId));
 	// With a plan only: until then there's no shared address, and adding a domain waits for one.
 	const domainNudge =
@@ -56,12 +61,12 @@ export default async function OverviewPage({ searchParams }) {
 			: null;
 
 	return (
-		<>
+		<div className="group/overview">
 			<Suspense fallback={null}>
 				<CookieTimezone />
 			</Suspense>
 			{hasPlan && <BannerUsage usage={usage} isWelcomePaused={isWelcomePaused} />}
-			<HeaderPage title="Overview" />
+			<HeaderPage title="Overview">{selected && <ButtonPeriod period={period} todayKey={todayKey} />}</HeaderPage>
 
 			<div className="flex flex-col gap-8">
 				{isOwnDomainNudgeShown(domainNudge, selected) && (
@@ -74,23 +79,25 @@ export default async function OverviewPage({ searchParams }) {
 				)}
 				{selected ? (
 					<>
-						<Section title={`Last ${PERIOD_DAYS} days`} stagger={1}>
-							<div className="overflow-hidden rounded-2xl bg-card shadow-border">
+						<Section aria-label={period.label} stagger={1}>
+							<div className={cn("overflow-hidden rounded-2xl bg-card shadow-border", fades)}>
 								<Suspense key={`stats-${selectedId}`} fallback={<SkeletonStats />}>
-									<StatsEmail accountId={accountId} newsletterId={selected._id} />
+									<StatsEmail accountId={accountId} newsletterId={selected._id} timeZone={timeZone} period={period} />
 								</Suspense>
 								<div className="border-t border-border/60">
 									<Suspense key={`subscribers-${selectedId}`} fallback={<SkeletonSubscribers />}>
-										<CardSubscribers accountId={accountId} newsletterId={selected._id} timeZone={timeZone} />
+										<CardSubscribers accountId={accountId} newsletterId={selected._id} timeZone={timeZone} period={period} points={points} />
 									</Suspense>
 								</div>
 							</div>
 						</Section>
 
-						<Section title="Today" stagger={2}>
-							<Suspense key={`sends-${selectedId}`} fallback={<SkeletonSends />}>
-								<CardSends accountId={accountId} newsletterId={selected._id} timeZone={timeZone} />
-							</Suspense>
+						<Section aria-label="Emails sent" stagger={2}>
+							<div className={fades}>
+								<Suspense key={`sends-${selectedId}`} fallback={<SkeletonSends />}>
+									<CardSends accountId={accountId} newsletterId={selected._id} timeZone={timeZone} period={period} points={points} />
+								</Suspense>
+							</div>
 						</Section>
 
 						<Section title="Campaigns" href="/campaigns" stagger={3}>
@@ -112,25 +119,25 @@ export default async function OverviewPage({ searchParams }) {
 
 				{hasPlan && usage.emailsLimit !== null && (
 					<Section title={`${getAccountPlan(account)?.name ?? "Your"} plan`} href="/billing" stagger={4}>
-						<CardUsage usage={usage} isShared={newsletters.length > 1} />
+						<CardUsage usage={usage} isShared={view.ownCount > 1} />
 					</Section>
 				)}
 			</div>
-		</>
-	);
-}
-
-async function StatsEmail({ accountId, newsletterId }) {
-	const stats = await getEmailStats({ accountId, newsletterId });
-	return (
-		<div className="animate-fade-in">
-			<ListStats current={stats.current} previous={stats.previous} />
 		</div>
 	);
 }
 
-async function CardSubscribers({ accountId, newsletterId, timeZone }) {
-	const history = await getSubscriberHistory({ accountId, newsletterId, timeZone });
+async function StatsEmail({ accountId, newsletterId, timeZone, period }) {
+	const stats = await getEmailStats({ accountId, newsletterId, timeZone, days: period.days, from: period.from, to: period.to });
+	return (
+		<div className="animate-fade-in">
+			<ListStats current={stats.current} previous={stats.previous} span={period.span} />
+		</div>
+	);
+}
+
+async function CardSubscribers({ accountId, newsletterId, timeZone, period, points }) {
+	const history = await getSubscriberHistory({ accountId, newsletterId, timeZone, points });
 
 	return (
 		<div className="flex flex-col gap-6 p-5 animate-fade-in sm:p-6">
@@ -142,14 +149,14 @@ async function CardSubscribers({ accountId, newsletterId, timeZone }) {
 							{formatNumber(history.total)}
 						</span>
 						<span className={cn("text-sm font-medium tabular-nums", growthTone(history.growth))}>
-							{formatSigned(history.growth)} in {PERIOD_DAYS} days
+							{formatSigned(history.growth)} in {period.span}
 						</span>
 					</p>
 				</div>
 				<ListLegend
 					items={[
-						{ swatch: "line", label: `Last ${PERIOD_DAYS} days`, value: formatSigned(history.growth) },
-						{ swatch: "dashed", label: `Previous ${PERIOD_DAYS} days`, value: formatSigned(history.previousGrowth) },
+						{ swatch: "line", label: period.label, value: formatSigned(history.growth) },
+						{ swatch: "dashed", label: `Previous ${period.span}`, value: formatSigned(history.previousGrowth) },
 					]}
 				/>
 			</div>
@@ -158,32 +165,33 @@ async function CardSubscribers({ accountId, newsletterId, timeZone }) {
 	);
 }
 
-async function CardSends({ accountId, newsletterId, timeZone }) {
-	const hours = await getHourlySends({ accountId, newsletterId, timeZone });
-	const sentToday = hours.reduce((sum, { today }) => sum + (today ?? 0), 0);
-	const sentYesterday = hours.reduce((sum, { yesterday }) => sum + yesterday, 0);
+async function CardSends({ accountId, newsletterId, timeZone, period, points }) {
+	const counts = await getSends({ accountId, newsletterId, timeZone, points });
+	const unit = getBarUnit(points);
+	const sent = counts.current.reduce((total, count) => total + count, 0);
+	const previousSent = counts.previous.reduce((total, count) => total + count, 0);
 
 	return (
 		<div className="flex flex-col gap-6 rounded-2xl bg-card p-5 shadow-border animate-fade-in sm:p-6">
 			<div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
 				<div className="flex flex-col gap-1">
-					<h2 className="text-sm font-medium text-muted-foreground">Emails sent per hour</h2>
+					<h2 className="text-sm font-medium text-muted-foreground">Emails sent per {unit}</h2>
 					<p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-						<span className="text-3xl font-semibold tracking-tight tabular-nums">{formatNumber(sentToday)}</span>
+						<span className="text-3xl font-semibold tracking-tight tabular-nums">{formatNumber(sent)}</span>
 						<span className="text-sm text-muted-foreground tabular-nums">
-							{formatNumber(sentYesterday)} yesterday
+							{formatNumber(previousSent)} in the previous {period.span}
 						</span>
 					</p>
 				</div>
 				<ListLegend
 					items={[
-						{ swatch: "bar", label: "Today" },
-						{ swatch: "ghost", label: "Yesterday" },
+						{ swatch: "bar", label: period.label },
+						{ swatch: "ghost", label: `Previous ${period.span}` },
 						{ label: timeZoneLabel(timeZone) },
 					]}
 				/>
 			</div>
-			<ChartSends hours={hours} />
+			<ChartSends bars={buildSendBars(points, counts)} unit={unit} isLive={!period.from} />
 		</div>
 	);
 }
@@ -205,10 +213,10 @@ async function TableRecentCampaigns({ account, newsletter }) {
 	);
 }
 
-function Section({ title, href, stagger, children }) {
+function Section({ title, href, stagger, children, ...props }) {
 	return (
-		<section style={{ "--stagger": stagger }} className="flex flex-col gap-3 animate-enter">
-			<SectionTitle href={href}>{title}</SectionTitle>
+		<section style={{ "--stagger": stagger }} className="flex flex-col gap-3 animate-enter" {...props}>
+			{title && <SectionTitle href={href}>{title}</SectionTitle>}
 			{children}
 		</section>
 	);

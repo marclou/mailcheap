@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getStatusChanges, getStatusLock, needsConsent } from "@/lib/contact-status";
 import { toast } from "@/lib/toast";
+import { useHasRole } from "@/lib/use-team-role";
 
 // Deleted, they leave their status behind (lib/contacts.js).
 const AFTER_DELETE = {
@@ -39,6 +40,8 @@ const AFTER_DELETE = {
 export default function MenuContact({ id, email, status, undeliverableReason, firstName = "", tags = [], fields = {} }) {
 	const [dialog, setDialog] = useState(null);
 	const [isPending, startTransition] = useTransition();
+	// Status changes and deleting are for the newsletter's admins.
+	const isAdmin = useHasRole("admin");
 	const lock = getStatusLock(status, undeliverableReason);
 
 	function change(nextStatus) {
@@ -76,26 +79,30 @@ export default function MenuContact({ id, email, status, undeliverableReason, fi
 						<Tag />
 						Edit tags
 					</DropdownMenuItem>
-					<DropdownMenuSeparator />
-					{lock && <DropdownMenuLabel className="max-w-56 font-normal">{lock}.</DropdownMenuLabel>}
-					{getStatusChanges(status).map((nextStatus) => {
-						const { label, icon: Icon } = getChangeItem(status, nextStatus);
-						return (
-							<DropdownMenuItem
-								key={nextStatus}
-								variant={nextStatus === "unsubscribed" ? "destructive" : "default"}
-								onSelect={() => change(nextStatus)}
-							>
-								<Icon />
-								{label}
+					{isAdmin && (
+						<>
+							<DropdownMenuSeparator />
+							{lock && <DropdownMenuLabel className="max-w-56 font-normal">{lock}.</DropdownMenuLabel>}
+							{getStatusChanges(status).map((nextStatus) => {
+								const { label, icon: Icon } = getChangeItem(status, nextStatus);
+								return (
+									<DropdownMenuItem
+										key={nextStatus}
+										variant={nextStatus === "unsubscribed" ? "destructive" : "default"}
+										onSelect={() => change(nextStatus)}
+									>
+										<Icon />
+										{label}
+									</DropdownMenuItem>
+								);
+							})}
+							<DropdownMenuSeparator />
+							<DropdownMenuItem variant="destructive" onSelect={() => setDialog("delete")}>
+								<Trash2 />
+								Delete contact
 							</DropdownMenuItem>
-						);
-					})}
-					<DropdownMenuSeparator />
-					<DropdownMenuItem variant="destructive" onSelect={() => setDialog("delete")}>
-						<Trash2 />
-						Delete contact
-					</DropdownMenuItem>
+						</>
+					)}
 				</DropdownMenuContent>
 			</DropdownMenu>
 			<DialogContactDetails

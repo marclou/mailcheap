@@ -66,9 +66,9 @@ test("the ⋯ menu holds the export, Delete once filters narrow the list, and th
 		["Segments", "Contact fields", 'Export {formatCount(count, "contact")}', 'Delete {formatCount(count, "contact")}', "How contacts work"]
 	);
 	for (const item of items.slice(0, 2)) assert.match(item.attributes, /className="sm:hidden"/, `${item.label}: a button on wider screens`);
-	assert.match(menu, /\{hasContacts && \(\s*<DropdownMenuItem onSelect=\{download\}/, "Export, once the list has anyone");
+	assert.match(menu, /\{hasContacts && isAdmin && \(\s*<DropdownMenuItem onSelect=\{download\}/, "Export, once the list has anyone, for the newsletter's admins");
 	assert.match(menu, /\{canDelete && \(/);
-	assert.match(source, /const canDelete = hasContactFilters\(filters\) && count > 0;/);
+	assert.match(source, /const canDelete = isAdmin && hasContactFilters\(filters\) && count > 0;/);
 	assert.match(menu, /<DropdownMenuSeparator className=\{cn\(!hasContacts && "sm:hidden"\)\} \/>/, "no line on top of the help article alone");
 	assert.doesNotMatch(menu, /Add contacts|Import|With the API|By hand|FORM_SECTION/, "adding contacts is Add contacts' own");
 });

@@ -45,4 +45,5 @@ const TITLES = {
 	upload: "Pick a plan to upload more images",
 	website: "Pick a plan to put your website online",
 	websiteDomain: "Pick a plan to put your website on your own domain",
+	team: "Pick a plan to invite your team",
 };

@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 // opens it too, for touch screens and the keyboard. The campaign editor collapses it too while it's open, unless it's
 // opened there (lib/use-collapsed-sidebar.js); the next page shows it as it was left. isCollapsed: the cookie the
 // layout was rendered from.
-export default function NavSidebar({ isCollapsed: isSavedCollapsed, isAdmin, switcher, notifications, footer }) {
+export default function NavSidebar({ isCollapsed: isSavedCollapsed, isAdmin, role, switcher, notifications, footer }) {
 	const isLeftCollapsed = useSyncExternalStore(subscribe, readIsCollapsed, () => isSavedCollapsed);
 	const visit = useSyncExternalStore(subscribeToSidebarVisits, readSidebarVisit, () => 0);
 	const [expandedVisit, setExpandedVisit] = useState(0);
@@ -134,7 +134,7 @@ export default function NavSidebar({ isCollapsed: isSavedCollapsed, isAdmin, swi
 						</button>
 					</div>
 					<div className="mb-5">{switcher}</div>
-					<NavLinks isAdmin={isAdmin} notifications={notifications} />
+					<NavLinks isAdmin={isAdmin} role={role} notifications={notifications} />
 				</div>
 				<div className="shrink-0 px-3 pt-4">{footer}</div>
 			</div>

@@ -3,15 +3,18 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Check, CircleAlert, CodeXml, ExternalLink, FlaskConical, Loader2, RotateCcw, X } from "lucide-react";
+import { addDefaultAuthor, setDefaultAuthor } from "@/app/(app)/campaigns/actions";
 import { checkSlug, saveNewsletter, sendWelcomeTest } from "@/app/(app)/newsletters/actions";
 import BarSave from "@/components/BarSave";
 import ButtonCopy from "@/components/ButtonCopy";
 import CardWebsiteDomain, { OWN_DOMAIN_ID } from "@/components/CardWebsiteDomain";
+import DialogSendTest from "@/components/DialogSendTest";
 import EditorEmail from "@/components/EditorEmail";
 import InputImage from "@/components/InputImage";
 import LinkHelp from "@/components/LinkHelp";
 import LogoAnalyticsTool from "@/components/LogoAnalyticsTool";
 import NoticeWelcomePaused from "@/components/NoticeWelcomePaused";
+import PickerAuthor from "@/components/PickerAuthor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -39,6 +42,7 @@ import { getSlugFormatProblem } from "@/lib/newsletter-settings";
 import { ADD_DOMAIN_PATH, DOMAINS_PATH, MAX_AUTHOR_BIO_LENGTH, MAX_DESCRIPTION_LENGTH } from "@/lib/newsletters";
 import { getSharedAddress } from "@/lib/sender-rules";
 import { slugify } from "@/lib/slug";
+import { describeTestRecipients } from "@/lib/test-email-rules";
 import { toast } from "@/lib/toast";
 import { usePaywall } from "@/lib/use-paywall";
 import { cn } from "@/lib/utils";
@@ -59,7 +63,7 @@ const IMAGE_PREVIEW_PATTERN = /^(https:\/\/\S+\.\S{2,}\/\S+|\/\S+\.\w{3,4})$/;
 // to the field with #postal-address. hasArchiveHost: the server hosts websites on customers' own subdomains, and
 // websiteDomain is the newsletter's (lib/website-domain-rules.js). hasSentIssue: an issue went out, so the website can
 // be live (lib/archive-data.js). preselectDomain: one of the account's domains a link asked for in the from field; the
-// page opens with it picked and unsaved.
+// page opens with it picked and unsaved. authors: the Sender page's, { list, defaultId, suggestion } (FieldAuthor).
 export default function FormNewsletter({
 	section,
 	newsletter,
@@ -71,13 +75,14 @@ export default function FormNewsletter({
 	hasSentIssue,
 	defaultPostalAddress,
 	isSendingEnabled,
-	testEmail,
+	testRecipients = [],
 	cleanupTotals,
 	welcomePause,
 	signupReviews = null,
 	contactFields = [],
 	isCloud = false,
 	preselectDomain = null,
+	authors = null,
 }) {
 	const [draft, setDraft] = useState(() => {
 		const saved = getNewsletterDraft({ newsletter, domains, sharedDomain, defaultPostalAddress });
@@ -145,6 +150,7 @@ export default function FormNewsletter({
 					sharedDomain={sharedDomain}
 					fromEmail={fromEmail}
 					defaultPostalAddress={defaultPostalAddress}
+					authors={authors}
 				/>
 			)}
 			{section === "signups" && <SectionSignups {...form} review={signupReviews?.confirmation} />}
@@ -152,7 +158,7 @@ export default function FormNewsletter({
 				<SectionWelcome
 					{...form}
 					isSendingEnabled={isSendingEnabled}
-					testEmail={testEmail}
+					testRecipients={testRecipients}
 					welcomePause={welcomePause}
 					review={signupReviews?.welcome}
 				/>
@@ -236,6 +242,7 @@ function SectionGeneral({ draft, setDraft, set, newsletter, sharedDomain, appUrl
 					name="imageUrl"
 					defaultValue={imageUrl}
 					label="newsletter image"
+					isCropped
 					onChange={(value) => set("imageUrl", value)}
 				/>
 			</Field>
@@ -243,7 +250,7 @@ function SectionGeneral({ draft, setDraft, set, newsletter, sharedDomain, appUrl
 	);
 }
 
-function SectionSender({ draft, set, update, domains, sharedDomain, fromEmail, defaultPostalAddress }) {
+function SectionSender({ draft, set, update, newsletter, domains, sharedDomain, fromEmail, defaultPostalAddress, authors }) {
 	const postalAddressRef = useRef(null);
 	const { slug, fromName, fromLocal, fromDomain, postalAddress } = draft;
 	const sharedAddress = sharedDomain ? getSharedAddress(slug || "slug", sharedDomain) : null;
@@ -300,9 +307,7 @@ function SectionSender({ draft, set, update, domains, sharedDomain, fromEmail, d
 				</span>
 				<input type="hidden" name="fromEmail" value={fromEmail} />
 			</Field>
-			<Field label="Reply-to">
-				<Input name="replyTo" type="email" value={draft.replyTo} placeholder="Optional" onChange={update("replyTo")} />
-			</Field>
+			{authors && <FieldAuthor newsletterId={newsletter._id} {...authors} />}
 			<Field
 				label="Postal address"
 				htmlFor={POSTAL_ADDRESS_ID}
@@ -416,14 +421,15 @@ function SectionWelcome({
 	contactFields,
 	discardCount,
 	isSendingEnabled,
-	testEmail,
+	testRecipients,
 	welcomePause,
 	isCloud,
 	review,
 }) {
 	const paywall = usePaywall();
 	const hasPlan = paywall?.hasPlan ?? true;
-	const [isTesting, startTesting] = useTransition();
+	const [isTestOpen, setIsTestOpen] = useState(false);
+	const testButtonRef = useRef(null);
 	const [version, setVersion] = useState(0);
 	const { isWelcomeEnabled, welcome } = draft;
 	const isConfirmationOn = Boolean(newsletter.requireConfirmation);
@@ -435,13 +441,9 @@ function SectionWelcome({
 		if (next !== welcome) setVersion((count) => count + 1);
 	}
 
-	function sendTest() {
+	function openTest() {
 		if (!hasPlan) return paywall.open("test");
-		startTesting(async () => {
-			const result = await sendWelcomeTest(newsletter._id);
-			if (result?.error) toast.error(result.error);
-			else toast.success(`Test sent to ${testEmail}`);
-		});
+		setIsTestOpen(true);
 	}
 
 	return (
@@ -472,15 +474,35 @@ function SectionWelcome({
 				contactFields={contactFields}
 				note={
 					<p className="text-xs wrap-anywhere text-muted-foreground">
-						{isSendingEnabled || !hasPlan ? `Sends the saved version to ${testEmail}` : "Sending is off"}
+						{isSendingEnabled || !hasPlan ? `Sends the saved version to ${describeTestRecipients(testRecipients)}` : "Sending is off"}
 					</p>
 				}
 			>
-				<Button type="button" variant="outline" size="sm" onClick={sendTest} disabled={(hasPlan && !isSendingEnabled) || isTesting}>
-					{isTesting ? <Loader2 className="animate-spin" /> : <FlaskConical />}
+				<Button
+					ref={testButtonRef}
+					type="button"
+					variant="outline"
+					size="sm"
+					onClick={openTest}
+					disabled={hasPlan && !isSendingEnabled}
+				>
+					<FlaskConical />
 					Send test
 				</Button>
 			</EditorEmail>
+			<DialogSendTest
+				isOpen={isTestOpen}
+				onOpenChange={setIsTestOpen}
+				onCloseAutoFocus={(event) => {
+					event.preventDefault();
+					testButtonRef.current?.focus();
+				}}
+				newsletterId={newsletter._id}
+				defaultRecipients={testRecipients}
+				description="Sends the saved welcome email, with [Test] before its subject."
+				contactHint="The welcome email as this contact would get it, with their first name and fields."
+				onSend={(values) => sendWelcomeTest(newsletter._id, values)}
+			/>
 		</Section>
 	);
 }
@@ -721,6 +743,7 @@ function SectionWebsite({
 						name="authorImageUrl"
 						defaultValue={draft.authorImageUrl}
 						label="author photo"
+						isCropped
 						onChange={(value) => set("authorImageUrl", value)}
 					/>
 				</Field>
@@ -967,6 +990,46 @@ function CleanupTotals({ totals }) {
 	);
 }
 
+// Who the newsletter's new issues start with (lib/authors.js), whose address gets the replies to its own emails. Saved as
+// it's picked, like the authors added and edited here, so Save and Discard leave it as it is. list: its authors as
+// PickerAuthor takes them; defaultId: the default one's, whose place goes to the first of the others once they're removed.
+function FieldAuthor({ newsletterId, list, defaultId, suggestion }) {
+	const [authors, setAuthors] = useState(list);
+	const [chosenId, setChosenId] = useState(defaultId);
+	const authorId = authors.some(({ id }) => id === chosenId) ? chosenId : (authors[0]?.id ?? null);
+
+	return (
+		<Field
+			as="div"
+			label="Author"
+			hint={
+				authors.length > 0 ? (
+					<>
+						New issues start with this author, and each can have its own. Replies to your welcome and confirmation emails go
+						to them too. <LinkHelp article="writing" section="author" />
+					</>
+				) : (
+					<>
+						Who writes your issues: readers see their name, and replies go to their email. Issues need one before they go
+						out. <LinkHelp article="writing" section="author" />
+					</>
+				)
+			}
+		>
+			<PickerAuthor
+				variant="field"
+				authors={authors}
+				authorId={authorId}
+				suggestion={suggestion}
+				onPick={setDefaultAuthor}
+				onAdd={(values) => addDefaultAuthor(newsletterId, values)}
+				onAuthorsChange={setAuthors}
+				onAuthorChange={setChosenId}
+			/>
+		</Field>
+	);
+}
+
 // Each case ends on its way forward: a verified domain is picked right here, the rest is done on the Domains page.
 function getFromHint({ isShared, isDomainUnverified, fromDomain, domains, onPickDomain }) {
 	if (isShared) {
@@ -974,7 +1037,7 @@ function getFromHint({ isShared, isDomainUnverified, fromDomain, domains, onPick
 		const pending = domains.find((item) => !item.verified);
 		return (
 			<>
-				The shared address follows the slug and needs no setup. Replies go to the reply-to, or to your account email.{" "}
+				The shared address follows the slug and needs no setup. Replies go to the author below, or to your account email.{" "}
 				{verified ? (
 					<button type="button" onClick={() => onPickDomain(verified.domain)} className={INLINE_LINK}>
 						Send from {verified.domain}

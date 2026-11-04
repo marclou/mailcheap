@@ -7,6 +7,7 @@ import CardImports from "@/components/CardImports";
 import FilterContacts from "@/components/FilterContacts";
 import HeaderPage from "@/components/HeaderPage";
 import ProviderContactOptions from "@/components/ProviderContactOptions";
+import ProviderContactSelection from "@/components/ProviderContactSelection";
 import StateEmpty from "@/components/StateEmpty";
 import TableContacts, { NavPages } from "@/components/TableContacts";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -101,10 +102,18 @@ export default async function ContactsPage({ searchParams }) {
 				) : contacts.length === 0 ? (
 					<StateEmpty icon={Users} title="No contacts match" />
 				) : (
-					<TableContacts contacts={contacts} fields={fields} />
+					<ProviderContactSelection
+						key={`${newsletterId}${toFilterQuery(filters, { page })}`}
+						newsletterId={newsletterId}
+						filters={filters}
+						total={total}
+						counts={counts}
+						contacts={contacts.map(({ _id, status, tags: contactTags }) => ({ id: String(_id), status, tags: contactTags ?? [] }))}
+					>
+						<TableContacts contacts={contacts} fields={fields} />
+						<NavPages page={page} pageCount={pageCount} total={total} hrefFor={hrefFor} />
+					</ProviderContactSelection>
 				)}
-
-				<NavPages page={page} pageCount={pageCount} total={total} hrefFor={hrefFor} />
 			</div>
 		</ProviderContactOptions>
 	);

@@ -205,7 +205,7 @@ function Stage({
 }
 
 // A mail app's reading pane: the window's bar, then the message's header scrolling with the email, which takes the
-// pane's whole width and centers itself like inboxes show it. The phone shows the preview text, as an inbox's list does.
+// pane's whole width as inboxes give it. The phone shows the preview text, as an inbox's list does.
 function FrameDesktop({ sender, subject, html, clicks }) {
 	return (
 		<div className="flex h-full flex-col overflow-hidden rounded-xl bg-white text-zinc-900 shadow-2xl ring-1 ring-black/10">

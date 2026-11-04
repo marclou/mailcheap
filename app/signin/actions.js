@@ -14,6 +14,8 @@ import { getEmailSuggestion } from "@/lib/email-typos";
 import { findDomainsWithoutMail } from "@/lib/mail-domains";
 import { isExpiredOAuthQuery, readOAuthQueryField } from "@/lib/oauth-rules";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
+import { rememberNewsletter } from "@/lib/selected-newsletter";
+import { acceptInvitation, findInvitation, isSameInbox } from "@/lib/team";
 import { normalizeEmail, toSafeNextPath } from "@/lib/validation";
 
 const CODES_PER_IP = { name: "signin-code-ip", limit: 10, window: "15 m" };
@@ -45,6 +47,9 @@ export async function sendSigninCode(_state, formData) {
 		return { error: "Too many codes today. Try again tomorrow." };
 	}
 	if (!isEmailAllowed(email)) return { error: SIGNIN_NOT_ALLOWED_MESSAGE };
+	// From an invitation's link, only the address it went to joins: the form keeps it.
+	const invitation = await findInvitation(String(formData.get("invitation") ?? ""));
+	if (invitation && !isSameInbox(email, invitation.member.email)) return { error: "Sign in with the address your invitation went to" };
 	const problem = isCloud() && (await getAddressProblem(email));
 	if (problem) return problem;
 	try {
@@ -70,7 +75,8 @@ async function getAddressProblem(email) {
 
 // The first sign-in creates the user, and the user's account with it (lib/auth.js). With an app's
 // authorization request, Better Auth carries on with it and answers where to go: the consent page, or back
-// to the app if it's already allowed.
+// to the app if it's already allowed. From an invitation's link, the invited address joins the team as it signs in, a new
+// user with the name it was invited with, and the dashboard opens on its newsletter.
 export async function verifySigninCode(_state, formData) {
 	const email = normalizeEmail(formData.get("email"));
 	const code = String(formData.get("code") ?? "").replace(/\s/g, "");
@@ -83,14 +89,19 @@ export async function verifySigninCode(_state, formData) {
 	}
 	if (!isEmailAllowed(email)) return { email, error: SIGNIN_NOT_ALLOWED_MESSAGE };
 	const oauthQuery = readOAuthQueryField(formData.get("oauth_query"));
+	const token = String(formData.get("invitation") ?? "");
+	const found = oauthQuery ? null : await findInvitation(token);
+	const invitation = found && isSameInbox(email, found.member.email) ? found : null;
 	let oauthNext = null;
+	let signedIn = null;
 	try {
 		const auth = await getAuth();
 		if (oauthQuery) {
 			const context = await getAuthCallContext("/sign-in/email-otp");
 			oauthNext = (await auth.api.signInEmailOTP({ body: { email, otp: code, oauth_query: oauthQuery }, ...context }))?.url ?? null;
 		} else {
-			await auth.api.signInEmailOTP({ body: { email, otp: code }, headers: requestHeaders });
+			const name = invitation?.member.name;
+			signedIn = await auth.api.signInEmailOTP({ body: { email, otp: code, ...(name && { name }) }, headers: requestHeaders });
 		}
 	} catch (error) {
 		const refusal = getSignupError(error?.body?.code);
@@ -98,6 +109,13 @@ export async function verifySigninCode(_state, formData) {
 		return { email, error: isExpiredOAuthQuery(error) ? OAUTH_EXPIRED_MESSAGE : "This code is wrong or expired" };
 	}
 	await notifyActivity(["New sign-in", email], { withUserAgent: true });
+	if (invitation && signedIn?.user) {
+		const joined = await acceptInvitation({ token, user: signedIn.user });
+		if (joined.newsletterId) {
+			await rememberNewsletter(joined.newsletterId);
+			redirect("/");
+		}
+	}
 	redirect(oauthNext ?? toSafeNextPath(formData.get("next")));
 }
 

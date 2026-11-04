@@ -5,7 +5,7 @@ import { createConfirmToken } from "../lib/confirmation.js";
 import { getEventPlan } from "../lib/email-event-rules.js";
 import { getClickUrl, getOpenUrl } from "../lib/tracking.js";
 import { createUnsubscribeToken } from "../lib/unsubscribe.js";
-import { activate, anonymous, as, callApi, catchNotFound, catchRedirect, form, jsonRequest, platformEmails, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, anonymous, as, callApi, catchNotFound, catchRedirect, form, jsonRequest, platformEmails, signIn, startTestApp } from "./helpers/app.mjs";
 import { flushAfter } from "./stubs/next-server.mjs";
 import { published } from "./stubs/qstash.mjs";
 import { sent as sesEmails } from "./stubs/ses.mjs";
@@ -64,6 +64,7 @@ async function customer(email, { contacts = 2, isFree = false } = {}) {
 		)
 	);
 	user.newsletterId = url.split("/").at(-1);
+	await addAuthor(user);
 	user.slug = slug;
 	if (contacts > 0) {
 		const rows = Array.from({ length: contacts }, (_, index) => ({ email: `reader${index}@${slug}.example.org`, status: "active" }));

@@ -2,11 +2,10 @@
 
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowUpRight, BookOpen, ChartPie, Download, Loader2, MoreHorizontal, Plus, Rows3, Trash2 } from "lucide-react";
+import { ArrowUpRight, BookOpen, ChartPie, Download, Loader2, MoreHorizontal, Plus, Rows3 } from "lucide-react";
 import { exportContacts } from "@/app/(app)/contacts/actions";
 import DialogAddContacts from "@/components/DialogAddContacts";
 import DialogContactFields from "@/components/DialogContactFields";
-import DialogDeleteContacts from "@/components/DialogDeleteContacts";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -15,7 +14,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { hasContactFilters } from "@/lib/contact-filters";
 import { formatCount } from "@/lib/format";
 import { getHelpHref } from "@/lib/help";
 import { toast } from "@/lib/toast";
@@ -27,17 +25,16 @@ import { cn } from "@/lib/utils";
 // article. On phones, where the buttons keep to a row, Segments and Fields are in the menu. hasContacts: whether the
 // list has anyone to export, of any status. importGuides: how to export a file from other platforms, for the import.
 // curl: the newsletter's add_contact request, for the API's. filters and count: the list's filters, which the export
-// follows, and how many contacts they show; once filters narrow the list, the menu can delete those. A dialog gives the
-// focus back to what opened it: Fields, or the ⋯ button for the menu's.
+// follows, and how many contacts they show; deleting them is the list's selection's (BarContactSelection). A dialog
+// gives the focus back to what opened it: Fields, or the ⋯ button for the menu's.
 export default function ButtonsContacts({ hasContacts, newsletter, filters, count, curl, importGuides }) {
 	const [dialog, setDialog] = useState(null);
 	const [isExporting, startExporting] = useTransition();
 	const moreRef = useRef(null);
 	const openerRef = useRef(null);
 	const isOpeningDialogRef = useRef(false);
-	// Exporting and deleting are for the newsletter's admins.
+	// Exporting is for the newsletter's admins.
 	const isAdmin = useHasRole("admin");
-	const canDelete = isAdmin && hasContactFilters(filters) && count > 0;
 
 	function open(name, opener) {
 		openerRef.current = opener;
@@ -115,12 +112,6 @@ export default function ButtonsContacts({ hasContacts, newsletter, filters, coun
 							Export {formatCount(count, "contact")}
 						</DropdownMenuItem>
 					)}
-					{canDelete && (
-						<DropdownMenuItem variant="destructive" onSelect={() => openFromMenu("delete")}>
-							<Trash2 />
-							Delete {formatCount(count, "contact")}
-						</DropdownMenuItem>
-					)}
 					<DropdownMenuSeparator className={cn(!hasContacts && "sm:hidden")} />
 					<DropdownMenuItem asChild>
 						<a href={getHelpHref("contacts")} target="_blank" rel="noopener">
@@ -132,14 +123,6 @@ export default function ButtonsContacts({ hasContacts, newsletter, filters, coun
 				</DropdownMenuContent>
 			</DropdownMenu>
 			<DialogContactFields isOpen={dialog === "fields"} onOpenChange={changeDialog("fields")} onCloseAutoFocus={returnFocus} />
-			<DialogDeleteContacts
-				newsletterId={newsletter?.id}
-				filters={filters}
-				count={count}
-				isOpen={dialog === "delete"}
-				onOpenChange={changeDialog("delete")}
-				onCloseAutoFocus={returnFocus}
-			/>
 		</>
 	);
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
 import mongoose from "mongoose";
-import { addVerifiedDomain, as, callApi, catchRedirect, form, jsonRequest, mockStripe, platformEmails, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
+import { addAuthor, addVerifiedDomain, as, callApi, catchRedirect, form, jsonRequest, mockStripe, platformEmails, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
 import { flushAfter } from "./stubs/next-server.mjs";
 import { published } from "./stubs/qstash.mjs";
 
@@ -160,6 +160,7 @@ describe("billing is off", () => {
 		const welcome = { welcomeEnabled: "on", welcomeSubject: "Welcome", welcomeContent: "Thanks for joining." };
 		const url = await as(user, () => catchRedirect(m.newsletters.saveNewsletter(null, form({ ...settings, ...welcome }))));
 		const newsletterId = url.split("/").at(-1);
+		await addAuthor(user, newsletterId);
 		const rows = ["a", "b", "c"].map((name) => ({ email: `${name}@readers.example.org`, status: "active" }));
 		await as(user, () => m.contacts.importContacts({ newsletterId, consent: true, rows }));
 		await m.Account.updateOne({ _id: user.accountId }, { $set: { "usage.emailsSent": 50_000_000 } });
@@ -191,6 +192,7 @@ describe("billing is off", () => {
 		await addVerifiedDomain(user, "blast.dev");
 		const settings = { name: "Blast", slug: "blast-notes", fromName: "Jo", fromEmail: "hello@blast.dev", postalAddress: "1 Main St, Paris" };
 		const newsletterId = (await as(user, () => catchRedirect(m.newsletters.saveNewsletter(null, form(settings))))).split("/").at(-1);
+		await addAuthor(user, newsletterId);
 		const lastSentAt = new Date(Date.now() - 90 * 86_400_000);
 		await m.Contact.insertMany(
 			Array.from({ length: 300 }, (_, index) => ({ accountId: user.accountId, newsletterId, email: `mailcheap-test-blast-${index}@gmail.com`, status: "active", lastSentAt }))

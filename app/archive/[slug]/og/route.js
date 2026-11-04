@@ -9,7 +9,7 @@ import { SHARE_IMAGE_SIZE } from "@/lib/archive-seo";
 import { formatDate, formatNumber } from "@/lib/format";
 import { readLogo } from "@/lib/og-image";
 import { getIssueBackground, getShareCardColors } from "@/lib/share-card";
-import { resolveTheme } from "@/lib/themes";
+import { THEME_MODES, resolveTheme } from "@/lib/themes";
 
 const [geistRegular, geistSemiBold] = await Promise.all([
 	readFile(join(process.cwd(), "assets/fonts/Geist-Regular.ttf")),
@@ -20,13 +20,16 @@ const FONTS = [
 	{ name: "Geist", data: geistSemiBold, weight: 600, style: "normal" },
 ];
 
-// Share card for the archive home, and for issues that have no thumbnail of their own.
+// Share card for the archive home, and for issues that have no thumbnail of their own: in the mode the theme is made
+// for, or ?m= another of its modes, which the website shows its readers in that mode.
 export async function GET(request, { params }) {
 	const { slug } = await params;
 	const newsletter = await getArchiveNewsletter(slug);
 	if (!newsletter) return new Response("Not found", { status: 404 });
 
-	const postSlug = new URL(request.url).searchParams.get("p");
+	const { searchParams } = new URL(request.url);
+	const postSlug = searchParams.get("p");
+	const askedMode = searchParams.get("m");
 	const issue = postSlug ? await getArchiveIssue(newsletter, postSlug) : null;
 	if (postSlug && !issue) return new Response("Not found", { status: 404 });
 
@@ -34,6 +37,7 @@ export async function GET(request, { params }) {
 	const domain = new URL(getArchiveUrls(newsletter).siteIndex).host;
 	const footer = issue ? formatDate(getIssueDate(issue)) : readers >= 100 ? `Join ${formatNumber(readers)} readers` : "";
 	const theme = resolveTheme(newsletter.theme);
+	const mode = THEME_MODES.includes(askedMode) ? askedMode : theme.mode;
 
 	return new ImageResponse(
 		<ImageShareCard
@@ -43,8 +47,8 @@ export async function GET(request, { params }) {
 			logo={logo}
 			footer={footer}
 			domain={domain}
-			colors={getShareCardColors(theme)}
-			background={issue && getIssueBackground(issue.archiveSlug, theme)}
+			colors={getShareCardColors(theme, mode)}
+			background={issue && getIssueBackground(issue.archiveSlug, theme, mode)}
 			isIssue={Boolean(issue)}
 			fontFamily="Geist"
 		/>,

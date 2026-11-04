@@ -19,7 +19,7 @@ import { getPresendChecks } from "../lib/presend-checks.js";
 import { findButtonProblem, hasContent, renderEmail } from "../lib/render-email.js";
 import { getPublishProblem, getSendProblem } from "../lib/sending-rules.js";
 import { addTracking } from "../lib/tracking.js";
-import { activate, as, callApi, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, as, callApi, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
 
 process.env.BETTER_AUTH_SECRET = "test-session-secret-with-at-least-32-characters";
 process.env.APP_URL = "https://mail.example.com";
@@ -31,7 +31,7 @@ function button(text, href, align) {
 }
 
 function emailBody(html) {
-	return /<td class="body">([\s\S]*?)<\/td><\/tr>\n<tr><td style="padding:32px/.exec(html)?.[1];
+	return /<td class="body">([\s\S]*?)<\/td><\/tr>\n<tr><td class="email-muted email-rule" style="padding:32px/.exec(html)?.[1];
 }
 
 function render(html, theme) {
@@ -177,7 +177,7 @@ describe("buttons in emails", () => {
 	test("an email draws a button in the newsletter's button colors and corners, where it sits in the column", () => {
 		const plain = emailBody(render(`<p>Intro</p>${button("Read the full story", STORY)}<p>Outro</p>`).html);
 		assert.match(plain, /^<p>Intro<\/p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;"><tr><td align="center"><table role="presentation" align="center"/);
-		assert.match(plain, /<td align="center" bgcolor="#18181b" style="border-radius:8px;background:#18181b;mso-padding-alt:12px 24px;"><a href="https:\/\/example\.com\/story" style="display:inline-block;padding:12px 24px;border-radius:8px;background:#18181b;color:#ffffff;font-family:-apple-system,[^"]*;font-size:16px;font-weight:600;line-height:20px;text-decoration:none;">Read the full story<\/a><\/td><\/tr><\/table><\/td><\/tr><\/table><p>Outro<\/p>$/);
+		assert.match(plain, /<td class="email-button" align="center" bgcolor="#18181b" style="border-radius:8px;background:#18181b;mso-padding-alt:12px 24px;"><a href="https:\/\/example\.com\/story" style="display:inline-block;padding:12px 24px;border-radius:8px;background:#18181b;color:#ffffff;font-family:-apple-system,[^"]*;font-size:16px;font-weight:600;line-height:20px;text-decoration:none;">Read the full story<\/a><\/td><\/tr><\/table><\/td><\/tr><\/table><p>Outro<\/p>$/);
 
 		const poster = emailBody(render(button("Join", STORY, "left"), { preset: "poster" }).html);
 		assert.match(poster, /<td align="left"><table role="presentation" align="left"/);
@@ -243,7 +243,7 @@ describe("what holds an issue with a button", () => {
 
 	test("the review step blocks on it and goes back to the editor, but not for an email designed elsewhere", () => {
 		const input = { newsletter: NEWSLETTER, rendered: { html: "<p>{{unsubscribe_url}}</p>", bytes: 100 }, isSendingEnabled: true };
-		const campaign = { subject: "Hi", previewText: "Hi", testSentAt: new Date(), format: "rich", body: `<p>Hi</p>${button("Join")}` };
+		const campaign = { subject: "Hi", previewText: "Hi", authorId: "000000000000000000000001", testSentAt: new Date(), format: "rich", body: `<p>Hi</p>${button("Join")}` };
 		const { checks, blocking } = getPresendChecks({ ...input, campaign });
 		const check = checks.find(({ id }) => id === "buttons");
 		assert.deepEqual(check, { id: "buttons", label: "Buttons", isOk: false, message: BUTTON_PROBLEM });
@@ -289,6 +289,7 @@ describe("buttons through the API", () => {
 		await activate(user);
 		const fields = { name: "Buttons", slug: "buttons", fromName: "Field notes", fromEmail: "hello@buttons.mailcheapmail.com", postalAddress: "1 Main St, Paris" };
 		user.newsletterId = (await as(user, () => catchRedirect(newsletters.saveNewsletter(null, form(fields))))).split("/").at(-1);
+		await addAuthor(user);
 		user.key = (await as(user, () => apiKeys.createApiKey(null, form({ name: "Agent", level: "full" })))).key;
 	});
 

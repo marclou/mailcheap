@@ -6,7 +6,7 @@ import { getDeliveryEmail } from "../lib/email-aliases.js";
 import { getEventPlan } from "../lib/email-event-rules.js";
 import { normalizePostshibaEvent } from "../lib/email-provider/postshiba-events.js";
 import { getSesEventPlan } from "../lib/ses-event-mapping.js";
-import { activate, anonymous, as, callApi, catchNotFound, catchRedirect, form, jsonRequest, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, anonymous, as, callApi, catchNotFound, catchRedirect, form, jsonRequest, signIn, startTestApp } from "./helpers/app.mjs";
 import { POSTSHIBA } from "./helpers/postshiba.mjs";
 import { runWithRequest } from "./stubs/next-headers.mjs";
 import { flushAfter } from "./stubs/next-server.mjs";
@@ -109,6 +109,7 @@ describe("the never-email list", () => {
 			catchRedirect(m.newsletters.saveNewsletter(null, form({ name: `${user.slug} news`, slug: user.slug, postalAddress: "1 Main St, Paris", archiveEnabled: "on" })))
 		);
 		user.newsletterId = url.split("/").at(-1);
+		await addAuthor(user);
 		user.key = (await as(user, () => m.apiKeys.createApiKey(null, form({ name: "Agent", level: "full" })))).key;
 		user.tenantSlug = `mc-${user.accountId}`;
 		await m.Account.updateOne({ _id: user.accountId }, { $set: { postshiba: { tenantId: `Tn-${user.slug}`, tenantSlug: user.tenantSlug, tenantStatus: "active" } } });

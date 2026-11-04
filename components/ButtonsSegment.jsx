@@ -2,9 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, BookOpen, Download, Loader2, MoreHorizontal, Pencil, Trash2, UserX } from "lucide-react";
+import { ArrowUpRight, BookOpen, Download, Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { deleteSegment, exportContacts } from "@/app/(app)/contacts/actions";
-import DialogDeleteContacts from "@/components/DialogDeleteContacts";
 import DialogSegment from "@/components/DialogSegment";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,15 +27,15 @@ import { getHelpHref } from "@/lib/help";
 import { toast } from "@/lib/toast";
 import { useHasRole } from "@/lib/use-team-role";
 
-// The actions at the top of a segment's page: edit it, then in the ⋯ menu export or delete the contacts its list shows
-// (filters, count: the list's), and delete the segment. segment: { id, name, match, conditions, contacts }.
+// The actions at the top of a segment's page: edit it, then in the ⋯ menu export the contacts its list shows (filters,
+// count: the list's), and delete the segment. segment: { id, name, match, conditions, contacts }.
 export default function ButtonsSegment({ newsletterId, segment, filters, count }) {
 	const [dialog, setDialog] = useState(null);
 	const [isExporting, startExporting] = useTransition();
 	const moreRef = useRef(null);
 	const isOpeningDialogRef = useRef(false);
 	const listFilters = { ...filters, segmentId: segment.id };
-	// Changing segments, exporting and deleting are for the newsletter's admins.
+	// Changing segments, exporting and deleting them are for the newsletter's admins.
 	const isAdmin = useHasRole("admin");
 	if (!isAdmin) return null;
 
@@ -92,10 +91,6 @@ export default function ButtonsSegment({ newsletterId, segment, filters, count }
 						<Download />
 						Export {formatCount(count, "contact")}
 					</DropdownMenuItem>
-					<DropdownMenuItem variant="destructive" onSelect={() => openFromMenu("contacts")} disabled={count === 0}>
-						<UserX />
-						Delete {formatCount(count, "contact")}
-					</DropdownMenuItem>
 					<DropdownMenuSeparator />
 					<DropdownMenuItem variant="destructive" onSelect={() => openFromMenu("segment")}>
 						<Trash2 />
@@ -111,14 +106,6 @@ export default function ButtonsSegment({ newsletterId, segment, filters, count }
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
-			<DialogDeleteContacts
-				newsletterId={newsletterId}
-				filters={listFilters}
-				count={count}
-				isOpen={dialog === "contacts"}
-				onOpenChange={changeDialog("contacts")}
-				onCloseAutoFocus={returnFocus}
-			/>
 			<DialogDeleteSegment
 				id={segment.id}
 				name={segment.name}

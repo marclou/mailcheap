@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
+import mongoose from "mongoose";
 import { activate, as, callApi, catchNotFound, catchRedirect, form, platformEmails, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
 import { domainsWithoutMail } from "./stubs/mail-domains.mjs";
 
@@ -25,7 +26,10 @@ async function createNewsletter(user, { name, slug }) {
 async function createCampaign(user, newsletterId, subject) {
 	const url = await as(user, () => catchRedirect(m.campaigns.createCampaign(newsletterId)));
 	const id = url.split("/").at(-1);
-	assert.deepEqual(await as(user, () => m.campaigns.saveCampaign(id, { subject, previewText: "Hi", body: "<p>Hello readers</p>" })), { ok: true });
+	// As the editor saves: from the draft's revision, which a team's drafts need.
+	const { revision } = await as(user, () => m.campaigns.loadDraft(id));
+	const saved = await as(user, () => m.campaigns.saveCampaign(id, { subject, previewText: "Hi", body: "<p>Hello readers</p>", revision }));
+	assert.deepEqual(saved, { ok: true, revision: revision + 1 });
 	return id;
 }
 
@@ -43,6 +47,10 @@ function join(user, token) {
 	return as(user, () => m.join.joinTeam(null, form({ token })));
 }
 
+function findUser(email) {
+	return mongoose.connection.db.collection("users").findOne({ email });
+}
+
 function findMember(newsletterId, email) {
 	return m.TeamMember.findOne({ accountId: owner.accountId, newsletterId, email }).lean();
 }
@@ -58,6 +66,7 @@ before(async () => {
 		apiKeys: await import("../app/(app)/api-keys/actions.js"),
 		team: await import("../app/(app)/newsletters/team/actions.js"),
 		join: await import("../app/join/actions.js"),
+		signin: await import("../app/signin/actions.js"),
 		selected: await import("../lib/selected-newsletter.js"),
 		teamLib: await import("../lib/team.js"),
 		campaignPage: (await import("../app/(app)/campaigns/[id]/page.js")).default,
@@ -66,6 +75,7 @@ before(async () => {
 		teamPage: (await import("../app/(app)/newsletters/team/page.js")).default,
 		domainsPage: (await import("../app/(app)/domains/page.js")).default,
 		TeamMember: (await import("../models/TeamMember.js")).default,
+		Author: (await import("../models/Author.js")).default,
 		Campaign: (await import("../models/Campaign.js")).default,
 		Contact: (await import("../models/Contact.js")).default,
 		ApiKey: (await import("../models/ApiKey.js")).default,
@@ -169,6 +179,37 @@ describe("joining", () => {
 		assert.equal(mia.jar.get("newsletter"), ids.first);
 		assert.match((await join(mia, token)).error, /isn't valid anymore/, "the token goes once used");
 		assert.equal(await as(adam, () => catchRedirect(m.join.joinTeam(null, form({ token: lastInvitation("adam@example.com").token })))), "/");
+		assert.equal((await findUser("mia@example.com")).name, "Mia", "without a name of their own, the one they were invited with");
+	});
+
+	test("signing in from the invitation's link takes the invited address only, and joins with the invited name", async () => {
+		const pat = await signIn("pat@example.com");
+		await activate(pat);
+		const newsletterId = await createNewsletter(pat, { name: "Pat letters", slug: "pat-letters" });
+		assert.equal((await invite(pat, newsletterId, { name: "Nina Patel", email: "nina@example.com", role: "admin" })).ok, true);
+		const { token } = lastInvitation("nina@example.com");
+		const nina = { email: "nina@example.com", jar: new Map(), ip: "198.51.100.200" };
+
+		const elsewhere = await as(nina, () => m.signin.sendSigninCode(null, form({ email: "someone@example.com", invitation: token })));
+		assert.equal(elsewhere.error, "Sign in with the address your invitation went to");
+		assert.deepEqual(await as(nina, () => m.signin.sendSigninCode(null, form({ email: "nina@example.com", invitation: token }))), { email: "nina@example.com" });
+		const code = platformEmails.findLast(({ to }) => to.includes("nina@example.com")).subject.slice(0, 6);
+		const signedIn = await as(nina, () =>
+			catchRedirect(m.signin.verifySigninCode(null, form({ email: "nina@example.com", code, next: `/join/${token}`, invitation: token })))
+		);
+		assert.equal(signedIn, "/", "the dashboard, without the Join step");
+		assert.equal(nina.jar.get("newsletter"), newsletterId);
+		assert.equal((await findUser("nina@example.com")).name, "Nina Patel");
+		const member = await m.TeamMember.findOne({ accountId: pat.accountId, email: "nina@example.com" }).lean();
+		assert.ok(member.joinedAt);
+		assert.equal(member.tokenHash, undefined, "the link is used up");
+
+		assert.equal((await invite(pat, newsletterId, { name: "Typed name", email: "named@example.com" })).ok, true);
+		const namedToken = lastInvitation("named@example.com").token;
+		const named = await signIn("named@example.com");
+		await mongoose.connection.db.collection("users").updateOne({ email: "named@example.com" }, { $set: { name: "Their own" } });
+		assert.equal(await as(named, () => catchRedirect(m.join.joinTeam(null, form({ token: namedToken })))), "/");
+		assert.equal((await findUser("named@example.com")).name, "Their own", "a name they have stays");
 	});
 
 	test("an expired or canceled invitation can't be used", async () => {
@@ -206,13 +247,33 @@ describe("a member", () => {
 		assert.ok(Array.isArray(fields.tags));
 	});
 
+	test("adds authors and picks who wrote a draft, but leaves editing and removing them to the admins", async () => {
+		const added = await as(mia, () => m.campaigns.addCampaignAuthor(ids.miaDraft, ids.first, { name: "Mia", email: "mia@example.com" }));
+		ids.miaAuthor = added.author.id;
+		const author = await m.Author.findOne({ accountId: owner.accountId, _id: ids.miaAuthor }).lean();
+		assert.deepEqual([String(author.newsletterId), author.name], [ids.first, "Mia"], "in the owner's account, for the shared newsletter");
+		assert.equal(String((await m.Campaign.findOne({ accountId: owner.accountId, _id: ids.miaDraft }).lean()).authorId), ids.miaAuthor);
+		assert.deepEqual(await as(mia, () => m.campaigns.setCampaignAuthor(ids.miaDraft, ids.miaAuthor)), { ok: true });
+
+		for (const attempt of [() => m.campaigns.editAuthor(ids.miaAuthor, { name: "Mia B", email: "mia@example.com" }), () => m.campaigns.removeAuthor(ids.miaAuthor)]) {
+			assert.match((await as(mia, attempt)).error, /^Only the newsletter's admins can /);
+		}
+		assert.deepEqual(await as(mia, () => m.campaigns.addCampaignAuthor(ids.secondCampaign, ids.second, { name: "Intruder", email: "intruder@example.com" })), {
+			error: "Newsletter not found",
+		});
+		assert.equal(await m.Author.countDocuments({ accountId: owner.accountId, newsletterId: ids.second }), 0);
+	});
+
 	test("doesn't send, export, delete, change settings, invite or add fields", async () => {
 		const refusals = {
 			send: () => m.campaigns.sendCampaign(ids.firstCampaign),
 			schedule: () => m.campaigns.scheduleCampaign(ids.firstCampaign, { scheduledAt: new Date(Date.now() + 86_400_000).toISOString() }),
 			export: () => m.contacts.exportContacts({ newsletterId: ids.first }),
 			deleteContact: () => m.contacts.deleteContact(ids.reader),
+			deleteSelected: () => m.contacts.deleteSelectedContacts({ newsletterId: ids.first, filters: {} }),
 			status: () => m.contacts.setContactStatus(ids.reader, "dormant"),
+			selectedStatus: () => m.contacts.setSelectedStatus({ newsletterId: ids.first, ids: [ids.reader] }, "dormant"),
+			segment: () => m.contacts.segmentSelectedContacts({ newsletterId: ids.first, ids: [ids.reader] }, { name: "Picked", tag: "picked" }),
 			settings: () => m.newsletters.saveNewsletter(null, form({ id: ids.first, section: "general", name: "Taken", slug: "field-notes" })),
 			invite: () => m.team.inviteTeamMember(null, form({ newsletterId: ids.first, name: "Pal", email: "pal@example.com", role: "admin" })),
 			field: () => m.contacts.createContactField({ label: "Company", type: "text" }),
@@ -221,6 +282,19 @@ describe("a member", () => {
 			assert.match((await as(mia, attempt))?.error ?? "", /^Only the (newsletter's admins|account's owner) can /, name);
 		}
 		assert.equal((await m.Contact.findOne({ accountId: owner.accountId, _id: ids.reader }).lean()).status, "active");
+		assert.equal(await m.Contact.countDocuments({ accountId: owner.accountId, newsletterId: ids.first }), 2, "the list keeps everyone");
+	});
+
+	test("tags the contacts they pick on the list, and only in the newsletter shared with them", async () => {
+		assert.deepEqual(await as(mia, () => m.contacts.tagSelectedContacts({ newsletterId: ids.first, ids: [ids.reader, ids.secret] }, ["fan"])), {
+			changed: 1,
+			remaining: 0,
+		});
+		assert.deepEqual(await as(mia, () => m.contacts.untagSelectedContacts({ newsletterId: ids.first, filters: {} }, ["fan"])), { changed: 1, remaining: 0 });
+		assert.deepEqual(await as(mia, () => m.contacts.tagSelectedContacts({ newsletterId: ids.second, ids: [ids.secret] }, ["fan"])), {
+			error: "Newsletter not found",
+		});
+		assert.deepEqual((await m.Contact.findOne({ accountId: owner.accountId, _id: ids.secret }).lean()).tags ?? [], []);
 	});
 
 	test("never reaches the owner's other newsletter, by action or by page", async () => {
@@ -282,6 +356,15 @@ describe("an admin", () => {
 		assert.match((await as(adam, () => m.team.inviteTeamMember(null, form({ newsletterId: ids.first, name: "Pal", email: "pal@example.com", role: "admin" })))).error, /account's owner/);
 		assert.equal(await as(adam, () => catchRedirect(m.teamPage())), "/");
 		assert.equal(await as(adam, () => catchNotFound(m.settingsPage())), false, "settings open");
+	});
+
+	test("edits and removes the newsletter's authors, once their scheduled issues are out of the way", async () => {
+		const edited = await as(adam, () => m.campaigns.editAuthor(ids.miaAuthor, { name: "Mia Brown", email: "mia@example.com", showOnWeb: false }));
+		assert.deepEqual([edited.author.name, edited.author.showOnWeb, edited.author.showInEmails], ["Mia Brown", false, true]);
+		assert.match((await as(adam, () => m.campaigns.removeAuthor(ids.miaAuthor))).error, /is scheduled or in review/, "Mia's draft is scheduled");
+		assert.deepEqual(await as(adam, () => m.campaigns.unscheduleCampaign(ids.miaDraft)), { ok: true });
+		assert.deepEqual(await as(adam, () => m.campaigns.removeAuthor(ids.miaAuthor)), { ok: true });
+		assert.ok((await m.Author.findOne({ accountId: owner.accountId, _id: ids.miaAuthor }).lean()).deletedAt);
 	});
 });
 

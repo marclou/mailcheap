@@ -44,6 +44,20 @@ test("the shared address is hello@ on the newsletter's own subdomain, and replie
 	}
 });
 
+test("replies go to the newsletter's default author, then to its reply-to from before authors, then to the owner", () => {
+	const replyTo = (fields) => resolveFrom({ ownerEmail: "jane@example.com", sharedDomain: SHARED, providerId: "ses", domains, ...fields }).replyTo;
+	const withReplyTo = { ...newsletter, replyTo: "desk@example.com" };
+	assert.equal(replyTo({ newsletter: withReplyTo, authorEmail: "ada@example.com" }), "ada@example.com");
+	assert.equal(replyTo({ newsletter: withReplyTo }), "desk@example.com");
+	assert.equal(replyTo({ newsletter: { ...withReplyTo, fromEmail: "hi@example.com" }, authorEmail: "ada@example.com" }), "ada@example.com", "an own domain too");
+	assert.equal(replyTo({ newsletter: { ...newsletter, fromEmail: "hi@example.com" } }), undefined, "else to the from address");
+	assert.match(
+		resolveFrom({ newsletter, ownerEmail: null, sharedDomain: SHARED, providerId: "ses" }).problem,
+		/Add an author to the newsletter/,
+		"the shared address needs someone to get the replies"
+	);
+});
+
 test("the shared address sends once its subdomain is verified at the active provider", () => {
 	const from = (sharedSender, providerId = "ses") => resolveFrom({ newsletter: { ...newsletter, sharedSender }, ownerEmail: "jane@example.com", sharedDomain: SHARED, providerId });
 	assert.match(from(undefined).problem, /hello@field-notes.mailcheapmail.com is still being set up/);

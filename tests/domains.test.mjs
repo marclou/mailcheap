@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { getSenderPath } from "../lib/newsletters.js";
 import {
 	activate,
+	addAuthor,
 	addLiveWebsiteDomain,
 	addVerifiedDomain,
 	as,
@@ -39,6 +40,7 @@ async function createNewsletter(user, slug, fields = {}) {
 		catchRedirect(m.newsletters.saveNewsletter(null, form({ name: slug, slug, postalAddress: "1 Main St, Paris", archiveEnabled: "on", ...fields })))
 	);
 	user.newsletterId = url.split("/").at(-1);
+	await addAuthor(user);
 	return m.Newsletter.findOne({ accountId: user.accountId, _id: user.newsletterId }).lean();
 }
 
@@ -153,7 +155,7 @@ describe("SES tenants", () => {
 			id: "sub_retry",
 			status: "active",
 			customer: "cus_retry",
-			items: { data: [{ price: { lookup_key: "starter_month" } }] },
+			items: { data: [{ price: { lookup_key: "mailcheap_starter_monthly" } }] },
 		});
 		const account = await m.Account.findById(user.accountId).lean();
 		assert.equal(account.subscriptionStatus, "active");

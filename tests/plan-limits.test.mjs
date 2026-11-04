@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { activate, addSentIssue, anonymous, as, callApi, catchRedirect, form, jsonRequest, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, addSentIssue, anonymous, as, callApi, catchRedirect, form, jsonRequest, signIn, startTestApp } from "./helpers/app.mjs";
 import { flushAfter } from "./stubs/next-server.mjs";
 import { published } from "./stubs/qstash.mjs";
 import { sent as sesEmails } from "./stubs/ses.mjs";
@@ -42,6 +42,7 @@ async function setup(email, { emails, subscribers, contacts, welcome = false }) 
 		)
 	);
 	user.newsletterId = url.split("/").at(-1);
+	await addAuthor(user);
 	user.slug = slug;
 	const rows = Array.from({ length: contacts }, (_, index) => ({ email: `reader${index}@${slug}.example.org`, status: "active" }));
 	await as(user, () => m.contacts.importContacts({ newsletterId: user.newsletterId, consent: true, rows }));

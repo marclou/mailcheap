@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createConfirmToken } from "../lib/confirmation.js";
 import { getNewsletterDraft } from "../lib/newsletter-form.js";
 import { createUnsubscribeToken } from "../lib/unsubscribe.js";
-import { activate, anonymous, as, callApi, catchNotFound, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, anonymous, as, callApi, catchNotFound, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
 import { revalidatedPaths } from "./stubs/next-cache.mjs";
 import { runWithRequest } from "./stubs/next-headers.mjs";
 import { flushAfter } from "./stubs/next-server.mjs";
@@ -30,6 +30,7 @@ async function customer(email) {
 async function createNewsletter(user, body) {
 	const response = await callApi("POST", "/api/v1/newsletters", { key: user.key, body });
 	assert.equal(response.status, 201, JSON.stringify(response.body));
+	await addAuthor(user, response.body.id);
 	return response.body;
 }
 

@@ -3,9 +3,13 @@ import ArticleHelp from "@/components/ArticleHelp";
 import FigureHelp from "@/components/FigureHelp";
 import LinkApp from "@/components/LinkApp";
 import { isCloud } from "@/lib/config";
+import { MAX_AUTHORS } from "@/lib/author-rules";
+import { formatNumber } from "@/lib/format";
 import { getHelpHref, getHelpPageMetadata } from "@/lib/help";
+import { getSignupScale } from "@/lib/plans";
 import { UNSUBSCRIBE_PLACEHOLDER } from "@/lib/render-email";
 import { MAX_SECTION_GROUPS, MAX_SECTIONS } from "@/lib/sections";
+import { MAX_TEST_RECIPIENTS, OUTSIDE_TEST_ADDRESSES_PER_DAY, TESTS_PER_OUTSIDE_ADDRESS_PER_DAY } from "@/lib/test-email-rules";
 
 export const metadata = getHelpPageMetadata("writing");
 
@@ -16,7 +20,8 @@ export default function WritingPage() {
 			<p>
 				Start a draft with New, on the <LinkApp href="/campaigns">Campaigns page</LinkApp>. A campaign goes through three steps, shown at the
 				top: Write, where you type the
-				subject, the preview text and the issue; Review, a checklist of what to fix before it can go out and of what may look broken;
+				subject, the preview text and the issue, and pick its <Link href={getHelpHref("writing", "author")}>author</Link>; Review,
+				its author and a checklist of what to fix before it can go out and of what may look broken;
 				and Send, where you pick
 				who gets it and when
 				{isCloud() && (
@@ -30,11 +35,46 @@ export default function WritingPage() {
 			</p>
 			<p>
 				Once you have a campaign, New asks how to start: Blank, or Copy a campaign, which lists your campaigns, sent or not. The one
-				you pick opens as a new draft with its subject, followed by (copy), its preview text and its content. The campaign you copied
-				stays as it is.
+				you pick opens as a new draft with its subject, followed by (copy), its preview text, its content and its author. The campaign
+				you copied stays as it is.
 			</p>
 			<p>
 				The preview text is what inboxes show after the subject. Without one, they show your issue&apos;s first words.
+			</p>
+
+			<h2 id="author">The author</h2>
+			<p>
+				Author, under the preview text, says who wrote the issue: their name, their email and, if you like, their picture. Readers see
+				&ldquo;By&rdquo; and their name, after their picture when they have one, at the top of the email and under the title of the
+				issue&apos;s page on your <Link href={getHelpHref("website", "issue-pages")}>website</Link>. Replies to the issue go to their
+				email, which never shows on the issue or its page.
+			</p>
+			<p>
+				An issue needs an author before it goes out: the{" "}
+				<Link href={getHelpHref("sending", "review")}>review step</Link>&apos;s checklist asks for one when it has none. On your newsletter&apos;s
+				first issue, Add an author starts with your name and email, or the reply-to address you had set, which you can change. Your
+				first author is your newsletter&apos;s default author: each new issue starts with them, and replies to your welcome,
+				confirmation and last-chance emails go to them. Pick another default under Author on the{" "}
+				<LinkApp href="/newsletters/sender">Sender page</LinkApp>. Click an issue&apos;s author to pick another for that issue, add
+				one, up to {MAX_AUTHORS} for each newsletter, or edit the one you picked. A picture that isn&apos;t square opens in a crop:
+				drag it into place and zoom until it fits. For each author, choose where they show:
+			</p>
+			<ul>
+				<li>
+					<strong>Show on the web</strong>: their name under the title of their issues&apos; pages. Off, the page shows your
+					newsletter&apos;s name, as for issues without an author.
+				</li>
+				<li>
+					<strong>Show in emails</strong>: their name at the top of their issues&apos; emails, next to Read online.
+				</li>
+			</ul>
+			<p>
+				With both off, readers don&apos;t see who wrote it, and replies still go to the author. A change to an author shows at once on
+				their issues&apos; pages and in the issues you haven&apos;t sent: emails already on their way keep the author they went out
+				with. Everyone on your <Link href={getHelpHref("team")}>team</Link> can add an author and pick one; your newsletter&apos;s
+				admins also edit and remove them, and pick the default one. Removing an author takes their name off their issues&apos;
+				pages, and removing the default one makes the first of the others the default. Issues you sent or scheduled before authors
+				stay as they are: they go out with no name, and their replies go to your default author.
 			</p>
 
 			<h2 id="editor">The editor</h2>
@@ -224,8 +264,8 @@ export default function WritingPage() {
 				emails. Your
 				website and its issue pages always show the fallback, so no reader&apos;s details are ever public. The preview shows the
 				name Jane, with no field values, or the details of a contact you{" "}
-				<Link href={getHelpHref("writing", "preview")}>pick in it</Link>. Test emails show Jane too, or your own first name and
-				fields if you&apos;re one of your contacts. The review step flags any other <code>{"{{...}}"}</code>, like a tag from another
+				<Link href={getHelpHref("writing", "preview")}>pick in it</Link>. A test email shows the contact you send it as, or Jane, or
+				your own first name and fields if you&apos;re one of your contacts. The review step flags any other <code>{"{{...}}"}</code>, like a tag from another
 				platform or a field you deleted, since it would go out as written.
 			</p>
 
@@ -273,9 +313,26 @@ export default function WritingPage() {
 				deleted gets a <Link href={getHelpHref("writing", "problems")}>red dot</Link> and holds the issue until you pick who sees it.
 			</p>
 			<p>
-				The <Link href={getHelpHref("writing", "preview")}>preview</Link> shows the issue as each reader gets it, and a test email has
-				every section an email can have, to check them all in your inbox. Sections are for what matters to each reader, not for
-				secrets: a reader can forward their email.
+				The <Link href={getHelpHref("writing", "preview")}>preview</Link> shows the issue as each reader gets it. A test email has every
+				section an email can have, to check them all in your inbox, or those of the contact you send it as. Sections are for what
+				matters to each reader, not for secrets: a reader can forward their email.
+			</p>
+
+			<h2 id="footer">The footer</h2>
+			<p>
+				Every email ends with its footer, which the editor shows under your issue: why readers get it, with your newsletter&apos;s
+				name, the link to unsubscribe and your postal address, which anti-spam laws ask for. It goes in every email and can&apos;t be
+				removed.
+				{isCloud() && " Until you set your own address, it's MailCheap's business address."}
+			</p>
+			<p>
+				Edit name and Edit address, under it, open your newsletter&apos;s settings in a new tab: its name on the{" "}
+				<LinkApp href="/newsletters/general">General page</LinkApp>, its address on the{" "}
+				<LinkApp href="/newsletters/sender">Sender page</LinkApp>. Save there and come back to the issue: the footer shows the change,
+				and so does the <Link href={getHelpHref("sending", "review")}>review step</Link>. Without an address, Add a postal address
+				takes you there, since an issue can&apos;t go out without one. The links show for your newsletter&apos;s admins, who change
+				its settings. A web-only issue sends no email, so it has no footer. A{" "}
+				<Link href={getHelpHref("writing", "other")}>whole HTML email</Link> can have its own.
 			</p>
 
 			<h2 id="preview">Preview and test emails</h2>
@@ -303,10 +360,36 @@ export default function WritingPage() {
 				caption="The preview as one of your contacts"
 			/>
 			<p>
-				Send a test email, in the same menu, sends the email as saved to your account&apos;s address, with [Test] before the subject,
-				and every section an email of it can have. Nobody else gets it.{isCloud() && " It counts toward your plan's emails."} The
-				review step reminds you when you haven&apos;t
-				sent one. If it lands in spam: <Link href={getHelpHref("deliverability", "test-in-spam")}>When a test lands in spam</Link>
+				Send a test email, in the same menu and in the review step, sends the draft as it is, with [Test] before the subject. Pick
+				where it goes and who it reads as:
+			</p>
+			<ul>
+				<li>
+					<strong>To</strong>: your own address to start with. Type up to {MAX_TEST_RECIPIENTS} addresses, separated by commas, like
+					a colleague who reads every issue before it goes out: each gets their own email. Save as my default test address keeps
+					them for your next tests, here and on the <LinkApp href="/newsletters/welcome">Welcome email page</LinkApp>.
+				</li>
+				<li>
+					<strong>Preview as</strong>, optional: start typing to find one of your active contacts, the newest first, each with their
+					picture. The test then reads as that person gets it, with their first name, field values and{" "}
+					<Link href={getHelpHref("writing", "sections")}>sections</Link>. They don&apos;t get it. Without one, it has every section
+					an email of it can have, and each address reads as Jane, or as itself when it&apos;s one of your contacts.
+				</li>
+			</ul>
+			<FigureHelp
+				src="/help/writing/test-email.webp"
+				alt="The test email form: To with two addresses, Save as my default test addresses, and Preview as with Lena picked."
+				caption="A test email, sent as one of your contacts"
+			/>
+			<p>
+				Nobody else gets it, and its unsubscribe link unsubscribes nobody.{isCloud() && " Each address counts toward your plan's emails."}{" "}
+				Your team&apos;s addresses, yours and those of the people who joined the newsletter&apos;s{" "}
+				<Link href={getHelpHref("team")}>team</Link>, get tests whenever you want. Members send tests to them, and admins to anyone
+				else too, up to {formatNumber(OUTSIDE_TEST_ADDRESSES_PER_DAY * getSignupScale(null))} addresses outside the team a day
+				{isCloud() && " on Starter, more on bigger plans"}, each getting {TESTS_PER_OUTSIDE_ADDRESS_PER_DAY} a day at most. An address
+				that unsubscribed from your newsletter, bounced or complained doesn&apos;t get tests. The review step reminds you when you
+				haven&apos;t sent one. If it lands in spam:{" "}
+				<Link href={getHelpHref("deliverability", "test-in-spam")}>When a test lands in spam</Link>
 			</p>
 
 			<h2 id="other">Duplicate, discard and HTML</h2>
@@ -320,8 +403,9 @@ export default function WritingPage() {
 				Copy a campaign.
 			</p>
 			<p>
-				A campaign made with the API or an AI assistant can be a whole HTML document. The dashboard then shows its HTML to edit, and it
-				needs <code>{UNSUBSCRIBE_PLACEHOLDER}</code> where the unsubscribe link goes.{" "}
+				A campaign made with the API or an AI assistant can be a whole HTML document. The dashboard then shows its HTML to edit, and the{" "}
+				<Link href={getHelpHref("writing", "footer")}>footer</Link> goes at the bottom. To place your own unsubscribe link instead, put{" "}
+				<code>{UNSUBSCRIBE_PLACEHOLDER}</code> where it goes: the footer is then left out, so add your postal address to the HTML too.{" "}
 				<Link href={getHelpHref("api-and-ai")}>API and AI assistants</Link>
 			</p>
 			<p>

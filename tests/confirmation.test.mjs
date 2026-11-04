@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import FormConfirm from "../components/FormConfirm.jsx";
 import { CONFIRM_URL_PLACEHOLDER, getConfirmationContent, getConfirmationProblem, isDefaultConfirmation } from "../lib/confirmation-content.js";
 import { createConfirmToken, verifyConfirmToken } from "../lib/confirmation.js";
 import { getInbox } from "../lib/inbox-links.js";
@@ -35,6 +38,14 @@ test("a confirmation link names one contact and stops working after 30 days", ()
 test("unsubscribe and confirmation links can't stand in for each other", () => {
 	assert.equal(verifyConfirmToken(createUnsubscribeToken(REFERENCE)), null);
 	assert.equal(verifyUnsubscribeToken(createConfirmToken(REFERENCE)), null);
+});
+
+// Posted without the script, from a page that sends no referrer, a form would come with Origin: null, which Next.js
+// refuses with an error.
+test("the confirm page has no form to post before its script runs, only the button", () => {
+	const html = renderToStaticMarkup(createElement(FormConfirm, { token: "abc", newsletterName: "Field notes", fromEmail: "hi@example.com" }));
+	assert.doesNotMatch(html, /<form/);
+	assert.match(html, /<button[^>]*>Confirm my subscription<\/button>/);
 });
 
 test("the confirmation email carries a clean link in both versions", () => {

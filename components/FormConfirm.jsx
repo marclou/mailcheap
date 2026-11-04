@@ -1,19 +1,20 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { startTransition, useActionState, useEffect } from "react";
 import { Link2Off, Loader2, MailCheck } from "lucide-react";
 import { confirmSubscription } from "@/app/confirm/actions";
 import CardNotice from "@/components/CardNotice";
 import { Button } from "@/components/ui/button";
 
-// Link scanners open the page without submitting forms, so only a person's browser confirms.
+// Confirms once the page's script runs, so a link scanner that only loads the page doesn't. No <form>: posted without
+// the script from this page, which sends no referrer, it would come with Origin: null, which Next.js refuses with an
+// error, and some scanners post forms that way.
 export default function FormConfirm({ token, newsletterName, fromName, fromEmail, archiveUrl }) {
-	const [state, action, isPending] = useActionState(confirmSubscription.bind(null, token), null);
-	const formRef = useRef(null);
+	const [state, confirm, isPending] = useActionState(confirmSubscription.bind(null, token), null);
 
 	useEffect(() => {
-		formRef.current?.requestSubmit();
-	}, []);
+		startTransition(confirm);
+	}, [confirm]);
 
 	if (state?.ok) {
 		return (
@@ -45,11 +46,9 @@ export default function FormConfirm({ token, newsletterName, fromName, fromEmail
 			title={`Confirm your subscription to ${newsletterName}`}
 		>
 			One click and the next issue lands in your inbox.
-			<form ref={formRef} action={action} className="mt-6">
-				<Button type="submit" size="lg" disabled={isPending} className="w-full">
-					{isPending ? "Confirming…" : "Confirm my subscription"}
-				</Button>
-			</form>
+			<Button size="lg" disabled={isPending} onClick={() => startTransition(confirm)} className="mt-6 w-full">
+				{isPending ? "Confirming…" : "Confirm my subscription"}
+			</Button>
 		</CardNotice>
 	);
 }

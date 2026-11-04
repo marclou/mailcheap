@@ -66,7 +66,11 @@ export default function NewslettersPage() {
 					<LinkApp href="/domains">Domains page</LinkApp>. <Link href={getHelpHref("sender-addresses")}>Sender addresses and domains</Link>
 				</li>
 				<li>
-					<strong>Reply-to</strong>: where replies go.{sharedDomain && " Left empty, replies to the shared address go to your account's email."}
+					<strong>Author</strong>: your newsletter&apos;s default{" "}
+					<Link href={getHelpHref("writing", "author")}>author</Link>, the one each new issue starts with. Replies to an issue go to
+					its author, and replies to your welcome, confirmation and last-chance emails go to the default author. Pick another, add
+					one or edit them from its menu. Until you add one, replies go to the reply-to address you set before authors
+					{sharedDomain && ", or to your account's email"}.
 				</li>
 				<li>
 					<strong>Postal address</strong>: printed in the footer of every email, as anti-spam laws ask.{" "}
@@ -129,7 +133,9 @@ export default function NewslettersPage() {
 				<Link href={getHelpHref("writing", "editor")}>editor</Link> as your issues, with pictures, buttons and their{" "}
 				<Link href={getHelpHref("writing", "first-name")}>first name</Link>. On the{" "}
 				<LinkApp href="/newsletters/welcome">Welcome email page</LinkApp>, Preview shows it as they get it and Send test sends the
-				saved version to you. While double opt-in is on, new subscribers get the confirmation email instead: turning the welcome
+				saved version to you or the addresses you type, read as one of your contacts if you pick one, like{" "}
+				<Link href={getHelpHref("writing", "preview")}>an issue&apos;s test</Link>. While double opt-in is on, new subscribers get the
+				confirmation email instead: turning the welcome
 				email on turns double opt-in off when you save, and the page says so first.
 				{isCloud() && (
 					<>

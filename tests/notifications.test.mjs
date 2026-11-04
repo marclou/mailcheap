@@ -12,7 +12,7 @@ import {
 	joinSentences,
 } from "../lib/notification-rules.js";
 import { findAlertCalls, isAdminAlert, kindsOf } from "./helpers/alert-calls.mjs";
-import { activate, as, callApi, catchRedirect, form, jsonRequest, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, as, callApi, catchRedirect, form, jsonRequest, signIn, startTestApp } from "./helpers/app.mjs";
 import { flushAfter } from "./stubs/next-server.mjs";
 import { published } from "./stubs/qstash.mjs";
 
@@ -120,6 +120,7 @@ describe("an account's notifications", () => {
 		user.slug = email.split("@")[0];
 		const url = await as(user, () => catchRedirect(m.newsletters.saveNewsletter(null, form({ name: `${user.slug} news`, slug: user.slug, postalAddress: "1 Main St, Paris" }))));
 		user.newsletterId = url.split("/").at(-1);
+		await addAuthor(user);
 		return user;
 	}
 

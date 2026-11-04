@@ -245,9 +245,9 @@ html:has([data-support-chat]) {
   }
 }
 
-/* BarSave renders [data-save-bar][data-shown] while a save bar shows: the get-started pill steps aside for it (the
-   save-bar variant). */
-@custom-variant save-bar (html:has([data-save-bar][data-shown]) &);
+/* BarSave renders [data-save-bar][data-shown] while a save bar shows, and BarContactSelection [data-selection-bar][data-shown]
+   while contacts are selected: the get-started pill steps aside for them (the save-bar variant). */
+@custom-variant save-bar (html:has([data-save-bar][data-shown], [data-selection-bar][data-shown]) &);
 
 /* A spring with a little bounce (0.3), sampled for linear(): BarSave's first entrance overshoots by 4.6% and settles.
    --ease-drawer: iOS's drawer curve, which the sidebar folds and opens with. */
@@ -883,6 +883,20 @@ html:has([data-campaign-steps]):not(:has([data-sidebar-expanded])) {
     padding: 0.15em 0.35em;
     border-radius: 0.375rem;
     background: var(--muted);
+  }
+}
+
+/* The Design page's website (PreviewThemeSite) follows a theme's changes from where they were, on its email's timing
+   (lib/email-preview.js): corners and shadows in place, and spacing and heading weight, which move the text around
+   them, only without reduced motion. Colors follow the picker as it's dragged. The issue's links have a transition of
+   their own, which this one replaces there. */
+.theme-transitions *,
+.theme-transitions .prose-issue a {
+  transition-property: box-shadow, border-radius;
+  transition-duration: 250ms;
+  transition-timing-function: cubic-bezier(0.77, 0, 0.175, 1);
+  @media (prefers-reduced-motion: no-preference) {
+    transition-property: box-shadow, border-radius, line-height, margin, font-weight;
   }
 }
 

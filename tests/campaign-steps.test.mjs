@@ -50,6 +50,17 @@ test("every check that can fail says how to fix it, except the server's own send
 	for (const check of checks.filter(({ isWarning }) => isWarning)) assert.ok(fixes[check.id].hint, check.id);
 });
 
+test("the checklist asks for an author until the issue has one, as a check that holds the send", () => {
+	const input = { newsletter: {}, rendered: { html: "", bytes: 1_000 }, isSendingEnabled: true };
+	const authorCheck = (campaign) =>
+		getPresendChecks({ ...input, campaign: { subject: "Hi", body: "<p>Hello</p>", ...campaign } }).checks.find(({ id }) => id === "author");
+
+	const missing = authorCheck({});
+	assert.deepEqual(missing, { id: "author", label: "Author", isOk: false, message: "Choose an author for this issue" });
+	assert.deepEqual(getCheckFix(missing, { newsletterId: "n1" }), { label: "Choose an author", field: "author" });
+	assert.equal(authorCheck({ authorId: "a1" }).isOk, true);
+});
+
 test("the checklist is about the email: the plan and the sending switch are the account's", () => {
 	const { checks } = getPresendChecks({
 		campaign: { subject: "Hi", previewText: "", body: "<p>Hello</p>" },

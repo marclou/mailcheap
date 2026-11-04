@@ -1,11 +1,22 @@
 import AvatarNewsletter from "@/components/AvatarNewsletter";
-import { getThemeVariables } from "@/lib/themes";
+import { getThemeRules, getThemeVariables } from "@/lib/themes";
 import { cn } from "@/lib/utils";
 
-// A resolved theme (lib/themes.js) over its children, with the variables the archive's pages get from StyleTheme.
-export function ScopeTheme({ theme, className, children }) {
+// A resolved theme (lib/themes.js) over its children, with the variables the archive's pages get from StyleTheme: in
+// mode when one is asked for, else in the page's light or dark mode, as the website shows each reader theirs.
+export function ScopeTheme({ theme, mode, className, children }) {
+	if (mode) {
+		return (
+			<div style={getScopeStyle(theme, mode)} className={cn("bg-background text-foreground", className)}>
+				{children}
+			</div>
+		);
+	}
+	const scope = getScopeName(theme);
+	const rules = getThemeRules(theme, `[data-theme-scope="${scope}"]`);
 	return (
-		<div style={getScopeStyle(theme)} className={cn("bg-background text-foreground", className)}>
+		<div data-theme-scope={scope} className={cn("bg-background text-foreground", className)}>
+			{rules && <style dangerouslySetInnerHTML={{ __html: rules }} />}
 			{children}
 		</div>
 	);
@@ -50,9 +61,9 @@ export function PreviewThemeCard({ theme, newsletter }) {
 }
 
 // The customizer's website: the archive's home and the start of an issue, in the archive's own classes.
-export function PreviewThemeSite({ theme, newsletter }) {
+export function PreviewThemeSite({ theme, newsletter, mode }) {
 	return (
-		<ScopeTheme theme={theme} className="min-h-full">
+		<ScopeTheme theme={theme} mode={mode} className="theme-transitions min-h-full">
 			<div className="sticky top-0 z-10 flex h-12 items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-5 backdrop-blur-md">
 				<span className="flex min-w-0 items-center gap-2 text-sm font-medium tracking-tight [font-family:var(--theme-font-heading)]">
 					<AvatarNewsletter newsletter={newsletter} size={24} />
@@ -111,10 +122,18 @@ function getDescription(newsletter) {
 	return newsletter.description || "One idea about building things, every Sunday.";
 }
 
-// React takes standard properties in camelCase; the theme's own are custom properties.
-function getScopeStyle(theme) {
-	const { "color-scheme": colorScheme, ...variables } = getThemeVariables(theme);
+// React takes standard properties in camelCase; the theme's own are custom properties. A mode asked for is painted
+// whole, MailCheap's own colors included, which otherwise follow the page's.
+function getScopeStyle(theme, mode) {
+	const { "color-scheme": colorScheme, ...variables } = getThemeVariables({ ...theme, isDefault: false, isAdaptive: false }, mode);
 	return { ...variables, colorScheme, fontFamily: variables["--theme-font-body"] ? "var(--theme-font-body)" : undefined };
+}
+
+// Named after what it paints, so the server and the browser name it alike.
+function getScopeName(theme) {
+	let hash = 5381;
+	for (const character of JSON.stringify(theme.stored)) hash = (hash * 33) ^ character.charCodeAt(0);
+	return (hash >>> 0).toString(36);
 }
 
 const ISSUES = ["Notes from the road", "What I'd do again", "The long way round"];

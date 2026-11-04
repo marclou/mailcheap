@@ -207,7 +207,7 @@ describe("going from the review step to a problem", () => {
 	test("each fix in the issue carries its kind and message, a merge tag in the subject its words in the subject", () => {
 		const input = { newsletter: { postalAddress: "1 Main St" }, rendered: { html: "{{unsubscribe_url}}", bytes: 100 }, isSendingEnabled: true };
 		const body = '<p><a href="#">Read more</a></p><div data-button=""><a>Join</a></div><div data-html-block="">&lt;b&gt;x</div>';
-		const campaign = { subject: "Hi {{FNAME}}", previewText: "Hi", testSentAt: new Date(), format: "rich", body };
+		const campaign = { subject: "Hi {{FNAME}}", previewText: "Hi", authorId: "000000000000000000000001", testSentAt: new Date(), format: "rich", body };
 		const { checks } = getPresendChecks({ ...input, campaign });
 		const fixes = Object.fromEntries(checks.filter(({ isOk }) => !isOk).map((check) => [check.id, getCheckFix(check, { newsletterId: "n1" })]));
 		assert.deepEqual(fixes, {

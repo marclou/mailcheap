@@ -10,7 +10,7 @@ import {
 	getSenderMs,
 	getSenderPace,
 } from "../lib/send-spread.js";
-import { activate, as, catchRedirect, form, jsonRequest, mockRdap, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, as, catchRedirect, form, jsonRequest, mockRdap, signIn, startTestApp } from "./helpers/app.mjs";
 import { published } from "./stubs/qstash.mjs";
 
 const HOUR_MS = 3_600_000;
@@ -93,6 +93,7 @@ describe("Gmail's readers on a new domain", () => {
 		const slug = email.split("@")[0];
 		const url = await as(user, () => catchRedirect(m.newsletters.saveNewsletter(null, form({ name: slug, slug, postalAddress: "1 Main St" }))));
 		user.newsletterId = url.split("/").at(-1);
+		await addAuthor(user);
 		const contact = (address) => ({
 			accountId: user.accountId,
 			newsletterId: user.newsletterId,

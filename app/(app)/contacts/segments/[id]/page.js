@@ -6,6 +6,7 @@ import CardStat from "@/components/CardStat";
 import FilterContacts from "@/components/FilterContacts";
 import { TitlePage } from "@/components/HeaderPage";
 import ProviderContactOptions from "@/components/ProviderContactOptions";
+import ProviderContactSelection from "@/components/ProviderContactSelection";
 import StateEmpty from "@/components/StateEmpty";
 import TableContacts, { NavPages } from "@/components/TableContacts";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -105,10 +106,18 @@ export default async function SegmentPage({ params, searchParams }) {
 					{contacts.length === 0 ? (
 						<StateEmpty icon={Users} title={totalAll > 0 || isFiltered ? "No contacts match" : "No one is in this segment yet"} />
 					) : (
-						<TableContacts contacts={contacts} fields={fields} />
+						<ProviderContactSelection
+							key={`${id}${toFilterQuery(filters, { page })}`}
+							newsletterId={newsletterId}
+							filters={{ ...filters, segmentId: id }}
+							total={total}
+							counts={counts}
+							contacts={contacts.map(({ _id, status, tags: contactTags }) => ({ id: String(_id), status, tags: contactTags ?? [] }))}
+						>
+							<TableContacts contacts={contacts} fields={fields} />
+							<NavPages page={page} pageCount={pageCount} total={total} hrefFor={hrefFor} />
+						</ProviderContactSelection>
 					)}
-
-					<NavPages page={page} pageCount={pageCount} total={total} hrefFor={hrefFor} />
 				</div>
 			</div>
 		</ProviderContactOptions>

@@ -5,7 +5,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { formatLinkUrl, getLinkKey, getLinkLabels, isSystemLink, normalizeLink } from "../lib/link-stats.js";
 import { getClickUrl, readClickToken } from "../lib/tracking.js";
-import { activate, as, catchRedirect, form, jsonRequest, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, as, catchRedirect, form, jsonRequest, signIn, startTestApp } from "./helpers/app.mjs";
 import { flushAfter } from "./stubs/next-server.mjs";
 import { published } from "./stubs/qstash.mjs";
 import { sent as sesEmails } from "./stubs/ses.mjs";
@@ -121,6 +121,7 @@ describe("clicks per link", () => {
 			)
 		);
 		user.newsletterId = url.split("/").at(-1);
+		await addAuthor(user);
 		const rows = Array.from({ length: contacts }, (_, index) => ({ email: `reader${index}@${slug}.example.org`, status: "active" }));
 		await as(user, () => m.contacts.importContacts({ newsletterId: user.newsletterId, consent: true, rows }));
 		return user;

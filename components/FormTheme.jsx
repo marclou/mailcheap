@@ -1,6 +1,7 @@
 "use client";
 
 import { useDeferredValue, useMemo, useState, useTransition } from "react";
+import { useTheme } from "next-themes";
 import { Check, ChevronLeft, Loader2, Mail, Monitor, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { saveTheme } from "@/app/(app)/newsletters/actions";
 import BarSave from "@/components/BarSave";
@@ -8,9 +9,10 @@ import FieldsTheme from "@/components/FieldsTheme";
 import PreviewEmail from "@/components/PreviewEmail";
 import { PreviewThemeCard, PreviewThemeSite } from "@/components/PreviewTheme";
 import { Button } from "@/components/ui/button";
-import { UNSUBSCRIBE_PLACEHOLDER, renderEmail } from "@/lib/render-email";
-import { ADAPTIVE_COLORS, THEME_PRESETS, getThemeOutput, normalizeTheme, resolveTheme } from "@/lib/themes";
+import { UNSUBSCRIBE_PLACEHOLDER, renderEmail, withEmailMode } from "@/lib/render-email";
+import { THEME_PRESETS, getSwatchColors, getThemeOutput, normalizeTheme, resolveTheme } from "@/lib/themes";
 import { toast } from "@/lib/toast";
+import { useIsClient } from "@/lib/use-is-client";
 import { cn } from "@/lib/utils";
 
 // Design: the presets as cards, each showing the newsletter's website and an email in it. A click applies one at once,
@@ -134,7 +136,7 @@ function CardTheme({ preset, values, newsletter, isApplied, isApplying, stagger,
 					{isApplied && resolved.isCustomized && <span className="truncate text-xs font-normal text-muted-foreground">Customized</span>}
 				</span>
 				<span className="flex shrink-0 items-center gap-3">
-					<ListPalette colors={resolved.isAdaptive ? ADAPTIVE_COLORS : resolved.colors} />
+					<ListPalette colors={getSwatchColors(resolved)} />
 					{isApplied && (
 						<Button type="button" size="sm" onClick={onCustomize}>
 							<SlidersHorizontal />
@@ -147,16 +149,17 @@ function CardTheme({ preset, values, newsletter, isApplied, isApplying, stagger,
 	);
 }
 
-// The theme's page, text and accent, at a glance. Hovering the card spreads them apart a little.
+// The theme's page, text and accent, at a glance, in the dashboard's light or dark mode. Hovering the card spreads them
+// apart a little.
 function ListPalette({ colors }) {
 	return (
 		<span aria-hidden="true" className="flex items-center px-1">
 			{PALETTE.map(({ key, spread }) => (
 				<span
 					key={key}
-					style={{ backgroundColor: colors[key] }}
+					style={{ "--dot": colors.light[key], "--dot-dark": colors.dark[key] }}
 					className={cn(
-						"size-3.5 rounded-full shadow-[0_0_0_2px_var(--card),inset_0_0_0_1px_rgb(0_0_0/0.12)] transition-[translate] duration-200 ease-out not-first:-ml-1 dark:shadow-[0_0_0_2px_var(--card),inset_0_0_0_1px_rgb(255_255_255/0.16)]",
+						"size-3.5 rounded-full bg-(--dot) shadow-[0_0_0_2px_var(--card),inset_0_0_0_1px_rgb(0_0_0/0.12)] transition-[translate] duration-200 ease-out not-first:-ml-1 dark:bg-(--dot-dark) dark:shadow-[0_0_0_2px_var(--card),inset_0_0_0_1px_rgb(255_255_255/0.16)]",
 						spread
 					)}
 				/>
@@ -165,19 +168,34 @@ function ListPalette({ colors }) {
 	);
 }
 
+// The website and the email show the mode whose colors the fields edit: the dashboard's until another one is picked
+// above them. Where emails sit only shows on a computer's wider screen: picking it brings up the email there.
 function PanelCustomize({ newsletter, postalAddress, draft, onChange, onBack }) {
 	const [view, setView] = useState("website");
+	const [device, setDevice] = useState("desktop");
+	const [pickedMode, setPickedMode] = useState(null);
+	const { resolvedTheme } = useTheme();
+	const isClient = useIsClient();
+	const mode = pickedMode ?? (isClient && resolvedTheme === "dark" ? "dark" : "light");
 	const resolved = useMemo(() => resolveTheme(draft), [draft]);
 	const deferredDraft = useDeferredValue(draft);
 	const emailHtml = useMemo(
 		() =>
-			renderEmail({
-				markdown: SAMPLE_EMAIL,
-				subject: "This week",
-				newsletter: { name: newsletter.name, postalAddress, theme: deferredDraft },
-			}).html.replaceAll(UNSUBSCRIBE_PLACEHOLDER, "#"),
-		[deferredDraft, newsletter.name, postalAddress]
+			withEmailMode(
+				renderEmail({
+					markdown: SAMPLE_EMAIL,
+					subject: "This week",
+					newsletter: { name: newsletter.name, postalAddress, theme: deferredDraft },
+				}).html.replaceAll(UNSUBSCRIBE_PLACEHOLDER, "#"),
+				mode
+			),
+		[deferredDraft, newsletter.name, postalAddress, mode]
 	);
+
+	function showEmail() {
+		setView("email");
+		setDevice("desktop");
+	}
 
 	// From lg, both panels take the screen's height below the page's title, the controls scrolling in theirs.
 	return (
@@ -200,7 +218,7 @@ function PanelCustomize({ newsletter, postalAddress, draft, onChange, onBack }) 
 					)}
 				</div>
 				<div className="p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:[scrollbar-width:thin]">
-					<FieldsTheme values={draft} onChange={onChange} />
+					<FieldsTheme values={draft} onChange={onChange} mode={mode} onModeChange={setPickedMode} onEmailChange={showEmail} />
 				</div>
 			</div>
 			<div className="order-first flex flex-col gap-3 lg:order-none lg:min-h-0">
@@ -224,13 +242,16 @@ function PanelCustomize({ newsletter, postalAddress, draft, onChange, onBack }) 
 				</div>
 				{view === "website" ? (
 					<div className="h-[min(62svh,40rem)] overflow-y-auto overscroll-contain rounded-xl shadow-border lg:h-auto lg:min-h-0 lg:flex-1">
-						<PreviewThemeSite theme={resolved} newsletter={newsletter} />
+						<PreviewThemeSite theme={resolved} newsletter={newsletter} mode={pickedMode ?? undefined} />
 					</div>
 				) : (
 					<PreviewEmail
 						html={emailHtml}
 						sender={{ name: newsletter.name, fromName: newsletter.fromName, fromEmail: newsletter.fromEmail, imageUrl: newsletter.imageUrl }}
 						subject="This week"
+						desktopWidth={1024}
+						device={device}
+						onDeviceChange={setDevice}
 						className="lg:min-h-0 lg:flex-1"
 					/>
 				)}
@@ -239,9 +260,10 @@ function PanelCustomize({ newsletter, postalAddress, draft, onChange, onBack }) 
 	);
 }
 
-// The values the customizer edits and saving sends, from a stored theme.
+// The values the customizer edits and saving sends, from a stored theme: each mode's colors, without colors, which
+// repeats one of them.
 function toValues(theme) {
-	const { name, customized, ...values } = getThemeOutput(theme);
+	const { name, customized, colors, ...values } = getThemeOutput(theme);
 	return values;
 }
 

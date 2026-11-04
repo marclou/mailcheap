@@ -62,7 +62,6 @@ test("a section's page sends its own fields only, so saving it leaves the other 
 	assert.deepEqual(readSettingsForm(fullForm("sender")), {
 		fromName: "Jane",
 		fromEmail: "jane@example.com",
-		replyTo: "reply@example.com",
 		postalAddress: "1 Main St, Paris",
 	});
 	assert.deepEqual(readSettingsForm(fullForm("cleanup")), {
@@ -139,6 +138,10 @@ test("an email the editor never changed comes back in the Markdown it was saved 
 test("without a section the form sends every field, as the one-page settings did; a section with no fields here sends none", () => {
 	const settings = readSettingsForm(fullForm());
 	assert.equal(settings.name, "Field notes");
+	assert.equal(settings.replyTo, "reply@example.com");
+	const withoutReplyTo = fullForm();
+	withoutReplyTo.delete("replyTo");
+	assert.equal("replyTo" in readSettingsForm(withoutReplyTo), false, "the authors took its place: a form without it keeps it");
 	assert.equal(settings.postalAddress, "1 Main St, Paris");
 	assert.equal(settings.cleanup.enabled, true);
 	assert.equal(settings.welcome.subject, "Welcome");

@@ -23,7 +23,7 @@ export default async function JoinPage({ params }) {
 	if (isDeletionPending(current.account)) redirect("/restore");
 	const invitation = await findInvitation(token);
 	if (!invitation || invitation.isExpired) return <Invalid />;
-	const { member, newsletter, ownerEmail } = invitation;
+	const { member, newsletter, ownerName, ownerEmail } = invitation;
 	const isTheirs = isSameInbox(current.user.email, member.email);
 
 	return (
@@ -34,7 +34,7 @@ export default async function JoinPage({ params }) {
 					<div className="flex flex-col gap-1">
 						<h1 className="text-lg font-semibold tracking-tight text-balance">Join {newsletter.name}</h1>
 						<p className="text-sm text-pretty text-muted-foreground">
-							{ownerEmail} invited you to work on it with them, as {member.role === "admin" ? "an admin" : "a member"}.
+							{ownerName ?? ownerEmail} invited you to work on it with them, as {member.role === "admin" ? "an admin" : "a member"}.
 						</p>
 					</div>
 				</div>

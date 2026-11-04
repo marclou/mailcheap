@@ -17,6 +17,9 @@ const campaignSchema = new mongoose.Schema(
 		format: { type: String, enum: ["markdown", "html", "rich"], default: "rich" },
 		markdown: { type: String, default: "" },
 		html: { type: String, default: "" },
+		// One more each time its subject, preview text or content changes: a change made from an earlier revision is
+		// refused, so two people on a draft never write over each other (lib/draft-merge.js). Unset counts as 0.
+		revision: { type: Number },
 		status: { type: String, enum: CAMPAIGN_STATUSES, default: "draft" },
 		// By email and on the website, by email only, or on the website only (lib/publish-to.js). Web only sends nothing:
 		// it goes straight to sent, with no messages.
@@ -32,6 +35,16 @@ const campaignSchema = new mongoose.Schema(
 		// Only this segment's active contacts get it, its conditions read at each send (lib/segments.js). Without one,
 		// every active contact does.
 		segmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Segment" },
+		// Who wrote it (models/Author.js). Issues from before authors have none and go out as they did.
+		authorId: { type: mongoose.Schema.Types.ObjectId, ref: "Author" },
+		// The author as its send started: every email of the send shows them as the content check read them, whatever
+		// changes on the author after. Its page shows the author as they are now.
+		sentAuthor: {
+			name: { type: String },
+			email: { type: String },
+			imageUrl: { type: String },
+			showInEmails: { type: Boolean },
+		},
 		// Contacts never mailed before go out in steps (lib/first-send.js): how many each step sends, the last the rest,
 		// the step out so far, the first's size, how many still wait, when the next check is, and when the last one passed.
 		// Sends from before had a single slice, and restHours in a spread send.

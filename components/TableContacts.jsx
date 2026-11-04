@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import AvatarContact from "@/components/AvatarContact";
 import BadgeStatus from "@/components/BadgeStatus";
+import CheckboxContact, { CheckboxAllContacts } from "@/components/CheckboxContact";
 import MenuContact from "@/components/MenuContact";
 import TextEmpty from "@/components/TextEmpty";
 import { Button } from "@/components/ui/button";
@@ -19,14 +20,18 @@ import { CONTACTS_PAGE_SIZE } from "@/lib/contacts";
 import { formatDate, formatNumber } from "@/lib/format";
 import { gravatarHash } from "@/lib/gravatar";
 
-// A page of contacts, each opening its own page, with its menu. fields: the account's own, which the menu edits.
+// A page of contacts, each opening its own page, with its menu, and a box to select it (ProviderContactSelection).
+// fields: the account's own, which the menu edits.
 export default function TableContacts({ contacts, fields }) {
 	return (
 		<div style={{ "--stagger": 1 }} className="overflow-hidden rounded-xl shadow-border animate-enter">
 			<Table>
 				<TableHeader>
 					<TableRow className="hover:bg-transparent">
-						<TableHead className="pl-4">Email</TableHead>
+						<TableHead className="w-10 pl-4">
+							<CheckboxAllContacts />
+						</TableHead>
+						<TableHead className="pl-3">Email</TableHead>
 						<TableHead className="hidden md:table-cell">Tags</TableHead>
 						<TableHead>Status</TableHead>
 						<TableHead className="hidden text-right lg:table-cell">Opens</TableHead>
@@ -37,8 +42,11 @@ export default function TableContacts({ contacts, fields }) {
 				</TableHeader>
 				<TableBody>
 					{contacts.map((contact) => (
-						<TableRow key={contact._id.toString()} className="relative tabular-nums">
-							<TableCell className="w-full max-w-0 py-2.5 pl-4 font-medium sm:w-2/5">
+						<TableRow key={contact._id.toString()} className="relative tabular-nums has-data-[state=checked]:bg-muted/70">
+							<TableCell className="w-10 py-2.5 pl-4">
+								<CheckboxContact id={contact._id.toString()} email={contact.email} />
+							</TableCell>
+							<TableCell className="w-full max-w-0 py-2.5 pl-3 font-medium sm:w-2/5">
 								<span className="flex min-w-0 items-center gap-2.5">
 									<AvatarContact email={contact.email} gravatarHash={gravatarHash(contact.email)} size={26} />
 									<Link href={`/contacts/${contact._id}`} className="truncate after:absolute after:inset-0">

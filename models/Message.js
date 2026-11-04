@@ -70,5 +70,7 @@ messageSchema.index({ campaignId: 1, status: 1 });
 messageSchema.index({ accountId: 1, campaignId: 1 }, { partialFilterExpression: { status: "queued" } });
 // The account-level check on the last days of sends (lib/account-health.js).
 messageSchema.index({ accountId: 1, sentAt: -1 });
+// The addresses outside the team an account's tests reached in the last day (lib/test-recipients.js).
+messageSchema.index({ accountId: 1, createdAt: -1 }, { partialFilterExpression: { kind: "test" } });
 
 export default mongoose.models.Message || mongoose.model("Message", messageSchema);

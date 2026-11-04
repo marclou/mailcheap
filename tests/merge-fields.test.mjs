@@ -15,7 +15,7 @@ import {
 import { getPresendChecks } from "../lib/presend-checks.js";
 import { renderEmail } from "../lib/render-email.js";
 import { buildRecipientEmail } from "../lib/sending-rules.js";
-import { activate, as, callApi, catchRedirect, form, jsonRequest, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, as, callApi, catchRedirect, form, jsonRequest, signIn, startTestApp } from "./helpers/app.mjs";
 import { published } from "./stubs/qstash.mjs";
 import { sent as sesEmails } from "./stubs/ses.mjs";
 
@@ -221,6 +221,7 @@ describe("field tags in sends, tests and previews", () => {
 			)
 		);
 		user.newsletterId = url.split("/").at(-1);
+		await addAuthor(user);
 		for (const field of fields) assert.ok((await as(user, () => m.contacts.createContactField(field))).field, field.label);
 		user.key = (await as(user, () => m.apiKeys.createApiKey(null, form({ name: "Agent", level: "full" })))).key;
 		return user;

@@ -7,8 +7,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 const { default: CampaignReport } = await import("../components/CampaignReport.jsx");
 const { default: ButtonClickMap } = await import("../components/ButtonClickMap.jsx");
 const { default: MenuReport } = await import("../components/MenuReport.jsx");
+const { default: RefreshPage } = await import("../components/RefreshPage.jsx");
 const { TooltipProvider } = await import("../components/ui/tooltip.jsx");
 const { UNSUBSCRIBE_PLACEHOLDER } = await import("../lib/render-email.js");
+const { REFRESH_HOURS, REFRESH_SECONDS } = await import("../lib/report-stats.js");
 
 const STATS = { recipients: 1000, sent: 1000, delivered: 990, opened: 462, clicked: 70, bounced: 10, complained: 1, unsubscribed: 4 };
 
@@ -292,6 +294,26 @@ test("a send Gmail paused says when it starts again, in the same look", () => {
 
 	const withoutPace = renderReport({ campaign, readOnly: true, pace: null });
 	assert.match(withoutPace, /this newsletter&#x27;s sends wait 6 hours/, "the reason, when the domain's pace isn't there to say it");
+});
+
+test("as its send goes out, a pause that lifts by itself included, and for a while after, the report takes its numbers again", async () => {
+	const newsletter = { name: "Weekly", fromName: "Weekly", fromEmail: "hi@example.com" };
+	const refreshOf = (campaign) =>
+		findElement(CampaignReport({ campaign: sending(campaign), newsletter, providers: [], links: null, timeZone: "UTC" }), RefreshPage)?.props
+			.seconds;
+	assert.equal(refreshOf({ status: "sending" }), REFRESH_SECONDS);
+	assert.equal(refreshOf({ status: "paused", pauseCode: "rate_limited" }), REFRESH_SECONDS, "Gmail's slowing down lifts by itself");
+	assert.equal(refreshOf({ status: "paused", pauseCode: "content_review" }), REFRESH_SECONDS, "and so does MailCheap's review");
+	assert.equal(refreshOf({ status: "paused" }), undefined, "a pause its owner clicked waits for them");
+	assert.equal(refreshOf({ status: "paused", pauseCode: "high_rates" }), undefined);
+	assert.equal(refreshOf({ status: "paused", pauseCode: "content_rejected" }), undefined);
+	assert.equal(refreshOf({ status: "sent", finishedAt: inHours(-REFRESH_HOURS / 2) }), REFRESH_SECONDS, "its first opens coming in");
+	assert.equal(refreshOf({ status: "sent", finishedAt: inHours(-REFRESH_HOURS) }), undefined);
+	assert.equal(refreshOf({ status: "sent" }), undefined, "sent before its end was kept");
+	assert.equal(refreshOf({ status: "canceled" }), undefined);
+
+	const help = await readFile(new URL("../app/(site)/help/sending/page.js", import.meta.url), "utf8");
+	assert.match(help, /its page updates its numbers on its own/);
 });
 
 test("the report compares opens and clicks with the average in percent, never in points", () => {

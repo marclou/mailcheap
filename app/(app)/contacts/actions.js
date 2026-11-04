@@ -109,11 +109,50 @@ export async function deleteContact(id) {
 	return failure ? toFormError(failure) : { ok: true };
 }
 
-// The contacts the list shows with its filters, a batch at a time: the dialog calls again while some remain.
-export async function deleteListedContacts({ newsletterId, ...filters } = {}) {
-	const { output, failure } = await runDashboardAction("delete_contacts", { newsletter: String(newsletterId ?? ""), filter: listFilter(filters) });
-	revalidateContacts();
+// The list's selection (selectionTarget), a batch at a time: the bar calls again while some remain. The pages that list
+// contacts refresh once it's done.
+export async function deleteSelectedContacts(selection) {
+	const { output, failure } = await runDashboardAction("delete_contacts", selectionTarget(selection));
+	if (failure || output.remaining === 0 || output.deleted === 0) revalidateContacts();
 	return failure ? toFormError(failure) : { deleted: output.deleted, remaining: output.remaining };
+}
+
+// The same for a status: active, dormant or unsubscribed, for those whose status can change to it without their consent.
+export async function setSelectedStatus(selection, status) {
+	const { output, failure } = await runDashboardAction("update_contacts_status", { ...selectionTarget(selection), status });
+	if (failure || output.remaining === 0 || output.changed === 0) revalidateContacts();
+	return failure ? toFormError(failure) : { changed: output.changed, remaining: output.remaining };
+}
+
+// And for tags, which the newsletter's whole team can change.
+export async function tagSelectedContacts(selection, tags) {
+	const { output, failure } = await runDashboardAction("tag_contacts", { ...selectionTarget(selection), tags: readTags(tags) });
+	if (failure || output.remaining === 0 || output.changed === 0) revalidateContacts();
+	return failure ? toFormError(failure) : { changed: output.changed, remaining: output.remaining };
+}
+
+export async function untagSelectedContacts(selection, tags) {
+	const { output, failure } = await runDashboardAction("untag_contacts", { ...selectionTarget(selection), tags: readTags(tags) });
+	if (failure || output.remaining === 0 || output.changed === 0) revalidateContacts();
+	return failure ? toFormError(failure) : { changed: output.changed, remaining: output.remaining };
+}
+
+// A segment of the list's selection: they get its tag, which its one condition picks, so anyone tagged so later joins
+// it. Tagged first, a batch a call while some remain, so trying again with the same name tags no one twice and saves
+// one segment.
+export async function segmentSelectedContacts(selection, { name, tag } = {}) {
+	const tagged = await runDashboardAction("tag_contacts", { ...selectionTarget(selection), tags: readTags([tag]) });
+	if (tagged.failure) return toFormError(tagged.failure);
+	if (tagged.output.remaining > 0 && tagged.output.changed > 0) return { remaining: tagged.output.remaining };
+	revalidateContacts();
+	const { output, failure } = await runDashboardAction("create_segment", {
+		newsletter: String(selection?.newsletterId ?? ""),
+		name: String(name ?? ""),
+		match: "all",
+		conditions: [{ field: "tag", op: "has", value: String(tag ?? "") }],
+	});
+	if (failure) return toFormError(failure);
+	return { id: output.id };
 }
 
 // A link to the CSV with the list's filters, valid for an hour.
@@ -133,6 +172,19 @@ export async function getContactOptions(newsletterId) {
 	]);
 	const failure = fields.failure ?? tags.failure;
 	return failure ? toFormError(failure) : { fields: fields.output.fields, tags: tags.output.tags };
+}
+
+// Who a change to the list's selection is for: the contacts picked on its page (ids), or every contact the list shows
+// with its filters (filters, with segmentId on a segment's page), on every page: the whole list without any.
+function selectionTarget({ newsletterId, ids, filters } = {}) {
+	const newsletter = String(newsletterId ?? "");
+	if (Array.isArray(ids)) return { newsletter, contacts: ids.map(String) };
+	const filter = listFilter(filters ?? {});
+	return { newsletter, ...(Object.keys(filter).length > 0 ? { filter } : { all: true }) };
+}
+
+function readTags(tags) {
+	return Array.isArray(tags) ? tags.map((tag) => String(tag ?? "")) : [];
 }
 
 function listFilter({ status, query, segmentId, tag, source, signedUpSince, signedUpBefore }) {

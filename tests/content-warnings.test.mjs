@@ -8,7 +8,7 @@ import { getOpenApiDocument } from "../lib/docs/openapi.js";
 import { ButtonBlock } from "../lib/editor-button.js";
 import { findWords } from "../lib/editor-find.js";
 import { getContentWarnings, getPresendChecks } from "../lib/presend-checks.js";
-import { activate, as, callApi, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, as, callApi, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
 
 process.env.BETTER_AUTH_SECRET = "test-session-secret-with-at-least-32-characters";
 process.env.APP_URL = "https://mail.example.com";
@@ -206,7 +206,7 @@ describe("warnings in the review step", () => {
 		rendered: { html: "<p>{{unsubscribe_url}}</p>", bytes: 100 },
 		isSendingEnabled: true,
 	};
-	const campaign = { subject: "Hi", previewText: "Hi", testSentAt: new Date(), format: "rich" };
+	const campaign = { subject: "Hi", previewText: "Hi", authorId: "000000000000000000000001", testSentAt: new Date(), format: "rich" };
 
 	test("they're to check, never to fix: they don't hold the send, and they say how many", () => {
 		const body = `<p>${link("One", "#")} ${link("Two", "#")}</p>${block("<b>Hi")}<p>Lorem ipsum</p><p>**Bold**</p>`;
@@ -299,6 +299,7 @@ describe("warnings through the API", () => {
 		await activate(user);
 		const fields = { name: "Warnings", slug: "warnings", fromName: "Field notes", fromEmail: "hello@warnings.mailcheapmail.com", postalAddress: "1 Main St, Paris" };
 		user.newsletterId = (await as(user, () => catchRedirect(newsletters.saveNewsletter(null, form(fields))))).split("/").at(-1);
+		await addAuthor(user);
 		user.key = (await as(user, () => apiKeys.createApiKey(null, form({ name: "Agent", level: "full" })))).key;
 	});
 

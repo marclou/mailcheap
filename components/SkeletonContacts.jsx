@@ -29,7 +29,10 @@ export default function SkeletonContacts() {
 				<Table>
 					<TableHeader>
 						<TableRow className="hover:bg-transparent">
-							<TableHead className="pl-4">Email</TableHead>
+							<TableHead className="w-10 pr-0 pl-4">
+								<Skeleton className="size-4 rounded-[4px]" />
+							</TableHead>
+							<TableHead className="pl-3">Email</TableHead>
 							<TableHead className="hidden md:table-cell">Tags</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead className="hidden text-right lg:table-cell">Opens</TableHead>
@@ -41,7 +44,10 @@ export default function SkeletonContacts() {
 					<TableBody>
 						{EMAIL_WIDTHS.map((width, index) => (
 							<TableRow key={index} className="hover:bg-transparent">
-								<TableCell className="w-full max-w-0 py-2.5 pl-4 sm:w-2/5">
+								<TableCell className="w-10 py-2.5 pr-0 pl-4">
+									<Skeleton className="size-4 rounded-[4px]" />
+								</TableCell>
+								<TableCell className="w-full max-w-0 py-2.5 pl-3 sm:w-2/5">
 									<span className="flex items-center gap-2.5">
 										<Skeleton className="size-[26px] shrink-0 rounded-full" />
 										<Skeleton className="h-3.5" style={{ width: `${width}%` }} />

@@ -5,7 +5,7 @@ import mongoose from "mongoose";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { decryptSecret } from "../lib/credentials.js";
-import { activate, as, catchRedirect, form, jsonRequest, platformEmails, signIn, startTestApp, telegramMessages, withEnv } from "./helpers/app.mjs";
+import { activate, addAuthor, as, catchRedirect, form, jsonRequest, platformEmails, signIn, startTestApp, telegramMessages, withEnv } from "./helpers/app.mjs";
 import { POSTSHIBA, POSTSHIBA_ENV, createFakePostshiba } from "./helpers/postshiba.mjs";
 import { txts } from "./stubs/dns-check.mjs";
 import { published } from "./stubs/qstash.mjs";
@@ -47,6 +47,7 @@ async function createNewsletter(user, slug, fields = {}) {
 	);
 	user.newsletterId = url.split("/").at(-1);
 	user.slug = slug;
+	await addAuthor(user);
 }
 
 function saveFrom(user, fromEmail) {

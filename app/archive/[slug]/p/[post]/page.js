@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import AvatarNewsletter from "@/components/AvatarNewsletter";
 import BadgeDate from "@/components/BadgeDate";
 import BadgeViews from "@/components/BadgeViews";
+import BylineAuthor from "@/components/BylineAuthor";
 import CardIssue from "@/components/CardIssue";
 import FrameIssue from "@/components/FrameIssue";
 import LinksShare from "@/components/LinksShare";
@@ -69,18 +70,22 @@ export default async function IssuePage({ params }) {
 					)}
 					<div className="mt-6 flex items-center justify-between gap-4">
 						<div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground tabular-nums">
-							<a
-								href={urls.author(author.slug)}
-								rel="author"
-								className="flex min-w-0 items-center gap-2 font-medium text-foreground transition-opacity duration-150 hover:opacity-75"
-							>
-								<AvatarNewsletter
-									newsletter={{ name: author.name, imageUrl: author.imageUrl }}
-									size={24}
-									className="rounded-full"
-								/>
-								<span className="truncate">{author.name}</span>
-							</a>
+							{issue.author ? (
+								<BylineAuthor author={issue.author} />
+							) : (
+								<a
+									href={urls.author(author.slug)}
+									rel="author"
+									className="flex min-w-0 items-center gap-2 font-medium text-foreground transition-opacity duration-150 hover:opacity-75"
+								>
+									<AvatarNewsletter
+										newsletter={{ name: author.name, imageUrl: author.imageUrl }}
+										size={24}
+										className="rounded-full"
+									/>
+									<span className="truncate">{author.name}</span>
+								</a>
+							)}
 							{date && <BadgeDate date={date} />}
 							{views > 0 && <BadgeViews views={views} />}
 						</div>

@@ -1,5 +1,6 @@
 import AvatarNewsletter from "@/components/AvatarNewsletter";
 import LinksSocial from "@/components/LinksSocial";
+import PickerMode from "@/components/PickerMode";
 import { currentYear } from "@/lib/format";
 
 export default function FooterArchive({ newsletter, indexHref }) {
@@ -17,9 +18,12 @@ export default function FooterArchive({ newsletter, indexHref }) {
 				</div>
 				<LinksSocial links={newsletter.socialLinks} className="-ml-2.5 sm:-mr-2.5 sm:ml-0" />
 			</div>
-			<p className="mx-auto max-w-5xl px-5 pb-10 text-xs text-muted-foreground tabular-nums">
-				© {currentYear()} {newsletter.name}
-			</p>
+			<div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 pb-10">
+				<p className="text-xs text-muted-foreground tabular-nums">
+					© {currentYear()} {newsletter.name}
+				</p>
+				<PickerMode />
+			</div>
 		</footer>
 	);
 }

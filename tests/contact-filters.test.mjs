@@ -156,7 +156,7 @@ describe("filters and deleting many contacts through the API", () => {
 		assertError(await api(user.key, "GET", "/contacts/export?signedUpSince=2026-13-01"), 400, "validation_failed");
 
 		const tagged = await api(user.key, "POST", "/contacts/tag", { newsletter: user.slug, filter: { source: "podcast" }, tags: ["listener"] });
-		assert.deepEqual(tagged.body, { matched: 1, changed: 1 });
+		assert.deepEqual(tagged.body, { matched: 1, changed: 1, remaining: 0 });
 		assert.deepEqual(await emails("tag=listener"), ["listener@example.org"]);
 	});
 
@@ -199,6 +199,32 @@ describe("filters and deleting many contacts through the API", () => {
 		assert.ok(await m.Contact.exists({ accountId: other.accountId, _id: theirs._id }), "an ID from another account isn't found");
 	});
 
+	test("a whole newsletter is tagged or deleted only with all: true, and never another account's", async () => {
+		const user = await customer("filters-all@example.com");
+		const other = await customer("filters-all-other@example.com");
+		await addContacts(user);
+		await addContacts(other);
+
+		assertError(await api(user.key, "POST", "/contacts/delete", { all: true }), 400, "validation_failed");
+		assertError(await api(user.key, "POST", "/contacts/delete", { newsletter: user.slug, all: true, filter: { source: "import" } }), 400, "validation_failed");
+		assertError(await api(user.key, "POST", "/contacts/delete", { newsletter: user.slug, all: false }), 400, "validation_failed");
+		assert.equal(await m.Contact.countDocuments({ accountId: user.accountId }), 4, "nothing went");
+		await api(user.key, "POST", "/contacts/tag", { newsletter: user.slug, filter: { source: "import" }, tags: ["imported"] });
+		for (const path of ["/contacts/tag", "/contacts/untag"]) {
+			assertError(await api(user.key, "POST", path, { newsletter: user.slug, filter: {}, tags: ["imported"] }), 400, "validation_failed");
+		}
+		assert.equal(await m.Contact.countDocuments({ accountId: user.accountId, tags: "imported" }), 2, "an empty filter tags and untags no one");
+
+		const tagged = await api(user.key, "POST", "/contacts/tag", { newsletter: user.slug, all: true, tags: ["everyone"] });
+		assert.deepEqual(tagged.body, { matched: 4, changed: 4, remaining: 0 });
+		const deleted = await api(user.key, "POST", "/contacts/delete", { newsletter: user.slug, all: true });
+		assert.deepEqual(deleted.body, { deleted: 4, remaining: 0 });
+		assert.equal(await m.Contact.countDocuments({ accountId: user.accountId }), 0);
+		assert.equal(await m.DeletedContact.countDocuments({ accountId: user.accountId }), 1, "the bounced address stays blocked");
+		assert.equal(await m.Contact.countDocuments({ accountId: other.accountId, tags: "everyone" }), 0);
+		assert.equal(await m.Contact.countDocuments({ accountId: other.accountId }), 4, "another account's contacts stay");
+	});
+
 	test("get_segment says how many of its active contacts opened and clicked lately, next to the whole list", async () => {
 		const user = await customer("filters-activity@example.com");
 		await addContacts(user);
@@ -238,13 +264,14 @@ describe("the contacts and segments pages", () => {
 		segmentId = saved.id;
 	});
 
-	test("the contacts page filters the list, links to the segments, and has no segment cards or Tag button", async () => {
+	test("the contacts page filters the list, links to the segments, and has no segment cards", async () => {
 		const html = await render(m.contactsPage, { searchParams: Promise.resolve({ source: "import" }) });
 		assert.match(html, /quiet@example\.org/);
 		assert.doesNotMatch(html, /reader@example\.org|fan@example\.org/);
 		assert.match(html, /href="\/contacts\/segments"/);
-		assert.doesNotMatch(html, /From the form|New segment/, "segments are on their own page");
-		assert.doesNotMatch(html, />Tag</, "tags come from a contact's details, imports and the API");
+		assert.doesNotMatch(html, /From the form/, "segments are on their own page");
+		assert.match(html, /aria-label="Select quiet@example\.org"/, "each contact has a box to select it");
+		assert.match(html, /aria-label="Select all contacts"/);
 
 		const since = await render(m.contactsPage, { searchParams: Promise.resolve({ signedUpSince: toDay(ago(10)) }) });
 		assert.match(since, /reader@example\.org/);
@@ -288,13 +315,13 @@ describe("the contacts and segments pages", () => {
 		await catchNotFound(as(user, () => m.segmentPage.default({ params: Promise.resolve({ id: "nope" }), searchParams: Promise.resolve({}) })));
 	});
 
-	test("deleting the contacts a segment's page shows leaves everyone else", async () => {
-		const result = await as(user, () => m.actions.deleteListedContacts({ newsletterId, segmentId, status: "unsubscribed" }));
+	test("deleting every contact a segment's page shows leaves everyone else", async () => {
+		const result = await as(user, () => m.actions.deleteSelectedContacts({ newsletterId, filters: { segmentId, status: "unsubscribed" } }));
 		assert.deepEqual(result, { deleted: 1, remaining: 0 });
 		const left = await m.Contact.find({ accountId: user.accountId }).lean();
 		assert.deepEqual(left.map(({ email }) => email).sort(), ["fan@example.org", "quiet@example.org", "reader@example.org"]);
 		const stranger = await signIn("filters-pages-deleter@example.com");
-		const theirs = await as(stranger, () => m.actions.deleteListedContacts({ newsletterId, segmentId }));
+		const theirs = await as(stranger, () => m.actions.deleteSelectedContacts({ newsletterId, filters: { segmentId } }));
 		assert.ok(theirs.error, "another account can't name this newsletter or segment");
 		assert.equal(await m.Contact.countDocuments({ accountId: user.accountId }), 3);
 	});

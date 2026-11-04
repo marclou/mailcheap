@@ -1,24 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 import { ImagePlus, Loader2 } from "lucide-react";
+import DialogCropImage from "@/components/DialogCropImage";
 import DialogImagePicker, { CHECKERBOARD } from "@/components/DialogImagePicker";
 import { Button } from "@/components/ui/button";
+import { isSquare } from "@/lib/crop-image";
 import { toast } from "@/lib/toast";
-import { IMAGE_TYPES, IMAGE_TYPE_ERROR, uploadImageFile } from "@/lib/upload-image";
+import { IMAGE_TYPES, IMAGE_TYPE_ERROR, readImageSize, uploadImageFile } from "@/lib/upload-image";
 import { useFileDrop } from "@/lib/use-file-drop";
 import { cn } from "@/lib/utils";
 
 // An image setting: drop a file on it, or open the picker to upload one or reuse an earlier upload. The URL
 // goes with the form under name. isRound: a person's photo, maybe Google's, which can fail to load with a referrer.
-export default function InputImage({ name, defaultValue, label, isRound, onChange }) {
+// isCropped: it has to be square, so a picture that isn't is cropped first (components/DialogCropImage.jsx).
+export default function InputImage({ name, defaultValue, label, isRound, isCropped = false, onChange }) {
 	const [url, setUrl] = useState(defaultValue ?? "");
 	const [isPickerOpen, setIsPickerOpen] = useState(false);
 	const [isUploading, setIsUploading] = useState(false);
+	const [cropSource, setCropSource] = useState(null);
 	const { isDragging, dropProps } = useFileDrop({
 		accept: IMAGE_TYPES,
-		onFile: upload,
+		onFile: isCropped ? cropFile : upload,
 		onReject: () => toast.error(IMAGE_TYPE_ERROR),
 	});
 
@@ -37,6 +41,38 @@ export default function InputImage({ name, defaultValue, label, isRound, onChang
 		} finally {
 			setIsUploading(false);
 		}
+	}
+
+	async function cropFile(file) {
+		if (isUploading) return;
+		if (!IMAGE_TYPES.includes(file?.type)) return void toast.error(IMAGE_TYPE_ERROR);
+		const src = URL.createObjectURL(file);
+		if (!isSquare(await readImageSize(src))) return setCropSource({ src, name: file.name, isOwn: true });
+		URL.revokeObjectURL(src);
+		upload(file);
+	}
+
+	// An upload from before is drawn through MailCheap's own address (next/image), which a canvas can read. One the image
+	// optimizer doesn't take is used as it is.
+	function select(image) {
+		if (!isCropped || isSquare(image)) return update(image.url);
+		try {
+			const { src } = getImageProps({ src: image.url, alt: "", width: 1080, height: 1080 }).props;
+			setCropSource({ src, name: new URL(image.url, window.location.href).pathname.split("/").pop() });
+		} catch {
+			update(image.url);
+		}
+	}
+
+	function closeCrop() {
+		if (cropSource?.isOwn) URL.revokeObjectURL(cropSource.src);
+		setCropSource(null);
+	}
+
+	async function applyCrop(file) {
+		const { url: cropped } = await uploadImageFile(file);
+		update(cropped);
+		closeCrop();
 	}
 
 	return (
@@ -84,8 +120,10 @@ export default function InputImage({ name, defaultValue, label, isRound, onChang
 				open={isPickerOpen}
 				onOpenChange={setIsPickerOpen}
 				currentUrl={url}
-				onSelect={(image) => update(image.url)}
+				onSelect={select}
+				onFile={isCropped ? cropFile : undefined}
 			/>
+			<DialogCropImage source={cropSource} label={label} isRound={isRound} onCancel={closeCrop} onCrop={applyCrop} />
 		</span>
 	);
 }

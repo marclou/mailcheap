@@ -247,6 +247,23 @@ export async function endSenderWarmup(user, newsletterId = user.newsletterId) {
 	await Newsletter.updateOne({ accountId: user.accountId, _id: newsletterId }, { $set: { sendingDomain: domain } });
 }
 
+// The author an issue needs before it's sent or scheduled (models/Author.js), which issues drafted after it get. Shown
+// nowhere unless values say so, so emails and pages stay as they were, and at the user's address, as the editor
+// suggests it, so replies still reach them.
+export async function addAuthor(user, newsletterId = user.newsletterId, values = {}) {
+	const Author = (await import("../../models/Author.js")).default;
+	const author = await Author.create({
+		accountId: user.accountId,
+		newsletterId,
+		name: "Jane Doe",
+		email: user.email.toLowerCase(),
+		showOnWeb: false,
+		showInEmails: false,
+		...values,
+	});
+	return author.toObject();
+}
+
 // An issue the newsletter sent, which puts its website online (lib/archive-data.js).
 export async function addSentIssue(user) {
 	const Campaign = (await import("../../models/Campaign.js")).default;

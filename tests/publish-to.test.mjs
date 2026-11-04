@@ -4,7 +4,7 @@ import { getSendProblems } from "../lib/campaign-steps.js";
 import { getPresendChecks } from "../lib/presend-checks.js";
 import { PUBLISH_TARGETS, isOnWebsite, readPublishTo } from "../lib/publish-to.js";
 import { getIssueWebUrl } from "../lib/sending-rules.js";
-import { activate, as, callApi, catchNotFound, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, as, callApi, catchNotFound, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
 
 // Each issue goes by email and on the newsletter's website (the default), by email only, or on the website only. An
 // email-only issue never shows on the website and its emails have no Read online link; a web-only one goes on the
@@ -40,7 +40,7 @@ describe("where an issue goes", () => {
 	});
 
 	test("a web-only issue's checks are about its page, and it needs no contacts or plan emails", () => {
-		const campaign = { subject: "Hello", previewText: "", body: "<p>Hi</p>", publishTo: "web" };
+		const campaign = { subject: "Hello", previewText: "", body: "<p>Hi</p>", authorId: "000000000000000000000001", publishTo: "web" };
 		const rendered = { html: "<p>Hi</p>", bytes: 200_000 };
 		const web = getPresendChecks({
 			campaign,
@@ -73,6 +73,7 @@ async function customer(email) {
 	});
 	assert.equal(response.status, 201, JSON.stringify(response.body));
 	user.newsletter = response.body;
+	await addAuthor(user, user.newsletter.id);
 	const rows = [0, 1, 2].map((index) => ({ email: `reader${index}@${user.newsletter.slug}.example.org`, status: "active" }));
 	await as(user, () => m.contacts.importContacts({ newsletterId: user.newsletter.id, consent: true, rows }));
 	return user;

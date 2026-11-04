@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import mongoose from "mongoose";
-import { activate, addVerifiedDomain, anonymous, as, callApi, catchRedirect, form, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
+import { activate, addAuthor, addVerifiedDomain, anonymous, as, callApi, catchRedirect, form, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
 
 // The dashboard's get-started panel: each newsletter has its own. Its steps count the newsletter's own design, campaigns
 // and contacts, and the account's domain and AI agent; nothing another account has counts. A newsletter's list finishes
@@ -46,7 +46,9 @@ async function addNewsletter(user, slug) {
 			)
 		)
 	);
-	return url.split("/").at(-1);
+	const newsletterId = url.split("/").at(-1);
+	await addAuthor(user, newsletterId);
+	return newsletterId;
 }
 
 async function draft(user, subject = "Issue") {

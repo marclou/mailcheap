@@ -90,6 +90,7 @@ function RowScroll({ children }) {
 	);
 }
 
+// In the dashboard's light or dark mode, as the website shows each reader the one their device uses.
 function TileTheme({ theme: { name, colors, font }, isPicked, isDisabled, onPick }) {
 	return (
 		<button
@@ -100,9 +101,16 @@ function TileTheme({ theme: { name, colors, font }, isPicked, isDisabled, onPick
 			className="group/tile flex w-15 flex-col items-center gap-1.5 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none"
 		>
 			<span
-				style={{ backgroundColor: colors.background, color: colors.text }}
+				style={{
+					"--tile-page": colors.light.background,
+					"--tile-text": colors.light.text,
+					"--tile-accent": colors.light.accent,
+					"--tile-page-dark": colors.dark.background,
+					"--tile-text-dark": colors.dark.text,
+					"--tile-accent-dark": colors.dark.accent,
+				}}
 				className={cn(
-					"relative grid aspect-[4/3] w-full place-items-center rounded-lg inset-ring inset-ring-foreground/10 transition-[translate,scale,box-shadow,opacity] duration-150 ease-out group-hover/tile:-translate-y-0.5 group-hover/tile:shadow-[0_6px_14px_-6px_rgb(0_0_0/0.25)] group-active/tile:scale-[0.96]",
+					"relative grid aspect-[4/3] w-full place-items-center rounded-lg bg-(--tile-page) text-(--tile-text) inset-ring inset-ring-foreground/10 transition-[translate,scale,box-shadow,opacity] duration-150 ease-out group-hover/tile:-translate-y-0.5 group-hover/tile:shadow-[0_6px_14px_-6px_rgb(0_0_0/0.25)] group-active/tile:scale-[0.96] dark:bg-(--tile-page-dark) dark:text-(--tile-text-dark)",
 					isDisabled && !isPicked && "opacity-40"
 				)}
 			>
@@ -113,7 +121,7 @@ function TileTheme({ theme: { name, colors, font }, isPicked, isDisabled, onPick
 						Aa
 					</span>
 				)}
-				<span style={{ backgroundColor: colors.accent }} className="absolute right-1.5 bottom-1.5 size-2 rounded-full" />
+				<span className="absolute right-1.5 bottom-1.5 size-2 rounded-full bg-(--tile-accent) dark:bg-(--tile-accent-dark)" />
 			</span>
 			<span className="w-full truncate text-center text-[11px] leading-none text-muted-foreground transition-colors duration-150 group-hover/tile:text-foreground">
 				{name}

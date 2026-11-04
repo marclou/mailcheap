@@ -6,6 +6,7 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import { Lock, Monitor, RotateCw, Smartphone, X } from "lucide-react";
 import AvatarNewsletter from "@/components/AvatarNewsletter";
 import BadgeDate from "@/components/BadgeDate";
+import BylineAuthor from "@/components/BylineAuthor";
 import { BarStatus } from "@/components/DialogPreviewEmail";
 import FrameIssue from "@/components/FrameIssue";
 import { ScopeTheme } from "@/components/PreviewTheme";
@@ -24,7 +25,8 @@ const DEVICES = [
 
 // An issue's page as its website shows it once updated, over the whole dashboard like the email's preview: in a
 // browser's window as wide as a desktop gives it, or on a phone. page: { url, title, description, body: { kind, html },
-// date, author: { name, imageUrl } }, from the editor's values. newsletter: its name, picture and theme.
+// date, author: { name, imageUrl }, byline }, from the editor's values, byline being the issue's own author when they
+// show on the web. newsletter: its name, picture and theme.
 export default function DialogPreviewWebPage({ isOpen, onOpenChange, ...page }) {
 	return (
 		<Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -194,7 +196,7 @@ function FramePage({ newsletter, className, ...page }) {
 
 // The archive's issue page (app/archive/[slug]/p/[post]/page.js) in its own classes: its header, the issue's title,
 // description, author and date, its content and the newsletter's pitch.
-function PageIssue({ newsletter, title, description, author, date, body }) {
+function PageIssue({ newsletter, title, description, author, byline, date, body }) {
 	return (
 		<div className="flex min-h-dvh flex-col">
 			<header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-md">
@@ -212,10 +214,14 @@ function PageIssue({ newsletter, title, description, author, date, body }) {
 						<h1 className="text-4xl font-theme-heading text-balance sm:text-[2.75rem] sm:leading-[1.1]">{title}</h1>
 						{description && <p className="mt-4 text-xl text-pretty text-muted-foreground">{description}</p>}
 						<div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground tabular-nums">
-							<span className="flex min-w-0 items-center gap-2 font-medium text-foreground">
-								<AvatarNewsletter newsletter={author} size={24} className="rounded-full" />
-								<span className="truncate">{author.name}</span>
-							</span>
+							{byline ? (
+								<BylineAuthor author={byline} />
+							) : (
+								<span className="flex min-w-0 items-center gap-2 font-medium text-foreground">
+									<AvatarNewsletter newsletter={author} size={24} className="rounded-full" />
+									<span className="truncate">{author.name}</span>
+								</span>
+							)}
 							{date && <BadgeDate date={date} />}
 						</div>
 					</header>

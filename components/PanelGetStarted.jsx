@@ -11,7 +11,7 @@ import { DESIGN_SECTION, getSectionPath } from "@/lib/newsletter-sections";
 import { ADD_DOMAIN_PATH } from "@/lib/newsletters";
 import { getSelectedNewsletter } from "@/lib/selected-newsletter";
 import { getFontFaceCss, getFontStack } from "@/lib/theme-fonts";
-import { ADAPTIVE_COLORS, THEME_PRESETS, resolveTheme } from "@/lib/themes";
+import { THEME_PRESETS, getSwatchColors, resolveTheme } from "@/lib/themes";
 import { cn } from "@/lib/utils";
 
 // The open newsletter's steps to a first send (lib/get-started.js), on every dashboard page. Each one says what it
@@ -161,17 +161,17 @@ const STEPS = {
 	},
 };
 
-// The design step's tiles: each theme's colors, MailCheap's following the dashboard's light or dark mode, and its
-// heading font, whose files only load while the tiles show. The dashboard has Geist already.
+// The design step's tiles: each theme's light and dark colors, the dashboard's mode picking one, and its heading font,
+// whose files only load while the tiles show. The dashboard has Geist already.
 const THEMES = THEME_PRESETS.map(({ id }) => resolveTheme({ preset: id }));
-const THEME_TILES = THEMES.map(({ id, name, isAdaptive, colors, fonts, headingWeight, tracking }) => ({
-	id,
-	name,
-	colors: isAdaptive ? ADAPTIVE_COLORS : colors,
+const THEME_TILES = THEMES.map((theme) => ({
+	id: theme.id,
+	name: theme.name,
+	colors: getSwatchColors(theme),
 	font: {
-		...(fonts.heading.id !== "geist" && { fontFamily: getFontStack(fonts.heading) }),
-		fontWeight: headingWeight,
-		letterSpacing: `${tracking}em`,
+		...(theme.fonts.heading.id !== "geist" && { fontFamily: getFontStack(theme.fonts.heading) }),
+		fontWeight: theme.headingWeight,
+		letterSpacing: `${theme.tracking}em`,
 	},
 }));
 const THEME_FONT_FACES = getFontFaceCss(THEMES.map(({ fonts }) => fonts.heading).filter(({ id }) => id !== "geist"));

@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Monitor, Smartphone } from "lucide-react";
 import AvatarNewsletter from "@/components/AvatarNewsletter";
-import { openLinksOutside } from "@/lib/email-preview";
+import { openLinksOutside, updateEmailInPlace, withTransitions } from "@/lib/email-preview";
 import { cn } from "@/lib/utils";
 
-// fit="fill" stretches to the parent's height (editor); fit="content" grows to the email (report).
+// fit="fill" stretches to the parent's height (editor); fit="content" grows to the email (report). desktopWidth, with
+// fill: the desktop lays the email out as wide as a computer's mail app and scales it down whole to fit, so where it
+// sits in a window wider than it shows. device and onDeviceChange: the device shown, for a parent that picks it too.
 export default function PreviewEmail({
 	html,
 	toolbar,
@@ -14,9 +16,13 @@ export default function PreviewEmail({
 	subject,
 	previewText,
 	fit = "fill",
+	desktopWidth,
+	device: shownDevice,
+	onDeviceChange,
 	className,
 }) {
-	const [device, setDevice] = useState("desktop");
+	const [ownDevice, setOwnDevice] = useState("desktop");
+	const device = shownDevice ?? ownDevice;
 	const [contentHeight, setContentHeight] = useState(null);
 	const frameRef = useRef(null);
 	const isContentFit = fit === "content";
@@ -43,7 +49,8 @@ export default function PreviewEmail({
 							aria-label={label}
 							aria-pressed={device === id}
 							onClick={() => {
-								setDevice(id);
+								setOwnDevice(id);
+								onDeviceChange?.(id);
 								if (isContentFit) setContentHeight(null);
 							}}
 							className={cn(
@@ -75,28 +82,99 @@ export default function PreviewEmail({
 			)}
 
 			<div className="flex min-h-0 flex-1 justify-center bg-muted/50 p-3 sm:p-5">
-				<iframe
-					ref={frameRef}
-					title="Email preview"
-					// Same origin lets the page read the email's height and open its links outside it; without allow-scripts
-					// nothing in it runs.
-					sandbox="allow-same-origin"
-					srcDoc={html}
-					onLoad={(event) => {
-						openLinksOutside(event.currentTarget);
-						if (!isContentFit) return;
-						const height = measureEmail(event.currentTarget);
-						if (height) setContentHeight(height);
-					}}
-					style={isContentFit ? { height: contentHeight ?? 640 } : undefined}
-					className={cn(
-						"max-w-full rounded-lg bg-white shadow-border transition-[width] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
-						isContentFit ? "min-h-48" : "h-[640px] lg:h-full",
-						device === "mobile" ? "w-[375px]" : "w-full max-w-[760px]"
-					)}
-				/>
+				{desktopWidth && !isContentFit ? (
+					<FrameScaled
+						html={html}
+						width={device === "desktop" ? desktopWidth : null}
+						className={device === "mobile" ? "w-[375px]" : "w-full"}
+					/>
+				) : (
+					<FrameEmail
+						ref={frameRef}
+						html={html}
+						onLoad={(event) => {
+							if (!isContentFit) return;
+							const height = measureEmail(event.currentTarget);
+							if (height) setContentHeight(height);
+						}}
+						style={isContentFit ? { height: contentHeight ?? 640 } : undefined}
+						className={cn(
+							"max-w-full rounded-lg bg-white shadow-border transition-[width] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
+							isContentFit ? "min-h-48" : "h-[640px] lg:h-full",
+							device === "mobile" ? "w-[375px]" : "w-full max-w-[760px]"
+						)}
+					/>
+				)}
 			</div>
 		</div>
+	);
+}
+
+// Laid out width wide and scaled down whole to fit, never up. Without a width, or where the email would come out too
+// small to read, like on a phone's screen, it fills the frame as it is. A new email takes the place of the one shown
+// value by value, for what changed to transition (updateEmailInPlace), or loads anew when its elements differ. Until a
+// load ends, the frame still has the document it replaces: a change in between goes to the load.
+function FrameScaled({ html, width, className }) {
+	const boxRef = useRef(null);
+	const frameRef = useRef(null);
+	const isLoadingRef = useRef(true);
+	const [box, setBox] = useState(null);
+	const shownHtml = withTransitions(html);
+	const [firstHtml] = useState(shownHtml);
+	const hasFrame = Boolean(box);
+	const ratio = box && width ? box.width / width : 1;
+	const scale = ratio < MIN_SCALE ? 1 : Math.min(1, ratio);
+
+	useLayoutEffect(() => {
+		const observer = new ResizeObserver(([entry]) => setBox({ width: entry.contentRect.width, height: entry.contentRect.height }));
+		observer.observe(boxRef.current);
+		return () => observer.disconnect();
+	}, []);
+
+	useEffect(() => {
+		const frame = frameRef.current;
+		if (!frame || (!isLoadingRef.current && updateEmailInPlace(frame, shownHtml)) || frame.srcdoc === shownHtml) return;
+		isLoadingRef.current = true;
+		frame.srcdoc = shownHtml;
+	}, [shownHtml, hasFrame]);
+
+	return (
+		<div
+			ref={boxRef}
+			className={cn(
+				"relative h-[640px] max-w-full overflow-hidden rounded-lg bg-white shadow-border transition-[width] duration-300 ease-[cubic-bezier(0.2,0,0,1)] lg:h-full",
+				className
+			)}
+		>
+			{box && (
+				<FrameEmail
+					ref={frameRef}
+					html={firstHtml}
+					onLoad={() => {
+						isLoadingRef.current = false;
+					}}
+					style={{ width: box.width / scale, height: box.height / scale, transform: `scale(${scale})` }}
+					className="absolute top-0 left-0 origin-top-left"
+				/>
+			)}
+		</div>
+	);
+}
+
+function FrameEmail({ html, onLoad, ...props }) {
+	return (
+		<iframe
+			title="Email preview"
+			// Same origin lets the page read the email's height, change it in place and open its links outside it; without
+			// allow-scripts nothing in it runs.
+			sandbox="allow-same-origin"
+			srcDoc={html}
+			onLoad={(event) => {
+				openLinksOutside(event.currentTarget);
+				onLoad?.(event);
+			}}
+			{...props}
+		/>
 	);
 }
 
@@ -114,6 +192,7 @@ function measureEmail(frame) {
 	return contentHeight;
 }
 
+const MIN_SCALE = 0.5;
 const DEVICES = [
 	{ id: "desktop", label: "Desktop", icon: Monitor },
 	{ id: "mobile", label: "Mobile", icon: Smartphone },

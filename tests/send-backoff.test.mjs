@@ -5,6 +5,7 @@ import { normalizePostshibaEvent } from "../lib/email-provider/postshiba-events.
 import { normalizeSesEvent } from "../lib/ses-event-mapping.js";
 import {
 	activate,
+	addAuthor,
 	addVerifiedDomain,
 	as,
 	catchRedirect,
@@ -68,6 +69,7 @@ describe("a domain Gmail rate limits", () => {
 		const fields = { name: slug, slug, postalAddress: "1 Main St", ...(fromEmail && { fromEmail }) };
 		const url = await as(user, () => catchRedirect(m.newsletters.saveNewsletter(null, form(fields))));
 		const send = { user, accountId: user.accountId, newsletterId: url.split("/").at(-1) };
+		await addAuthor(user, send.newsletterId);
 		if (isWarm) await endSenderWarmup(send);
 		await m.Contact.insertMany(
 			Array.from({ length: contacts }, (_, index) => ({

@@ -5,6 +5,7 @@ import { scoped } from "@/lib/account-scope";
 import { getArchiveAuthor } from "@/lib/archive-author";
 import { listOtherIssuePictures } from "@/lib/archive-data";
 import { getArchiveUrls } from "@/lib/archive-hosts";
+import { findWebAuthor } from "@/lib/authors";
 import { getFieldOptions } from "@/lib/contact-fields";
 import { formatDate } from "@/lib/format";
 import { markdownToHtml } from "@/lib/markdown";
@@ -40,6 +41,7 @@ export default async function WebPagePage({ params }) {
 	const urls = getArchiveUrls(newsletter);
 	const publishedAt = campaign.sentAt ?? campaign.startedAt;
 	const author = getArchiveAuthor(newsletter);
+	const byline = await findWebAuthor(newsletter, campaign.authorId);
 	return (
 		<FormWebPage
 			campaign={serialize({ _id, subject, previewText, archiveSlug: campaign.archiveSlug, web: { title: web.title, description: web.description, image: web.image } })}
@@ -56,6 +58,7 @@ export default async function WebPagePage({ params }) {
 			isPinned={Boolean(campaign.archivePinned)}
 			isListed={campaign.archiveListed !== false}
 			author={{ name: author.name, imageUrl: author.imageUrl }}
+			byline={byline}
 		/>
 	);
 }

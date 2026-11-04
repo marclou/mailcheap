@@ -17,7 +17,7 @@ export default function FormProfile({ name, image, maxNameLength }) {
 		<form action={action}>
 			<CardSettings title="Profile">
 				<RowSettings label="Photo" hint="Square, 128×128 or larger" isLabel>
-					<InputImage name="image" defaultValue={image} label="photo" isRound />
+					<InputImage name="image" defaultValue={image} label="photo" isRound isCropped />
 				</RowSettings>
 				<RowSettings label="Name" isLabel>
 					<Input name="name" defaultValue={name} maxLength={maxNameLength} placeholder="Jane Doe" autoComplete="name" />

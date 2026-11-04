@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { getContactHistory } from "../lib/contact-history.js";
 import { flagUrl, getCountryName, readCountry } from "../lib/countries.js";
 import { getClickUrl } from "../lib/tracking.js";
-import { activate, as, callApi, catchNotFound, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, as, callApi, catchNotFound, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
 import { runWithRequest } from "./stubs/next-headers.mjs";
 import { flushAfter } from "./stubs/next-server.mjs";
 
@@ -141,6 +141,7 @@ describe("the contact page and its data", () => {
 			catchRedirect(m.newsletters.saveNewsletter(null, form({ name: `${user.slug} news`, slug: user.slug, postalAddress: "1 Main St, Paris", archiveEnabled: "on", ...fields })))
 		);
 		user.newsletterId = url.split("/").at(-1);
+		await addAuthor(user);
 		user.key = (await as(user, () => m.apiKeys.createApiKey(null, form({ name: "Full", level: "full" })))).key;
 		return user;
 	}

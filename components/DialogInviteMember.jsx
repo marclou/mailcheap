@@ -62,9 +62,9 @@ function FormInvite({ newsletterId, onSent }) {
 				{[...TEAM_ROLES].reverse().map((role) => (
 					<label
 						key={role}
-						className="flex items-start gap-3 rounded-lg p-3 shadow-border transition-[box-shadow,background-color] duration-150 hover:shadow-border-hover has-checked:bg-muted/60 has-checked:shadow-border-hover"
+						className="flex cursor-pointer items-start gap-3 rounded-lg p-3 shadow-border transition-[box-shadow,background-color] duration-150 hover:shadow-border-hover has-checked:bg-muted/60 has-checked:shadow-border-hover"
 					>
-						<input type="radio" name="role" value={role} defaultChecked={role === "member"} className="mt-0.5 size-4 shrink-0 accent-foreground" />
+						<input type="radio" name="role" value={role} defaultChecked={role === "member"} className="mt-0.5 size-4 shrink-0 cursor-pointer accent-foreground" />
 						<span className="flex flex-col gap-0.5">
 							<span className="text-sm font-medium">{ROLE_LABELS[role]}</span>
 							<span className="text-xs text-pretty text-muted-foreground">{ROLE_DESCRIPTIONS[role]}</span>

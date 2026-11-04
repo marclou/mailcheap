@@ -67,6 +67,12 @@ test("the code to paste points at the server, escapes the owner's text and hides
 	assert.ok(html.includes('placeholder="Your &lt;email&gt;"'));
 });
 
+test("the plain form keeps the colors of the mode its theme is made for", () => {
+	const html = (theme) => getEmbedCode({ appUrl: "https://mailcheap.test", newsletterId: NEWSLETTER_ID, settings: toSignupFormSettings({}), theme }).html;
+	assert.match(html({ preset: "midnight" }), /#0d1017/);
+	assert.doesNotMatch(html({ preset: "midnight" }), /#eef1f6/);
+});
+
 test("with a list of sites there's no plain form to paste: only the framed one can prove which site it's on", () => {
 	const settings = toSignupFormSettings({ allowedDomains: ["example.com"] });
 	const { script, html } = getEmbedCode({ appUrl: "https://mailcheap.test", newsletterId: NEWSLETTER_ID, settings, theme: {} });

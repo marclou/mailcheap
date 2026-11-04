@@ -38,7 +38,8 @@ const PAGE_FIELDS = ["title", "description", "image", "body"];
 // as they were sent; Preview shows the page with them first. content: { format, body }, what the page shows;
 // emailContent: the same for the email, once the page has content of its own, which Restore brings back. otherPictures:
 // what the newsletter's other issues show (lib/archive-data.js). isListed: on the website's home page, which only then
-// takes a pin. author: { name, imageUrl }, who the page says wrote it.
+// takes a pin. author: { name, imageUrl }, who the page says wrote it; byline: the same for the issue's own author, who
+// takes the newsletter's place when they show on the web.
 export default function FormWebPage({
 	campaign,
 	content,
@@ -54,6 +55,7 @@ export default function FormWebPage({
 	isPinned,
 	isListed,
 	author,
+	byline,
 }) {
 	const router = useRouter();
 	const subject = campaign.subject ?? "";
@@ -111,7 +113,7 @@ export default function FormWebPage({
 		const issue = isHtml
 			? { format: "html", html: values.body, subject: title, previewText: description }
 			: { format: "rich", html: values.body };
-		setPreview({ url: pageUrl, title, description, date: publishedAt, author, newsletter, body: toIssueBody(issue) });
+		setPreview({ url: pageUrl, title, description, date: publishedAt, author, byline, newsletter, body: toIssueBody(issue) });
 		setIsPreviewOpen(true);
 	}
 

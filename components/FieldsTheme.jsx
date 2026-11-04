@@ -1,18 +1,30 @@
 "use client";
 
 import { useId, useState } from "react";
-import { CircleAlert } from "lucide-react";
+import { CircleAlert, Mail } from "lucide-react";
 import LinkHelp from "@/components/LinkHelp";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getContrast, normalizeHexColor } from "@/lib/colors";
 import { THEME_FONTS, getFont, getFontStack } from "@/lib/theme-fonts";
-import { HEADING_WEIGHTS, RADIUS_OPTIONS, SHADOW_OPTIONS, SPACING_OPTIONS, THEME_COLOR_KEYS } from "@/lib/themes";
+import {
+	COLOR_GROUPS,
+	EMAIL_ALIGN_OPTIONS,
+	HEADING_WEIGHTS,
+	RADIUS_OPTIONS,
+	SHADOW_OPTIONS,
+	SPACING_OPTIONS,
+	THEME_COLOR_KEYS,
+} from "@/lib/themes";
 import { cn } from "@/lib/utils";
 
-// The customizer's controls, on a theme's full values (FormTheme's draft): colors, fonts and shapes.
-export default function FieldsTheme({ values, onChange }) {
+// The customizer's controls, on a theme's full values (FormTheme's draft): colors, fonts, shapes and where emails sit.
+// The colors are mode's, light or dark, which the switch above them picks. Alignment only shows in emails: a pick calls
+// onEmailChange, for the preview to show one.
+export default function FieldsTheme({ values, onChange, mode, onModeChange, onEmailChange }) {
 	const headingFont = getFont(values.fonts.heading);
-	const isLowContrast = getContrast(values.colors.text, values.colors.background) < 4.5;
+	const colorGroup = COLOR_GROUPS[mode];
+	const colors = values[colorGroup];
+	const isLowContrast = getContrast(colors.text, colors.background) < 4.5;
 
 	function set(key, value) {
 		onChange({ ...values, [key]: value });
@@ -34,10 +46,15 @@ export default function FieldsTheme({ values, onChange }) {
 
 	return (
 		<div className="flex flex-col divide-y divide-border/60">
-			<Group label="Colors">
+			<Group
+				label="Colors"
+				action={
+					<Segmented label="Colors for" size="sm" value={mode} onChange={onModeChange} options={MODE_OPTIONS} />
+				}
+			>
 				<div className="grid grid-cols-3 gap-2">
 					{THEME_COLOR_KEYS.map((key) => (
-						<SwatchColor key={key} label={COLOR_LABELS[key]} value={values.colors[key]} onChange={(color) => setGroup("colors", key, color)} />
+						<SwatchColor key={key} label={COLOR_LABELS[key]} value={colors[key]} onChange={(color) => setGroup(colorGroup, key, color)} />
 					))}
 				</div>
 				{isLowContrast && (
@@ -121,17 +138,60 @@ export default function FieldsTheme({ values, onChange }) {
 					}))}
 				/>
 			</Group>
+			<Group
+				label="Alignment"
+				action={
+					<span className="flex items-center gap-1 text-xs text-muted-foreground">
+						<Mail className="size-3.5" aria-hidden="true" />
+						Emails only
+					</span>
+				}
+			>
+				<Segmented
+					label="Email alignment"
+					value={values.emailAlign}
+					onChange={(emailAlign) => {
+						set("emailAlign", emailAlign);
+						onEmailChange();
+					}}
+					options={EMAIL_ALIGN_OPTIONS.map((align) => ({
+						value: align,
+						label: OPTION_LABELS[align],
+						content: (
+							<span className="flex items-center gap-2 text-sm font-medium">
+								<span
+									aria-hidden="true"
+									className={cn(
+										"flex h-4 w-6 rounded-[3px] p-[3px] shadow-[inset_0_0_0_1.5px_currentColor]",
+										align === "left" ? "justify-start" : "justify-center"
+									)}
+								>
+									<span className="flex w-2.5 flex-col justify-center gap-[2px]">
+										{["w-full", "w-full", "w-2/3"].map((width, line) => (
+											<span key={line} className={cn("h-[1.5px] rounded-full bg-current", width)} />
+										))}
+									</span>
+								</span>
+								{OPTION_LABELS[align]}
+							</span>
+						),
+					}))}
+				/>
+			</Group>
 		</div>
 	);
 }
 
-function Group({ label, children }) {
+function Group({ label, action, children }) {
 	const id = useId();
 	return (
 		<div role="group" aria-labelledby={id} className="py-4 first:pt-0 last:pb-0">
-			<p id={id} className="mb-2.5 text-xs font-medium text-muted-foreground">
-				{label}
-			</p>
+			<div className="mb-2.5 flex min-h-5 items-center justify-between gap-3">
+				<p id={id} className="text-xs font-medium text-muted-foreground">
+					{label}
+				</p>
+				{action}
+			</div>
 			{children}
 		</div>
 	);
@@ -240,6 +300,10 @@ export function Segmented({ label, value, options, onChange, size = "default" })
 }
 
 const COLOR_LABELS = { background: "Page", text: "Text", accent: "Accent" };
+const MODE_OPTIONS = [
+	{ value: "light", label: "Light", content: "Light" },
+	{ value: "dark", label: "Dark", content: "Dark" },
+];
 const FONT_LABELS = { heading: "Headings", body: "Text" };
 const OPTION_LABELS = {
 	none: "None",
@@ -253,6 +317,8 @@ const OPTION_LABELS = {
 	compact: "Compact",
 	comfortable: "Comfortable",
 	spacious: "Spacious",
+	left: "Left",
+	center: "Center",
 };
 const CORNER_PREVIEWS = { none: "0px", small: "3px", medium: "6px", large: "9px", full: "14px" };
 const SHADOW_PREVIEWS = {

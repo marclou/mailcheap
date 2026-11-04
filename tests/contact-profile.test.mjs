@@ -314,9 +314,9 @@ describe("first names, tags and fields through the API", () => {
 		]);
 
 		const tagged = await api(user.key, "POST", "/contacts/tag", { contacts: ["a@example.com", "b@example.com"], tags: ["vip"] });
-		assert.deepEqual(tagged.body, { matched: 2, changed: 1 });
+		assert.deepEqual(tagged.body, { matched: 2, changed: 1, remaining: 0 });
 		const byFilter = await api(user.key, "POST", "/contacts/tag", { newsletter: user.newsletterId, filter: { search: "c@", status: "active" }, tags: ["org"] });
-		assert.deepEqual(byFilter.body, { matched: 1, changed: 1 });
+		assert.deepEqual(byFilter.body, { matched: 1, changed: 1, remaining: 0 });
 		assert.equal((await api(user.key, "POST", "/contacts/tag", { filter: { status: "active" }, tags: ["x"] })).body.error.code, "validation_failed", "a filter needs the newsletter");
 		assert.equal((await api(user.key, "POST", "/contacts/tag", { tags: ["x"] })).body.error.code, "validation_failed");
 
@@ -335,7 +335,7 @@ describe("first names, tags and fields through the API", () => {
 		assert.equal((await count([{ field: "first_name", op: "is_set" }])).body.contacts, 1);
 
 		const untagged = await api(user.key, "POST", "/contacts/untag", { newsletter: user.newsletterId, filter: { tag: "vip" }, tags: ["vip"] });
-		assert.deepEqual(untagged.body, { matched: 2, changed: 2 });
+		assert.deepEqual(untagged.body, { matched: 2, changed: 2, remaining: 0 });
 		const left = await m.Contact.findOne({ email: "b@example.com", accountId: user.accountId }).lean();
 		assert.equal(left.tags, undefined, "an emptied list is removed");
 	});

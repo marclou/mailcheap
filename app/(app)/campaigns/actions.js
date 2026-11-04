@@ -25,18 +25,31 @@ export async function createCampaign(newsletterId) {
 	redirect(`/campaigns/${output.id}`);
 }
 
-// The editor saves rich text, or the HTML of an imported issue; Markdown drafts open as rich text.
+// The editor saves rich text, or the HTML of an imported issue; Markdown drafts open as rich text. revision: on a team's
+// newsletter, the one the editor started from, which answers conflict once someone else saved since
+// (lib/use-draft-sync.js), and the new one once it's saved.
 export async function saveCampaign(id, values) {
-	const { failure } = await runDashboardAction("update_campaign", {
+	const revision = Number.isInteger(values?.revision) ? values.revision : undefined;
+	const { output, failure } = await runDashboardAction("update_campaign", {
 		id: String(id),
 		subject: String(values?.subject ?? "").slice(0, MAX_SUBJECT_LENGTH),
 		previewText: String(values?.previewText ?? "").slice(0, MAX_PREVIEW_TEXT_LENGTH),
 		content: String(values?.body ?? ""),
 		...(values?.format && { format: values.format }),
+		...(revision !== undefined && { revision }),
 	});
+	if (failure?.code === "revision_conflict") return { conflict: true };
 	if (failure) return toFormError(failure);
 	revalidatePath("/campaigns");
-	return { ok: true };
+	return revision === undefined ? { ok: true } : { ok: true, revision: output.revision };
+}
+
+// A draft as it's saved now, for an editor whose save someone else's beat to merge with.
+export async function loadDraft(id) {
+	const { output, failure } = await runDashboardAction("get_campaign", { id: String(id) });
+	if (failure) return toFormError(failure);
+	const { subject, previewText, content, format, revision } = output;
+	return { subject, previewText, content, format, revision };
 }
 
 // Who the draft goes to: a segment's ID, or null for every active contact. The page counts its audience again.
@@ -55,6 +68,78 @@ export async function setCampaignPublishTo(id, publishTo) {
 	return { ok: true };
 }
 
+// Who wrote the draft (components/PickerAuthor.jsx), saved right away like its segment.
+export async function setCampaignAuthor(id, authorId) {
+	const { failure } = await runDashboardAction("update_campaign", { id: String(id), author: String(authorId ?? "") });
+	if (failure) return toFormError(failure);
+	revalidatePath(`/campaigns/${id}`);
+	return { ok: true };
+}
+
+// A new author of the newsletter, who then writes the draft.
+export async function addCampaignAuthor(id, newsletterId, values) {
+	const { output, failure } = await runDashboardAction("create_author", {
+		newsletter: String(newsletterId ?? ""),
+		...readAuthorValues(values),
+	});
+	if (failure) return toFormError(failure);
+	const chosen = await setCampaignAuthor(id, output.id);
+	return chosen.error ? { ...chosen, author: toAuthorOption(output) } : { author: toAuthorOption(output) };
+}
+
+// Who the newsletter's new issues start with, picked on its Sender page and saved right away.
+export async function setDefaultAuthor(authorId) {
+	const { failure } = await runDashboardAction("update_author", { id: String(authorId ?? ""), isDefault: true });
+	if (failure) return toFormError(failure);
+	refreshAuthors();
+	return { ok: true };
+}
+
+// A new author of the newsletter, who then becomes its default one.
+export async function addDefaultAuthor(newsletterId, values) {
+	const { output, failure } = await runDashboardAction("create_author", {
+		newsletter: String(newsletterId ?? ""),
+		...readAuthorValues(values),
+	});
+	if (failure) return toFormError(failure);
+	const chosen = output.isDefault ? { ok: true } : await setDefaultAuthor(output.id);
+	return chosen.error ? { ...chosen, author: toAuthorOption(output) } : { author: toAuthorOption(output) };
+}
+
+export async function editAuthor(authorId, values) {
+	const { output, failure } = await runDashboardAction("update_author", { id: String(authorId ?? ""), ...readAuthorValues(values) });
+	if (failure) return toFormError(failure);
+	refreshAuthors();
+	return { author: toAuthorOption(output) };
+}
+
+export async function removeAuthor(authorId) {
+	const { failure } = await runDashboardAction("delete_author", { id: String(authorId ?? "") });
+	if (failure) return toFormError(failure);
+	refreshAuthors();
+	return { ok: true };
+}
+
+// The editor and the Sender page list the newsletter's authors.
+function refreshAuthors() {
+	revalidatePath("/campaigns", "layout");
+	revalidatePath("/newsletters", "layout");
+}
+
+function readAuthorValues(values) {
+	return {
+		name: String(values?.name ?? "").slice(0, 200),
+		email: String(values?.email ?? "").slice(0, 320),
+		imageUrl: String(values?.imageUrl ?? "").slice(0, 500),
+		showOnWeb: values?.showOnWeb !== false,
+		showInEmails: values?.showInEmails !== false,
+	};
+}
+
+// The menu shows an author by their picture, or the one their address has (AvatarUser).
+function toAuthorOption({ id, name, email, imageUrl, showOnWeb, showInEmails }) {
+	return { id, name, email, imageUrl, showOnWeb, showInEmails, gravatarHash: gravatarHash(email) };
+}
 // The preview's reader picker: the newsletter's active contacts with what's typed in their address or first name, the
 // newest before anything is, each with its field values, which the preview fills in, and the hash its picture comes
 // from (AvatarContact). segmentIds: the segments the issue's sections name, of which each contact gets those it's in,
@@ -97,8 +182,10 @@ export async function countAllSectionReaders(id) {
 	return failure ? toFormError(failure) : output;
 }
 
-export async function sendTestCampaign(id) {
-	const { failure } = await runDashboardAction("send_test_email", { id: String(id) });
+// The test dialog (DialogSendTest): the addresses it goes to, the default ones without, the ID of the contact it reads
+// as, and whether the addresses become the default.
+export async function sendTestCampaign(id, { to, contact, saveAsDefault } = {}) {
+	const { failure } = await runDashboardAction("send_test_email", { id: String(id), to, contact: contact ?? undefined, saveAsDefault });
 	revalidatePath(`/campaigns/${id}`);
 	return failure ? toFormError(failure) : { ok: true };
 }

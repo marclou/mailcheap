@@ -60,7 +60,10 @@ export default function PlansPage() {
 			<h2 id="limits">At the limit</h2>
 			<ul>
 				<li>Signups keep working, and confirmation emails still go out.</li>
-				<li>A send that needs more emails than you have left this month waits until you upgrade or your next month starts.</li>
+				<li>
+					A send or a test email that needs more emails than you have left this month waits until you upgrade or your next month
+					starts.
+				</li>
 				<li>
 					Once the month&apos;s emails are used up, welcome emails pause too, and people who join meanwhile don&apos;t get one later.
 				</li>

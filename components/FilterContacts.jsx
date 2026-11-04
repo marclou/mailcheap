@@ -11,7 +11,6 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
-	DropdownMenuLabel,
 	DropdownMenuRadioGroup,
 	DropdownMenuRadioItem,
 	DropdownMenuSeparator,
@@ -120,7 +119,6 @@ export default function FilterContacts({ statuses = [], total = 0, tags = [], so
 								allLabel="All sources"
 								options={sources}
 								getLabel={getSourceLabel}
-								hint="How each contact joined your list."
 								help={{ label: "How sources work", href: getHelpHref("contacts", "sources") }}
 								onChange={(value) => navigate({ source: value })}
 							/>
@@ -136,7 +134,6 @@ export default function FilterContacts({ statuses = [], total = 0, tags = [], so
 								value={tag}
 								allLabel="All tags"
 								options={tags}
-								hint="Labels you add in a contact's ⋯ menu."
 								help={{ label: "How tags work", href: getHelpHref("contacts", "tags") }}
 								onChange={(value) => navigate({ tag: value })}
 							/>
@@ -212,8 +209,8 @@ function ItemCount({ value, count, children }) {
 }
 
 // One of a list of names with their counts, like tags or sources. The value picked stays listed when no contact has it.
-// Under the list, which scrolls on its own so they stay in sight, hint says what they are and help links to more.
-function MenuOptions({ trigger, value, allLabel, options, getLabel = (name) => name, hint, help, onChange }) {
+// Under the list, which scrolls on its own so it stays in sight, help links to what they are.
+function MenuOptions({ trigger, value, allLabel, options, getLabel = (name) => name, help, onChange }) {
 	const items = value && !options.some(({ name }) => name === value) ? [{ name: value, contacts: 0 }, ...options] : options;
 	return (
 		<DropdownMenu>
@@ -236,12 +233,11 @@ function MenuOptions({ trigger, value, allLabel, options, getLabel = (name) => n
 					))}
 				</DropdownMenuRadioGroup>
 				<DropdownMenuSeparator />
-				<DropdownMenuLabel className="font-normal text-pretty">{hint}</DropdownMenuLabel>
-				<DropdownMenuItem asChild>
+				<DropdownMenuItem asChild className="text-muted-foreground">
 					<a href={help.href} target="_blank" rel="noopener">
 						<BookOpen />
 						{help.label}
-						<ArrowUpRight className="ml-auto text-muted-foreground" />
+						<ArrowUpRight className="ml-auto" />
 					</a>
 				</DropdownMenuItem>
 			</DropdownMenuContent>

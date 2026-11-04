@@ -19,8 +19,15 @@ export async function checkSlug(slug, newsletterId) {
 	return failure ? toFormError(failure) : output;
 }
 
-export async function sendWelcomeTest(newsletterId) {
-	const { failure } = await runDashboardAction("send_welcome_test_email", { id: String(newsletterId ?? "") });
+// The test dialog (DialogSendTest), as for an issue's test (app/(app)/campaigns/actions.js).
+export async function sendWelcomeTest(newsletterId, { to, contact, saveAsDefault } = {}) {
+	const { failure } = await runDashboardAction("send_welcome_test_email", {
+		id: String(newsletterId ?? ""),
+		to,
+		contact: contact ?? undefined,
+		saveAsDefault,
+	});
+	if (!failure && saveAsDefault) revalidatePath(SETTINGS_PATH, "layout");
 	return failure ? toFormError(failure) : { ok: true };
 }
 

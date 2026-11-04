@@ -17,6 +17,7 @@ export default function InputTags({
 	max = MAX_TAGS,
 	placeholder = "Type a tag, then press Enter",
 	label = "Tags",
+	suggestionsLabel = "Tags you've used",
 	autoFocus,
 }) {
 	const listId = useId();
@@ -107,7 +108,7 @@ export default function InputTags({
 			{shown.length > 0 && (
 				<div className="flex flex-col gap-1.5">
 					<span id={`${listId}-label`} className="text-xs text-muted-foreground">
-						Tags you&apos;ve used
+						{suggestionsLabel}
 					</span>
 					{/* Picked from the field, which keeps the focus: a click doesn't take it, so what's typed isn't added on the way. */}
 					<ul id={listId} role="listbox" aria-labelledby={`${listId}-label`} className="flex flex-wrap gap-1.5">

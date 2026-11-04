@@ -167,6 +167,11 @@ export default function ImportingContactsPage() {
 				apart, each one only if the ones before bounced little.{" "}
 				<Link href={getHelpHref("sending", "first-send")}>First sends in steps</Link>
 			</p>
+			<p>
+				To take the contacts you imported back out, filter the <LinkApp href="/contacts">Contacts page</LinkApp> by Source, Import,
+				then tick the box at the top of the list, which selects them all, and Delete.{" "}
+				<Link href={getHelpHref("contacts", "select")}>Selecting contacts</Link>
+			</p>
 			{isCloud() && (
 				<p>
 					Your active contacts count toward your plan&apos;s subscribers. With more than it allows, sending waits until you upgrade.{" "}

@@ -7,7 +7,7 @@ import { CLASSIFIER_CHECKS } from "@/lib/content-review-codes";
 import { getFirstSendSteps } from "@/lib/first-send";
 import { formatCount, formatNumber, formatPercent } from "@/lib/format";
 import { getHelpHref, getHelpPageMetadata } from "@/lib/help";
-import { COMPARED_ISSUES, MAX_VIEW_DAYS, TIMELINE_HOURS } from "@/lib/report-stats";
+import { COMPARED_ISSUES, MAX_VIEW_DAYS, REFRESH_HOURS, REFRESH_SECONDS, TIMELINE_HOURS } from "@/lib/report-stats";
 
 export const metadata = getHelpPageMetadata("sending");
 
@@ -25,6 +25,9 @@ export default function SendingPage() {
 			<p>Before a campaign can go out, the review step checks it:</p>
 			<ul>
 				<li>a subject, and content, with each button&apos;s text and link;</li>
+				<li>
+					an <Link href={getHelpHref("writing", "author")}>author</Link>, who gets the replies;
+				</li>
 				<li>
 					readers for each <Link href={getHelpHref("writing", "sections")}>section</Link>: one whose segment was deleted waits until
 					you pick who sees it;
@@ -75,7 +78,7 @@ export default function SendingPage() {
 				The size check counts the biggest email, with every section in.
 				{isCloud() &&
 					" Problems with your account show in red above the steps: your plan's limits, and on the send step a send bigger than what your plan has left this month."}{" "}
-				A web-only issue sends no email, so it only needs a subject, content and the website on.
+				A web-only issue sends no email, so it only needs a subject, content, an author and the website on.
 			</p>
 
 			{isCloud() && (
@@ -140,10 +143,10 @@ export default function SendingPage() {
 
 			<h2 id="when">Send now or schedule</h2>
 			<p>
-				Send now asks you to confirm, then the issue starts going out. Schedule opens a calendar, with today marked, and times every 15
-				minutes. Once you&apos;ve sent an issue before, it tells you when a time matches your last one. A scheduled issue goes out by
-				itself, up to a year ahead; the checks and{isCloud() ? " your plan's limits" : " limits"} run when you schedule it and again
-				when it goes out. Unschedule turns it back into a draft.
+				Send now asks you to confirm, then the issue starts going out, with a few seconds of confetti. Schedule opens a calendar, with
+				today marked, and times every 15 minutes. Once you&apos;ve sent an issue before, it tells you when a time matches your last
+				one. A scheduled issue goes out by itself, up to a year ahead; the checks and{isCloud() ? " your plan's limits" : " limits"} run
+				when you schedule it and again when it goes out. Unschedule turns it back into a draft.
 			</p>
 			<FigureHelp
 				src="/help/sending/schedule.webp"
@@ -208,8 +211,9 @@ export default function SendingPage() {
 				<>
 					<h2 id="content-check">The content check</h2>
 					<p>
-						Before an issue goes out, an automated check reads its subject and content for phishing, malware, scams and explicit
-						content: as you send or schedule it, and again as it goes out if it changed since. It never reads your contacts.
+						Before an issue goes out, an automated check reads its subject, its author&apos;s name and its content for phishing,
+						malware, scams and explicit content: as you send or schedule it, and again as it goes out if it changed since. It never
+						reads your contacts, or your authors&apos; emails.
 						Almost every issue goes straight out.
 					</p>
 					<p>
@@ -249,6 +253,10 @@ export default function SendingPage() {
 				address that doesn&apos;t exist: an email still on its way, or that an inbox refused for another reason, like a full
 				mailbox, shows under Delivered as not delivered. Opens are an estimate: some inboxes, like Gmail, load an email&apos;s
 				images as it arrives, which counts as an open within seconds whether or not it&apos;s read, and some readers block images.
+			</p>
+			<p>
+				As an issue goes out, and for {formatCount(REFRESH_HOURS, "hour")} after, its page updates its numbers on its own every{" "}
+				{REFRESH_SECONDS} seconds while you&apos;re on it.
 			</p>
 			<p>
 				Under those numbers, tabs break the send down: Timeline, its opens and clicks hour by hour; Links, what readers clicked,

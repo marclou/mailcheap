@@ -135,6 +135,6 @@ test("the help center says what New asks, and how a draft kept for it works as a
 	const text = renderToStaticMarkup(m.helpPage.default()).replace(/<[^>]+>/g, "");
 	assert.match(text, /Start a draft with New, on the Campaigns page\./);
 	assert.match(text, /Once you have a campaign, New asks how to start: Blank, or Copy a campaign, which lists your campaigns, sent or not\./);
-	assert.match(text, /The one\s+you pick opens as a new draft with its subject, followed by \(copy\), its preview text and its content\./);
+	assert.match(text, /The one\s+you pick opens as a new draft with its subject, followed by \(copy\), its preview text, its content and its author\./);
 	assert.match(text, /keep a draft with its sections and your sign-off, and copy it each time: New, then\s+Copy a campaign\./);
 });

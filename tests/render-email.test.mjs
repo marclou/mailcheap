@@ -66,7 +66,7 @@ test("emails link to their web version at the top, the web version doesn't", () 
 		newsletter,
 		webUrl,
 	});
-	assert.match(htmlEmail.html, /<body><div style="display:none[^]*?<\/div><div[^>]*><a href="https:\/\/news\.example\.com\/p\/issue-12"/);
+	assert.match(htmlEmail.html, /<body><div style="display:none[^]*?<\/div><div[^>]*><a class="email-faint" href="https:\/\/news\.example\.com\/p\/issue-12"/);
 	assert.ok(htmlEmail.text.startsWith(`Read online (${webUrl})`), "the hidden preview text stays out of the text part");
 	assert.ok(!htmlEmail.text.includes("&zwnj;"));
 
@@ -103,12 +103,12 @@ test("presend checks block on missing essentials and sending off", () => {
 	});
 	assert.deepEqual(
 		blocking.map(({ id }) => id),
-		["subject", "content", "address", "domain", "sending"]
+		["subject", "author", "content", "address", "domain", "sending"]
 	);
 });
 
 test("presend checks pass when everything is ready", () => {
-	const campaign = { subject: "Hello", previewText: "Hi", body: "Text", testSentAt: new Date() };
+	const campaign = { subject: "Hello", previewText: "Hi", body: "Text", authorId: "000000000000000000000001", testSentAt: new Date() };
 	const rendered = renderEmail({ markdown: campaign.body, newsletter });
 	const { checks, blocking } = getPresendChecks({
 		campaign,

@@ -17,23 +17,29 @@ import { cn } from "@/lib/utils";
 export const CHECKERBOARD = { background: "repeating-conic-gradient(#f4f4f5 0 25%, #ffffff 0 50%) 0 0 / 12px 12px" };
 const GRID = "grid grid-cols-3 gap-2 p-4 sm:grid-cols-4";
 
-export default function DialogImagePicker({ open, onOpenChange, onSelect, currentUrl }) {
+// onFile: takes a file picked, dropped or pasted in its place, without uploading it.
+export default function DialogImagePicker({ open, onOpenChange, onSelect, onFile, currentUrl }) {
 	function select(image) {
 		onSelect(image);
 		onOpenChange(false);
 	}
 
+	function take(file) {
+		onOpenChange(false);
+		onFile(file);
+	}
+
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="gap-0 p-0 sm:max-w-xl">
-				<PickerImage currentUrl={currentUrl} onSelect={select} />
+				<PickerImage currentUrl={currentUrl} onSelect={select} onFile={onFile && take} />
 			</DialogContent>
 		</Dialog>
 	);
 }
 
 // The whole dialog takes drops and pastes, so a file let go next to the zone isn't opened by the browser.
-function PickerImage({ currentUrl, onSelect }) {
+function PickerImage({ currentUrl, onSelect, onFile }) {
 	const [library] = useState(loadImageLibrary);
 	const [upload, setUpload] = useState(null);
 	const { isDragging, dropProps } = useFileDrop({
@@ -46,6 +52,7 @@ function PickerImage({ currentUrl, onSelect }) {
 
 	async function uploadFile(file) {
 		if (upload) return;
+		if (onFile) return void onFile(file);
 		setUpload({ previewUrl: IMAGE_TYPES.includes(file.type) ? URL.createObjectURL(file) : null });
 		try {
 			onSelect(await uploadImageFile(file));

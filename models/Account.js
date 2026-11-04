@@ -103,6 +103,9 @@ const accountSchema = new mongoose.Schema(
 		summary: {
 			timeZone: { type: String },
 		},
+		// Where its owner's test emails go when they don't name addresses, saved from a test (lib/test-recipients.js):
+		// without, the owner's own address. A team member's are on their membership.
+		testRecipients: { type: [String], default: undefined },
 		// The fields its contacts can hold besides a first name and tags, shared by its newsletters (lib/contact-fields.js).
 		// Each contact keeps its values under fields.<key>; deleting a field here leaves them on the contacts.
 		contactFields: {

@@ -82,13 +82,56 @@ export default function ContactsPage() {
 			</ul>
 			<p>
 				The cross on a filter clears it, and Clear clears them all. The filters stay in the page&apos;s address, so a bookmark keeps
-				them. Export and Delete, in the <strong>⋯</strong> menu at the top, follow the search and the filters.
+				them. Export, in the <strong>⋯</strong> menu at the top, follows the search and the filters, and so does{" "}
+				<a href="#select">selecting every contact</a>.
 			</p>
 			<FigureHelp
 				src="/help/contacts/contacts-page.webp"
-				alt="The Contacts page: a search and filters for status, signup date, source and tag, then each contact with their tags, status, opens and clicks."
+				alt="The Contacts page: a search and filters for status, signup date, source and tag, then each contact with a box to tick, their tags, status, opens and clicks."
 				caption="The Contacts page"
 			/>
+
+			<h2 id="select">Selecting contacts</h2>
+			<p>
+				To change many contacts at once, tick the box at the start of their rows, on the{" "}
+				<LinkApp href="/contacts">Contacts page</LinkApp> or a <LinkApp href="/contacts/segments">segment&apos;s</LinkApp>. Hold
+				Shift as you tick one to tick every contact between it and the last one you ticked. The box at the top of the list
+				selects every contact the search and filters find, on every page.
+			</p>
+			<FigureHelp
+				src="/help/contacts/select-contacts.webp"
+				alt="Four contacts ticked on the Contacts page, and the bar at the bottom: 4 selected, Tags, Status, New segment and Delete."
+				caption="Selecting contacts"
+			/>
+			<p>A bar at the bottom of the screen shows how many you selected, and what you can do with them:</p>
+			<ul>
+				<li>
+					<strong>Tags</strong>: Add tags gives them tags, and Remove tags takes off the ones you pick among theirs. Their other
+					tags stay. <a href="#tags">Tagging contacts</a>
+				</li>
+				<li>
+					<strong>Status</strong>: Mark as active, Mark as dormant or Unsubscribe, each with how many of them it changes. Here,
+					only dormant contacts become active and only active ones go dormant. To bring back someone who unsubscribed or
+					hasn&apos;t confirmed, open their menu and confirm they asked to get your emails.{" "}
+					<a href="#actions">Changing a status</a>
+				</li>
+				<li>
+					<strong>New segment</strong> makes a segment of them: they get its name as a tag, which the segment picks, so tagging
+					someone later adds them to it. <a href="#segments">Segments</a>
+				</li>
+				<li>
+					<strong>Delete</strong> deletes them, as <a href="#actions">Delete contact</a> does, and can&apos;t be undone.
+				</li>
+			</ul>
+			<p>
+				Unsubscribe and Delete show how many contacts they change and ask you to type that number first. To delete everyone you
+				imported, for example, filter Source by Import, tick the box at the top, then Delete. The × on the bar clears the
+				selection, and so does changing the search, a filter or the page.
+			</p>
+			<p>
+				Team members can select contacts and change their tags. Changing a status, making a segment and deleting are for the
+				newsletter&apos;s admins. <Link href={getHelpHref("team", "roles")}>What each role can do</Link>
+			</p>
 
 			<h2 id="contact-page">Each contact&apos;s page</h2>
 			<p>
@@ -184,10 +227,10 @@ export default function ContactsPage() {
 				caption="Tagging a contact"
 			/>
 			<p>
-				To tag someone as they join, click Add tags when you <a href="#add">add them by hand</a>. To tag many contacts at once, tag
-				everyone an import adds, or use the{" "}
-				<Link href={getHelpHref("api-and-ai")}>API and AI assistants</Link>, which can also tag people as they sign up from your own
-				site. Click a tag on a contact&apos;s page to list everyone who has it.
+				To tag someone as they join, click Add tags when you <a href="#add">add them by hand</a>. To tag many contacts at once,{" "}
+				<a href="#select">select them</a> and pick Tags, then Add tags, or tag everyone an import adds. The{" "}
+				<Link href={getHelpHref("api-and-ai")}>API and AI assistants</Link> can tag them too, and tag people as they sign up from
+				your own site. Click a tag on a contact&apos;s page to list everyone who has it.
 			</p>
 
 			<h2 id="fields">Adding fields, step by step</h2>
@@ -270,7 +313,8 @@ export default function ContactsPage() {
 				))}
 			</ul>
 			<p>
-				Conditions can be on opens and clicks, issues missed in a row, the number of emails opened, the signup date, where they signed
+				For contacts you pick one by one, <a href="#select">select them</a> and click New segment in the bar. Conditions can be
+				on opens and clicks, issues missed in a row, the number of emails opened, the signup date, where they signed
 				up (your website&apos;s signup form, the form on your own site, an import, by hand or the API), the email address, a tag,
 				whether they have a first name, and your own fields, {MAX_SEGMENT_CONDITIONS} at most. A segment matches all of its
 				conditions, or any of them. In the send step, pick one to send an issue to its contacts only.{" "}
@@ -281,12 +325,13 @@ export default function ContactsPage() {
 				Click a segment to open its page, like Segments / Engaged, whose back arrow returns to all of them. At the top: its
 				active contacts, the share of them who opened and clicked in the last{" "}
 				{ACTIVITY_DAYS} days next to your whole list, and the campaigns sent to it. Below, its contacts of every status, with the
-				search and filters of the Contacts page. Edit changes its name and conditions, and the <strong>⋯</strong> menu exports its
-				contacts, deletes them, or deletes the segment, whose contacts stay.
+				search and filters of the Contacts page, and a box to tick each one, to <a href="#select">change them at once</a>. Edit
+				changes its name and conditions, and the <strong>⋯</strong> menu exports its contacts or deletes the segment, whose
+				contacts stay.
 			</p>
 			<FigureHelp
 				src="/help/contacts/segment.webp"
-				alt="A segment's page: its active contacts, opens and clicks next to the whole list and campaigns, then its contacts filtered by status."
+				alt="A segment's page: its active contacts, opens and clicks next to the whole list and campaigns, then its contacts filtered by status, each with a box to tick."
 				caption="A segment's page"
 			/>
 			<p>
@@ -371,8 +416,8 @@ export default function ContactsPage() {
 				</li>
 			</ul>
 			<p>
-				To delete many at once, <a href="#filters">filter the list</a> or open a segment, then pick Delete in the{" "}
-				<strong>⋯</strong> menu at the top. It deletes every contact the list shows, on every page, the same way.
+				To change the status of many at once or delete them, <a href="#select">select them</a>: the bar at the bottom has
+				Status and Delete. The box at the top of the list picks every contact the search and filters find, on every page.
 			</p>
 			<p>
 				Bounced and complained contacts keep their status: their address can&apos;t receive email, or they marked one of your

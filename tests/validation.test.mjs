@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isObjectIdString, isPlainObject, normalizeEmail } from "../lib/validation.js";
+import { getBodySizeProblem, isObjectIdString, isPlainObject, normalizeEmail } from "../lib/validation.js";
 
 test("emails are trimmed and lowercased", () => {
 	const accepted = [
@@ -57,4 +57,11 @@ test("plain objects exclude arrays and null", () => {
 	assert.equal(isPlainObject([]), false);
 	assert.equal(isPlainObject(null), false);
 	assert.equal(isPlainObject("{}"), false);
+});
+
+test("an issue's body is 500 KB at most, in UTF-8 bytes, which the editor checks before it saves", () => {
+	assert.equal(getBodySizeProblem("a".repeat(500_000)), null);
+	assert.equal(getBodySizeProblem("a".repeat(500_001)), "The content is 501 KB. The limit is 500 KB.");
+	assert.equal(getBodySizeProblem("é".repeat(250_001)), "The content is 501 KB. The limit is 500 KB.", "é takes two bytes");
+	assert.equal(getBodySizeProblem("a".repeat(1_200_000)), "The content is 1200 KB. The limit is 500 KB.", "over the 1 MB a save's request could carry");
 });

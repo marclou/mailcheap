@@ -39,7 +39,8 @@ const NO_TAGS = [];
 // them back as they are after one is added or deleted there.
 // newsletter: whose email design HTML blocks preview in, and whose button colors and corners buttons show.
 // ref: reveal({ id, message, words }), which goes to a review step's warning or check (lib/campaign-steps.js), else to
-// the first place the issue has the words, and says whether it found it; append(block), which adds a block at the end.
+// the first place the issue has the words, and says whether it found it; append(block), which adds a block at the end;
+// getEditor(), for a team's draft to show others' changes and where they are (lib/editor-sync.js).
 // gutterRef: the positioned element around the editor's card, whose problems' dots sit beside it in the page's margin
 // (components/GutterProblems.jsx). sections: what the issue's sections pick from (components/BlockSection.jsx), its
 // segments a section without one is marked by; without them, as in the newsletter's own emails, the slash menu offers
@@ -153,6 +154,7 @@ export default function EditorRich({
 			if (!editor || editor.isDestroyed) return;
 			editor.chain().insertContentAt(editor.state.doc.content.size, block).focus("end").scrollIntoView().run();
 		},
+		getEditor: () => (editor && !editor.isDestroyed ? editor : null),
 	}));
 
 	useEffect(() => {

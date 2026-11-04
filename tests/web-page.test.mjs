@@ -8,7 +8,7 @@ import { getIssueSeo, getShareCardUrl } from "../lib/archive-seo.js";
 import { WEB_CHANGE_REFUSED } from "../lib/content-review-codes.js";
 import { listImageUrls } from "../lib/thumbnail.js";
 import { WEB_CARD, getWebContent, getWebDescription, getWebImageUrl, getWebTitle, isWebImage } from "../lib/web-page.js";
-import { activate, as, callApi, catchRedirect, form, mockOpenAI, openaiRequests, platformEmails, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, as, callApi, catchRedirect, form, mockOpenAI, openaiRequests, platformEmails, signIn, startTestApp } from "./helpers/app.mjs";
 
 // An issue's page on the website (lib/web-page.js): the email's subject, preview text, content and first picture until
 // the page gets its own, a draft's from the send step and a sent issue's from its editor, which leaves the emails as sent.
@@ -112,6 +112,7 @@ describe("an issue's page on the website", () => {
 			)
 		);
 		user.newsletterId = url.split("/").at(-1);
+		await addAuthor(user);
 		await m.Newsletter.updateOne({ accountId: user.accountId, _id: user.newsletterId }, { $set: { archiveEnabled: true } });
 		user.key = (await as(user, () => m.apiKeys.createApiKey(null, form({ name: "Agent", level: "full" })))).key;
 		return user;

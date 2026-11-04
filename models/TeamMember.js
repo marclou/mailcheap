@@ -21,6 +21,8 @@ const teamMemberSchema = new mongoose.Schema(
 		joinedAt: { type: Date },
 		// Removed by the owner, or gone with their own account: no access, and the address can be invited again.
 		removedAt: { type: Date },
+		// Where their test emails go when they don't name addresses (lib/test-recipients.js): without, their own address.
+		testRecipients: { type: [String], default: undefined },
 	},
 	{ timestamps: true }
 );

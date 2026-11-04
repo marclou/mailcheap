@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
-import { deleteListedContacts } from "@/app/(app)/contacts/actions";
+import { deleteSelectedContacts } from "@/app/(app)/contacts/actions";
+import InputConfirmCount, { isCountTyped } from "@/components/InputConfirmCount";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -16,24 +17,25 @@ import {
 import { formatCount, formatNumber } from "@/lib/format";
 import { toast } from "@/lib/toast";
 
-// Every contact a list shows with its filters (filters: the list's, with segmentId on a segment's page), after a yes.
-// They go a batch at a time, and the button counts them.
-export default function DialogDeleteContacts({ newsletterId, filters, count, isOpen, onOpenChange, onCloseAutoFocus }) {
-	const [isDeleting, startDeleting] = useTransition();
+// The list's selection, deleted once their number is typed in, since it can't be undone. They go a batch at a time, and
+// the button counts them. target: who they are (ProviderContactSelection); count: how many.
+export default function DialogDeleteContacts({ target, count, isOpen, onOpenChange, onDone, onCloseAutoFocus }) {
+	const [typed, setTyped] = useState("");
 	const [deleted, setDeleted] = useState(0);
-	// The list refreshes after each batch: the dialog keeps the count it asked about.
-	const [askedCount, setAskedCount] = useState(count);
-	const shownCount = isDeleting ? askedCount : count;
+	const [isDeleting, startDeleting] = useTransition();
+	const isConfirmed = isCountTyped(typed, count);
 
-	function remove() {
-		setDeleted(0);
-		setAskedCount(count);
+	function remove(event) {
+		event.preventDefault();
+		if (!isConfirmed) return;
 		startDeleting(async () => {
 			let done = 0;
+			let hasFailed = false;
 			for (;;) {
-				const result = await deleteListedContacts({ newsletterId, ...filters });
+				const result = await deleteSelectedContacts(target);
 				if (result?.error) {
 					toast.error(result.error);
+					hasFailed = true;
 					break;
 				}
 				done += result.deleted;
@@ -41,37 +43,40 @@ export default function DialogDeleteContacts({ newsletterId, filters, count, isO
 				if (result.remaining === 0 || result.deleted === 0) break;
 			}
 			if (done > 0) toast.success(`${formatCount(done, "contact")} deleted`);
-			onOpenChange(false);
+			if (done > 0 || !hasFailed) onDone();
 		});
 	}
 
 	return (
 		<Dialog open={isOpen} onOpenChange={(open) => !isDeleting && onOpenChange(open)}>
-			<DialogContent className="sm:max-w-md" onCloseAutoFocus={onCloseAutoFocus}>
-				<DialogHeader>
-					<DialogTitle>Delete {formatCount(shownCount, "contact")}?</DialogTitle>
-					<DialogDescription>
-						Every contact this list shows leaves your contacts, with their history. It can&apos;t be undone. Those who
-						unsubscribed, bounced or complained stay blocked, so adding them again won&apos;t email them.
-					</DialogDescription>
-				</DialogHeader>
-				<DialogFooter>
-					<DialogClose asChild>
-						<Button variant="outline" disabled={isDeleting}>
-							Cancel
+			<DialogContent className="sm:max-w-md" showCloseButton={!isDeleting} onCloseAutoFocus={onCloseAutoFocus}>
+				<form onSubmit={remove} className="flex flex-col gap-4">
+					<DialogHeader>
+						<DialogTitle>Delete {formatCount(count, "contact")}?</DialogTitle>
+						<DialogDescription className="text-pretty">
+							They leave your contacts with their history, and it can&apos;t be undone. Those who unsubscribed, bounced or complained
+							stay blocked, so adding them again won&apos;t email them.
+						</DialogDescription>
+					</DialogHeader>
+					<InputConfirmCount count={count} value={typed} onChange={setTyped} disabled={isDeleting} />
+					<DialogFooter>
+						<DialogClose asChild>
+							<Button type="button" variant="outline" disabled={isDeleting}>
+								Cancel
+							</Button>
+						</DialogClose>
+						<Button type="submit" variant="destructive" disabled={!isConfirmed || isDeleting} className="min-w-20 tabular-nums">
+							{isDeleting ? (
+								<>
+									<Loader2 className="animate-spin" />
+									{deleted > 0 && formatNumber(deleted)}
+								</>
+							) : (
+								`Delete ${formatCount(count, "contact")}`
+							)}
 						</Button>
-					</DialogClose>
-					<Button variant="destructive" onClick={remove} disabled={isDeleting} className="min-w-20 tabular-nums">
-						{isDeleting ? (
-							<>
-								<Loader2 className="animate-spin" />
-								{deleted > 0 && formatNumber(deleted)}
-							</>
-						) : (
-							`Delete ${formatCount(shownCount, "contact")}`
-						)}
-					</Button>
-				</DialogFooter>
+					</DialogFooter>
+				</form>
 			</DialogContent>
 		</Dialog>
 	);

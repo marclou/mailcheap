@@ -24,7 +24,7 @@ function block(html) {
 }
 
 function emailBody(html) {
-	return /<td class="body">([\s\S]*?)<\/td><\/tr>\n<tr><td style="padding:32px/.exec(html)?.[1];
+	return /<td class="body">([\s\S]*?)<\/td><\/tr>\n<tr><td class="email-muted email-rule" style="padding:32px/.exec(html)?.[1];
 }
 
 const NEWSLETTER = { _id: "74f1a2b3c4d5e6f7a8b9c0d2", name: "Field notes", fromEmail: "jane@example.com", postalAddress: "1 Main St, Paris" };

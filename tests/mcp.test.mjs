@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { activate, anonymous, as, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, anonymous, as, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
 
 // The MCP server through its route handler, the way Claude Code, Codex and Cursor reach it today: 2025-era
 // Streamable HTTP (initialize, then tools/list and tools/call), each request carrying the API key.
@@ -62,6 +62,7 @@ async function customer(email, slug) {
 		catchRedirect(m.newsletters.saveNewsletter(null, form({ name: `${slug} news`, slug, postalAddress: "1 Main St, Paris" })))
 	);
 	user.newsletterId = url.split("/").at(-1);
+	await addAuthor(user);
 	user.slug = slug;
 	user.fullKey = (await as(user, () => m.apiKeys.createApiKey(null, form({ name: "Agent", level: "full" })))).key;
 	user.signupKey = (await as(user, () => m.apiKeys.createApiKey(null, form({ name: "Site", level: "signups" })))).key;

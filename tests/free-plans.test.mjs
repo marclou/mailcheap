@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
 import Stripe from "stripe";
-import { activate, addSentIssue, anonymous, as, callApi, catchNotFound, catchRedirect, form, jsonRequest, listPlanPrices, mockStripe, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, addSentIssue, anonymous, as, callApi, catchNotFound, catchRedirect, form, jsonRequest, listPlanPrices, mockStripe, signIn, startTestApp } from "./helpers/app.mjs";
 import { published } from "./stubs/qstash.mjs";
 import { state } from "./stubs/ses.mjs";
 
@@ -92,6 +92,7 @@ async function customer(email, slug) {
 		catchRedirect(m.newsletters.saveNewsletter(null, form({ name: `${slug} news`, slug, postalAddress: "1 Main St, Paris", archiveEnabled: "on" })))
 	);
 	user.newsletterId = url.split("/").at(-1);
+	await addAuthor(user);
 	user.slug = slug;
 	return user;
 }

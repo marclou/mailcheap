@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { getConfirmationContent } from "../lib/confirmation-content.js";
 import { toDraftEmail } from "../lib/newsletter-emails.js";
-import { activate, as, callApi, catchRedirect, form, jsonRequest, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
+import { activate, addAuthor, as, callApi, catchRedirect, form, jsonRequest, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
 import { flushAfter } from "./stubs/next-server.mjs";
 import { published } from "./stubs/qstash.mjs";
 import { remoteImages } from "./stubs/remote-image.mjs";
@@ -62,6 +62,7 @@ async function customer(email, { limits, postalAddress = "1 Main St, Paris" } = 
 		catchRedirect(m.newsletters.saveNewsletter(null, form({ name: `${user.slug} news`, slug: user.slug, postalAddress })))
 	);
 	user.newsletterId = url.split("/").at(-1);
+	await addAuthor(user);
 	user.key = await createKey(user, "full");
 	user.signupsKey = await createKey(user, "signups");
 	return user;
@@ -453,7 +454,7 @@ describe("contacts", () => {
 			filter: { search: "*@example.org", status: "active" },
 			tags: ["org"],
 		});
-		assert.deepEqual(tagged.body, { matched: 1, changed: 1 });
+		assert.deepEqual(tagged.body, { matched: 1, changed: 1, remaining: 0 });
 	});
 
 	test("signups from a site send the welcome email and answer browsers", async () => {

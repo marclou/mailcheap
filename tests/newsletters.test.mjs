@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { getCleanupSettings } from "../lib/cleanup.js";
-import { activate, addVerifiedDomain, as, callApi, catchNotFound, catchRedirect, form, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
+import { activate, addAuthor, addVerifiedDomain, as, callApi, catchNotFound, catchRedirect, form, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
 
 // Jane has two newsletters, Alpha (her first) and Beta, and a stranger has one. The dashboard shows the newsletter
 // its cookie names, checked against Jane's account every time; each newsletter's campaigns and contacts only show
@@ -18,7 +18,9 @@ async function createNewsletter(user, slug) {
 	const url = await as(user, () =>
 		catchRedirect(m.newsletters.saveNewsletter(null, form({ name: `${slug} news`, slug, postalAddress: "1 Main St, Paris" })))
 	);
-	return url.split("/").at(-1);
+	const newsletterId = url.split("/").at(-1);
+	await addAuthor(user, newsletterId);
+	return newsletterId;
 }
 
 async function draft(user, newsletterId, subject) {

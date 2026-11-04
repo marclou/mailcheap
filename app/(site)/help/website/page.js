@@ -44,8 +44,9 @@ export default function WebsitePage() {
 				engines get a sitemap of your issues, and each page has its own picture for when it&apos;s shared.
 			</p>
 			<p>
-				Its fonts, colors and shapes are your newsletter&apos;s theme, the same as in your emails.{" "}
-				<Link href={getHelpHref("design")}>Design and themes</Link>
+				Its fonts, colors and shapes are your newsletter&apos;s theme, as in your emails. Readers get its light or dark colors, the
+				ones their device uses, and switch between System, Light and Dark at the bottom of every page.{" "}
+				<Link href={getHelpHref("design", "dark-mode")}>Design and themes</Link>
 			</p>
 
 			{hasOwnHost && (
@@ -121,6 +122,11 @@ export default function WebsitePage() {
 				written for the inbox can have a title written for the web. Left empty, they stay the subject and the preview text. When
 				several issues start with the same picture, like a banner, their cards on your website show the drawn card instead, unless
 				you pick that picture for them.
+			</p>
+			<p>
+				Under its title, the page says who wrote it: &ldquo;By&rdquo; and the name of the issue&apos;s{" "}
+				<Link href={getHelpHref("writing", "author")}>author</Link>, after their picture, when they show on the web. Otherwise, your
+				From name and photo, linked to your author page. An author&apos;s email never shows.
 			</p>
 			<p>
 				The send step decides where each issue goes. An email-only issue never gets a page, and a web-only issue goes on the

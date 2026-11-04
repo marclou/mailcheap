@@ -17,6 +17,7 @@ import LinkHelp from "@/components/LinkHelp";
 import ListLegend from "@/components/ListLegend";
 import MenuReport from "@/components/MenuReport";
 import NoticeWarmup from "@/components/NoticeWarmup";
+import RefreshPage from "@/components/RefreshPage";
 import SectionRecipients from "@/components/SectionRecipients";
 import TableCampaignLinks from "@/components/TableCampaignLinks";
 import TabsPage, { PanelTab } from "@/components/TabsPage";
@@ -25,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { isPlanLimitCode } from "@/lib/account-state";
 import { getArchiveUrls } from "@/lib/archive-hosts";
+import { getAuthorByline } from "@/lib/author-rules";
 import { LIMITS, isSendingEnabled } from "@/lib/config";
 import { REVIEW_CODES, REVIEW_PAUSE_CODE } from "@/lib/content-review-codes";
 import { formatCount, formatDateTime, formatNumber, formatRate, formatRateChange, formatWeekdayHour } from "@/lib/format";
@@ -35,7 +37,7 @@ import { PROVIDER_DOMAINS, PROVIDER_LABELS } from "@/lib/providers";
 import { describePublishTo, isOnWebsite, readPublishTo } from "@/lib/publish-to";
 import { renderEmail } from "@/lib/render-email";
 import { withEmailSections } from "@/lib/sections";
-import { TIMELINE_HOURS, findPeak, hoursToHalf, reachedOf } from "@/lib/report-stats";
+import { REFRESH_SECONDS, TIMELINE_HOURS, findPeak, hoursToHalf, isRefreshing, reachedOf } from "@/lib/report-stats";
 import { formatPaceTime } from "@/lib/send-spread";
 import { getIssueWebUrl } from "@/lib/sending-rules";
 import { OWNER_ROLE, hasRole } from "@/lib/team-rules";
@@ -113,6 +115,7 @@ export default function CampaignReport({
 		previewText: campaign.previewText,
 		newsletter,
 		webUrl: getIssueWebUrl({ campaign, newsletter }),
+		author: getAuthorByline(campaign.sentAuthor, "email"),
 	});
 	const clicks = links?.links.length
 		? { clickers: links.clickers, links: links.links.map(({ key, clickers }) => ({ key, clickers })) }
@@ -149,6 +152,7 @@ export default function CampaignReport({
 
 	return (
 		<>
+			{isRefreshing(campaign) && <RefreshPage seconds={REFRESH_SECONDS} />}
 			<HeaderPage
 				title={campaign.subject || "Untitled"}
 				backHref={backHref}

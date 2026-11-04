@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { STATUS_CHANGES, getStatusChangeProblem, getStatusChanges, needsConsent } from "../lib/contact-status.js";
+import { STATUS_CHANGES, getBulkFromStatuses, getStatusChangeProblem, getStatusChanges, needsConsent } from "../lib/contact-status.js";
 import { STATUS_CHANGES_KEPT } from "../lib/status-changes.js";
 import { activate, anonymous, as, callApi, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
 
@@ -90,6 +90,7 @@ before(async () => {
 		apiKeys: await import("../app/(app)/api-keys/actions.js"),
 		mcpRoute: await import("../app/mcp/route.js"),
 		globalSuppressions: await import("../lib/global-suppressions.js"),
+		contactsLib: await import("../lib/contacts.js"),
 		Contact: (await import("../models/Contact.js")).default,
 		Suppression: (await import("../models/Suppression.js")).default,
 		GlobalSuppression: (await import("../models/GlobalSuppression.js")).default,
@@ -245,5 +246,106 @@ describe("through the API and MCP", () => {
 		const { statusChanges } = await findContact(user, "reader@example.org");
 		assert.equal(statusChanges.length, STATUS_CHANGES_KEPT);
 		assert.deepEqual([statusChanges[0].from, statusChanges.at(-1).to], ["active", "active"]);
+	});
+});
+
+describe("many at once", () => {
+	function bulk(user, body) {
+		return callApi("POST", "/api/v1/contacts/status", { key: user.key, body: { newsletter: user.slug, ...body } });
+	}
+
+	async function statuses(user) {
+		const contacts = await m.Contact.find({ accountId: user.accountId }).sort({ email: 1 }).lean();
+		return Object.fromEntries(contacts.map(({ email, status }) => [email, status]));
+	}
+
+	test("take only the changes that need no consent", () => {
+		assert.deepEqual(getBulkFromStatuses("dormant"), ["active"]);
+		assert.deepEqual(getBulkFromStatuses("unsubscribed"), ["active", "dormant", "pending"]);
+		assert.deepEqual(getBulkFromStatuses("active"), ["dormant"], "resubscribing and confirming take consent, one contact at a time");
+	});
+
+	test("update_contacts_status changes what it picks within the filter's status, kept with the key, and never another account's", async () => {
+		const user = await customer("bulk@example.com");
+		const other = await customer("bulk-other@example.com");
+		const rows = (owner) =>
+			[
+				["active@example.org", "active", { tags: ["paused"] }],
+				["untagged@example.org", "active"],
+				["dormant@example.org", "dormant", { tags: ["paused"], ignoredIssues: 4 }],
+				["pending@example.org", "pending", { tags: ["paused"] }],
+				["left@example.org", "unsubscribed", { tags: ["paused"] }],
+				["bounced@example.org", "bounced", { tags: ["paused"] }],
+			].map(([email, status, fields]) => ({ accountId: owner.accountId, newsletterId: owner.newsletterId, email, status, ...fields }));
+		await m.Contact.insertMany([...rows(user), ...rows(other)]);
+		const theirs = await statuses(other);
+
+		for (const body of [
+			{ filter: {}, status: "dormant" },
+			{ status: "dormant" },
+			{ all: true, filter: { tag: "paused" }, status: "dormant" },
+			{ newsletter: undefined, all: true, status: "dormant" },
+		]) {
+			const refused = await bulk(user, body);
+			assert.equal(refused.status, 400, JSON.stringify(body));
+			assert.equal(refused.body.error.code, "validation_failed");
+		}
+		assert.equal((await bulk(user, { all: true, status: "pending" })).status, 400, "pending can't be set");
+
+		const paused = await bulk(user, { filter: { tag: "paused" }, status: "dormant" });
+		assert.equal(paused.status, 200, JSON.stringify(paused.body));
+		assert.deepEqual(paused.body, { changed: 1, remaining: 0 });
+		const change = (await findContact(user, "active@example.org")).statusChanges.at(-1);
+		assert.deepEqual([change.from, change.to, change.via, Boolean(change.apiKeyId)], ["active", "dormant", "api", true]);
+
+		const pending = await bulk(user, { filter: { tag: "paused", status: "pending" }, status: "unsubscribed" });
+		assert.deepEqual(pending.body, { changed: 1, remaining: 0 }, "the filter's status narrows it");
+		assert.ok((await findContact(user, "pending@example.org")).unsubscribedAt);
+		assert.equal((await findContact(user, "dormant@example.org")).status, "dormant");
+
+		assert.deepEqual((await bulk(user, { all: true, status: "active" })).body, { changed: 2, remaining: 0 });
+		assert.deepEqual(await statuses(user), {
+			"active@example.org": "active",
+			"bounced@example.org": "bounced",
+			"dormant@example.org": "active",
+			"left@example.org": "unsubscribed",
+			"pending@example.org": "unsubscribed",
+			"untagged@example.org": "active",
+		});
+		assert.equal((await findContact(user, "dormant@example.org")).ignoredIssues, 0, "the list cleanup starts over");
+
+		const theirId = String((await m.Contact.findOne({ accountId: other.accountId, email: "active@example.org" }).lean())._id);
+		assert.deepEqual((await bulk(user, { newsletter: undefined, contacts: [theirId], status: "unsubscribed" })).body, { changed: 0, remaining: 0 });
+		assert.deepEqual(await statuses(other), theirs, "another account's contacts stay as they were");
+
+		const tool = await callTool(user.key, "update_contacts_status", { newsletter: user.slug, contacts: ["untagged@example.org"], status: "unsubscribed" });
+		assert.equal(tool.isError, undefined, JSON.stringify(tool));
+		assert.deepEqual(tool.structuredContent, { changed: 1, remaining: 0 });
+		assert.equal((await findContact(user, "untagged@example.org")).statusChanges.at(-1).via, "mcp");
+	});
+
+	test("an address the account or MailCheap won't email stays dormant, and nothing is left to try again", async () => {
+		const user = await customer("bulk-suppressed@example.com");
+		await m.Contact.insertMany(
+			["back", "bounced-elsewhere", "spamtrap"].map((name) => ({ accountId: user.accountId, newsletterId: user.newsletterId, email: `${name}@example.org`, status: "dormant" }))
+		);
+		await m.Suppression.create({ accountId: user.accountId, email: "bounced-elsewhere@example.org", reason: "bounce" });
+		await m.globalSuppressions.suppressGlobally({ emails: ["spamtrap@example.org"], reason: "trap" });
+
+		assert.deepEqual((await bulk(user, { all: true, status: "active" })).body, { changed: 1, remaining: 0 });
+		assert.deepEqual(await statuses(user), { "back@example.org": "active", "bounced-elsewhere@example.org": "dormant", "spamtrap@example.org": "dormant" });
+		assert.deepEqual((await bulk(user, { all: true, status: "active" })).body, { changed: 0, remaining: 0 });
+		assert.deepEqual((await bulk(user, { all: true, status: "unsubscribed" })).body, { changed: 3, remaining: 0 }, "leaving is always possible");
+	});
+
+	test("a call changes a few thousand at most, and says how many are left for the next", async () => {
+		const user = await customer("bulk-many@example.com");
+		const { MAX_CHANGED_AT_ONCE } = m.contactsLib;
+		await m.Contact.insertMany(
+			Array.from({ length: MAX_CHANGED_AT_ONCE + 2 }, (_, index) => ({ accountId: user.accountId, newsletterId: user.newsletterId, email: `reader${index}@example.org`, status: "active" }))
+		);
+		assert.deepEqual((await bulk(user, { all: true, status: "dormant" })).body, { changed: MAX_CHANGED_AT_ONCE, remaining: 2 });
+		assert.deepEqual((await bulk(user, { all: true, status: "dormant" })).body, { changed: 2, remaining: 0 });
+		assert.equal(await m.Contact.countDocuments({ accountId: user.accountId, status: "dormant" }), MAX_CHANGED_AT_ONCE + 2);
 	});
 });

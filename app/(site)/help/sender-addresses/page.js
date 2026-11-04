@@ -22,9 +22,11 @@ export default function SenderAddressesPage() {
 						<code>your-newsletter.{sharedDomain}</code>.
 					</p>
 					<p>
-						The address follows your newsletter&apos;s slug, so changing the slug changes it. Replies go to your account&apos;s email,
-						or to the reply-to address you set in the <LinkApp href="/newsletters/sender">newsletter&apos;s settings</LinkApp>. You can
-						keep it as long as you like: the <LinkApp href="/domains">Domains page</LinkApp> shows it as used until you switch.
+						The address follows your newsletter&apos;s slug, so changing the slug changes it. Replies go to the issue&apos;s{" "}
+						<Link href={getHelpHref("writing", "author")}>author</Link>, and replies to your newsletter&apos;s own emails to the
+						default author you pick on the <LinkApp href="/newsletters/sender">Sender page</LinkApp>. Until you add one, they go to
+						your account&apos;s email, or to the reply-to address you set before authors. You can keep the address as long as you like:
+						the <LinkApp href="/domains">Domains page</LinkApp> shows it as used until you switch.
 					</p>
 					<p>
 						While a newsletter sends from it, the <LinkApp href="/">overview</LinkApp> and the send step of a campaign show a short

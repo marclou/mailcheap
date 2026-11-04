@@ -13,7 +13,7 @@ import {
 	parseVerdict,
 	reviewContent,
 } from "../lib/content-review.js";
-import { activate, as, callApi, catchNotFound, catchRedirect, form, mockOpenAI, openaiRequests, platformEmails, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
+import { activate, addAuthor, as, callApi, catchNotFound, catchRedirect, form, mockOpenAI, openaiRequests, platformEmails, signIn, startTestApp, withEnv } from "./helpers/app.mjs";
 import { flushAfter } from "./stubs/next-server.mjs";
 import { sent as sesEmails } from "./stubs/ses.mjs";
 
@@ -252,6 +252,7 @@ async function customer(email) {
 		)
 	);
 	user.newsletterId = url.split("/").at(-1);
+	await addAuthor(user);
 	const rows = [0, 1].map((index) => ({ email: `reader${index}@${slug}.example.org`, status: "active" }));
 	await as(user, () => m.contacts.importContacts({ newsletterId: user.newsletterId, consent: true, rows }));
 	user.key = (await as(user, () => m.apiKeys.createApiKey(null, form({ name: "Agent" })))).key;

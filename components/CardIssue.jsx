@@ -45,22 +45,34 @@ export default function CardIssue({ issue, newsletter, href, isFeatured = false,
 	);
 }
 
-// Issues without a picture of their own show the card their link previews use.
+// Issues without a picture of their own show the card their link previews use, in the page's light or dark mode. A
+// hidden card waits, lazy, until it shows; only the first one, the light card when there are two, loads at once.
 function ImageIssue({ issue, newsletter, sizes, isEager }) {
-	const src = issue.thumbnailUrl || getShareCardUrl(newsletter, issue);
+	const cards = issue.thumbnailUrl
+		? [{ src: issue.thumbnailUrl }]
+		: [
+				{ src: getShareCardUrl(newsletter, issue, undefined, "light"), className: "dark:hidden" },
+				{ src: getShareCardUrl(newsletter, issue, undefined, "dark"), className: "hidden dark:block" },
+			];
 
 	return (
 		<div className="relative aspect-[1200/630] overflow-hidden rounded-xl bg-muted outline -outline-offset-1 outline-foreground/10">
-			<Image
-				src={src}
-				alt=""
-				fill
-				sizes={sizes}
-				unoptimized={!isOptimizableImage(src)}
-				loading={isEager ? "eager" : "lazy"}
-				fetchPriority={isEager ? "high" : "auto"}
-				className="object-cover transition-transform duration-500 ease-[cubic-bezier(0.2,0,0,1)] motion-safe:group-hover:scale-[1.03]"
-			/>
+			{cards.map(({ src, className }, index) => (
+				<Image
+					key={src}
+					src={src}
+					alt=""
+					fill
+					sizes={sizes}
+					unoptimized={!isOptimizableImage(src)}
+					loading={isEager && index === 0 ? "eager" : "lazy"}
+					fetchPriority={isEager && index === 0 ? "high" : "auto"}
+					className={cn(
+						"object-cover transition-transform duration-500 ease-[cubic-bezier(0.2,0,0,1)] motion-safe:group-hover:scale-[1.03]",
+						className
+					)}
+				/>
+			))}
 		</div>
 	);
 }

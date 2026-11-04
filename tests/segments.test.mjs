@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import { createExportToken } from "../lib/export-token.js";
 import { checkSegmentRules, compileSegment, describeSegment } from "../lib/segments.js";
-import { activate, as, callApi, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, as, callApi, catchRedirect, form, signIn, startTestApp } from "./helpers/app.mjs";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = new Date("2026-10-18T12:00:00.000Z");
@@ -108,6 +108,7 @@ describe("segments through the API", () => {
 			catchRedirect(m.newsletters.saveNewsletter(null, form({ name: `${user.slug} news`, slug: user.slug, postalAddress: "1 Main St, Paris" })))
 		);
 		user.newsletterId = url.split("/").at(-1);
+		await addAuthor(user);
 		user.key = (await as(user, () => m.apiKeys.createApiKey(null, form({ name: "Full", level: "full" })))).key;
 		return user;
 	}

@@ -7,8 +7,8 @@ import { serialize } from "@/lib/serialize";
 
 // A section's page of the open newsletter's settings (lib/newsletter-sections.js), back to the overview. page: what
 // lib/settings-page.js loaded for it. The form starts over for each newsletter: its fields keep what they were given
-// when it first rendered.
-export default function LayoutSettingsSection({ section, page, preselectDomain = null }) {
+// when it first rendered. authors: the Sender page's (FormNewsletter).
+export default function LayoutSettingsSection({ section, page, preselectDomain = null, authors = null }) {
 	const { newsletter } = page;
 
 	return (
@@ -26,13 +26,14 @@ export default function LayoutSettingsSection({ section, page, preselectDomain =
 				hasSentIssue={page.hasSentIssue}
 				defaultPostalAddress={page.defaultPostalAddress}
 				isSendingEnabled={page.isSendingEnabled}
-				testEmail={page.user.email}
+				testRecipients={page.testRecipients}
 				cleanupTotals={page.cleanupTotals}
 				welcomePause={page.welcomePause}
 				signupReviews={page.signupReviews}
 				contactFields={getFieldOptions(page.account)}
 				isCloud={page.isCloud}
 				preselectDomain={preselectDomain}
+				authors={authors}
 			/>
 		</LayoutNarrow>
 	);

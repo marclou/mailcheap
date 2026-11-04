@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { activate, as, callApi, catchRedirect, form, mockStripe, signIn, startTestApp } from "./helpers/app.mjs";
+import { activate, addAuthor, as, callApi, catchRedirect, form, mockStripe, signIn, startTestApp } from "./helpers/app.mjs";
 import { flushAfter } from "./stubs/next-server.mjs";
 
 // The dashboard counts the API's hourly limits per account on what costs something each call: test emails and
@@ -37,6 +37,7 @@ async function customer(email) {
 	const settings = { name: slug, slug, postalAddress: "1 Main St, Paris", welcomeSubject: "Welcome", welcomeContent: "Glad you're here." };
 	const url = await as(user, () => catchRedirect(m.newsletters.saveNewsletter(null, form(settings))));
 	user.newsletterId = url.split("/").at(-1);
+	await addAuthor(user);
 	return user;
 }
 
@@ -90,6 +91,7 @@ test("the dashboard counts the hourly limits of what costs something each call",
 			"count_section_readers",
 			"count_segment",
 			"create_api_key",
+			"create_author",
 			"create_campaign",
 			"create_contact_field",
 			"create_segment",
@@ -102,8 +104,9 @@ test("the dashboard counts the hourly limits of what costs something each call",
 			"tag_contacts",
 			"untag_contacts",
 			"update_campaign_archive",
+			"update_contacts_status",
 		],
-		"drafts, web pages, segments, fields, tags, keys, deletes, contacts brought back, exports, counts and summaries stay inside MailCheap"
+		"drafts, authors, web pages, segments, fields, tags, statuses, keys, deletes, contacts brought back, exports, counts and summaries stay inside MailCheap"
 	);
 	const imports = m.registry.getAction("import_contacts");
 	assert.equal(imports.limitDashboard({}), true, "a file's first chunk counts");

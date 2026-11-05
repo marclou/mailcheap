@@ -1,6 +1,7 @@
 import Link from "next/link";
 import ArticleHelp from "@/components/ArticleHelp";
 import LinkApp from "@/components/LinkApp";
+import { BLOCKED_PLAN_DAYS } from "@/lib/account-state";
 import { SIGNUPS_PER_KEY, TRIAL_CONTACTS } from "@/lib/actions/contacts";
 import { LIMITS } from "@/lib/config";
 import { formatNumber, formatUsd } from "@/lib/format";
@@ -115,7 +116,13 @@ export default function PlansPage() {
 			<p>
 				When you cancel, your plan runs until the end of the month or year you paid for. Then sending stops, and your newsletter,
 				subscribers and issues are kept for when you come back. Partial months and years aren&apos;t refunded. If a payment fails,
-				your account keeps working while Stripe tries your card again.
+				your account keeps working while Stripe tries your card again. If your card&apos;s bank reports a payment as unauthorized,
+				we refund it and end the plan it paid for.
+			</p>
+			<p>
+				While your account is blocked, your plan isn&apos;t billed and can&apos;t change, and it ends if the block lasts{" "}
+				{BLOCKED_PLAN_DAYS} days.{" "}
+				<Link href={getHelpHref("deliverability", "blocks")}>When an account is blocked</Link>
 			</p>
 			<p>
 				Deleting your account is a separate step. <Link href={getHelpHref("account", "delete")}>Your account</Link>

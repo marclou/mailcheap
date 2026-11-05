@@ -18,7 +18,9 @@ export default function BannerBlocked({ account }) {
 			<Ban aria-hidden className="size-4 shrink-0" />
 			<p className="line-clamp-2 min-w-0 text-[13px] leading-snug font-medium text-pretty md:truncate md:text-sm" title={reason}>
 				Account blocked{reason && `: ${reason}`}
-				<span className="hidden font-normal text-white/75 xl:inline"> · Nothing is sent until it&apos;s unblocked</span>
+				<span className="hidden font-normal text-white/75 xl:inline">
+					{account.billingPausedAt ? " · Nothing is sent or billed until it's unblocked" : " · Nothing is sent until it's unblocked"}
+				</span>
 			</p>
 			{supportChatPath ? (
 				<Button asChild size="sm" variant="secondary" className="shrink-0">

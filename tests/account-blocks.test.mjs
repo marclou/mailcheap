@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
 import mongoose from "mongoose";
+import { getBlockedPlanEnd } from "../lib/account-state.js";
 import { createConfirmToken } from "../lib/confirmation.js";
 import { getEventPlan } from "../lib/email-event-rules.js";
+import { formatDate } from "../lib/format.js";
 import { getClickUrl, getOpenUrl } from "../lib/tracking.js";
 import { createUnsubscribeToken } from "../lib/unsubscribe.js";
 import { activate, addAuthor, anonymous, as, callApi, catchNotFound, catchRedirect, form, jsonRequest, platformEmails, signIn, startTestApp } from "./helpers/app.mjs";
@@ -200,7 +202,13 @@ describe("what blocks an account", () => {
 		assert.match(toAdmins.text, /blocked by a spam trap/);
 		assert.ok(toAdmins.text.includes(`${hard.email} bounced: Hard bounce: 550 5.1.1 This address is a spam trap`));
 		assert.ok(!toOwner.text.includes(hard.email), "the trap's address stays with the admins");
-		assert.ok(toOwner.text.endsWith(`welcome emails included, and imports and changes are off. Chat with us to unblock it.\nhttp://localhost:3000${m.siteExtensions.supportChatPath ?? "/"}`), toOwner.text);
+		const planEnds = formatDate(getBlockedPlanEnd(account.billingPausedAt));
+		assert.ok(
+			toOwner.text.endsWith(
+				`welcome emails included, and imports and changes are off. Your plan isn't billed while it's blocked, and ends on ${planEnds} if it's still blocked then. Chat with us to unblock it.\nhttp://localhost:3000${m.siteExtensions.supportChatPath ?? "/"}`
+			),
+			toOwner.text
+		);
 		assert.ok(!toOwner.text.includes("hello@mailcheap.ai"), "the chat, not email");
 	});
 
@@ -366,8 +374,22 @@ describe("unblocking", () => {
 		await m.health.checkAccountHealth(user.accountId, { isUrgent: true });
 		assert.equal((await loadAccount(user)).status, "paused", "rates back under the limits don't lift it");
 
+		const emailsBefore = platformEmails.length;
 		assert.deepEqual(await as(admin, () => m.admin.unblockAccountAction(String(user.accountId))), { ok: true });
 		assert.equal((await loadCampaign(user, id)).status, "paused");
+		const unblocked = platformEmails.slice(emailsBefore).filter(({ subject }) => subject === "[MailCheap] Account unblocked");
+		assert.deepEqual(
+			unblocked.map(({ to }) => to),
+			[["unblock@example.com"]],
+			"only its owner hears of it"
+		);
+		const renewal = new Date(user.account.currentPeriodEnd).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+		assert.ok(
+			unblocked[0].text.startsWith(
+				`Account unblocked\nYour account can send again. The campaign the block paused waits for you to resume it from its page. Your plan is billed again from its renewal on ${renewal}.\nhttp://localhost:3000/campaigns`
+			),
+			unblocked[0].text
+		);
 		assert.deepEqual(await as(user, () => m.campaigns.resumeCampaign(id)), { ok: true });
 		assert.equal(sentCount(await runJobs(user)), 1);
 		assert.equal((await loadCampaign(user, id)).status, "sent");

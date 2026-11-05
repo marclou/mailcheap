@@ -1,5 +1,5 @@
 import BadgeStatus from "@/components/BadgeStatus";
-import { getAccountStatus, getBlockedMessage } from "@/lib/account-state";
+import { getAccountStatus, getBlockedMessage, getBlockedPlanEnd } from "@/lib/account-state";
 import { formatDate } from "@/lib/format";
 import { getAccountPlan, getPrice, isOnFreePlan } from "@/lib/plans";
 
@@ -23,16 +23,20 @@ export default function CardSubscription({ account }) {
 	);
 }
 
-// The price and the next date, here and on the account page. A free plan has its end date, if it has one.
+// The price and the next date, here and on the account page. A free plan has its end date, if it has one, and a
+// blocked account's plan isn't billed (lib/billing-pause.js), and ends unless it's unblocked first.
 export function getPlanDetails(account) {
 	const plan = getAccountPlan(account);
 	if (isOnFreePlan(account)) {
 		return [`Free ${plan.name} plan from MailCheap`, account.comp.until && `Ends ${formatDate(account.comp.until)}`].filter(Boolean);
 	}
-	const nextDate = account.cancelAt
-		? `Ends ${formatDate(account.cancelAt)}`
-		: account.currentPeriodEnd && `Renews ${formatDate(account.currentPeriodEnd)}`;
-	return [plan && `${usd.format(getPrice(plan, account.interval))} per ${account.interval}`, nextDate].filter(Boolean);
+	const price = plan && `${usd.format(getPrice(plan, account.interval))} per ${account.interval}`;
+	const blockedEnd = getBlockedPlanEnd(account.billingPausedAt);
+	if (blockedEnd && !(account.cancelAt && new Date(account.cancelAt) < blockedEnd)) {
+		return [price, "Not billed while blocked", `Ends ${formatDate(blockedEnd)} unless unblocked`].filter(Boolean);
+	}
+	const nextDate = account.cancelAt ? `Ends ${formatDate(account.cancelAt)}` : account.currentPeriodEnd && `Renews ${formatDate(account.currentPeriodEnd)}`;
+	return [price, nextDate].filter(Boolean);
 }
 
 const WARNINGS = {

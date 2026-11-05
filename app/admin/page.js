@@ -162,7 +162,11 @@ function Metric({ label, value, limit }) {
 }
 
 // "2 past due · 1 on a free plan", with only what applies.
-function describePaying({ pastDue, onFreePlan }) {
-	const parts = [pastDue > 0 && `${formatNumber(pastDue)} past due`, onFreePlan > 0 && `${formatNumber(onFreePlan)} on a free plan`].filter(Boolean);
+function describePaying({ pastDue, billingPaused, onFreePlan }) {
+	const parts = [
+		pastDue > 0 && `${formatNumber(pastDue)} past due`,
+		billingPaused > 0 && `${formatNumber(billingPaused)} blocked, not billed`,
+		onFreePlan > 0 && `${formatNumber(onFreePlan)} on a free plan`,
+	].filter(Boolean);
 	return parts.length > 0 ? parts.join(" · ") : null;
 }

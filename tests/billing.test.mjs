@@ -400,6 +400,102 @@ describe("invoice.paid", () => {
 	});
 });
 
+describe("early fraud warnings", () => {
+	const charges = new Map();
+
+	function charge(id, fields = {}) {
+		charges.set(id, { id, object: "charge", amount: 1900, amount_refunded: 0, refunded: false, disputed: false, customer: "cus_efw", payment_intent: `pi_${id}`, ...fields });
+	}
+
+	function warning(chargeId) {
+		return { id: `issfr_${chargeId}`, object: "radar.early_fraud_warning", actionable: true, charge: chargeId, fraud_type: "made_with_stolen_card", livemode: false };
+	}
+
+	// Charges, their refunds, and which invoice of sub_efw each paid: only ch_paid paid one.
+	function fraudApi(request) {
+		const { method, path, query } = request;
+		const record = (answer) => {
+			calls.push(request);
+			return answer;
+		};
+		if (method === "GET" && path.startsWith("/v1/charges/")) return record(charges.get(path.split("/").at(-1)));
+		if (method === "POST" && path === "/v1/refunds") {
+			const refunded = charges.get(request.body.get("charge"));
+			charges.set(refunded.id, { ...refunded, refunded: true, amount_refunded: refunded.amount });
+			return record({ id: "re_1", object: "refund", charge: refunded.id, status: "succeeded" });
+		}
+		if (method === "GET" && path === "/v1/invoice_payments") {
+			const isPaid = query.get("payment[type]") === "payment_intent" && query.get("payment[payment_intent]") === "pi_ch_paid" && query.get("status") === "paid";
+			return record({ object: "list", data: isPaid ? [{ id: "inpay_1", object: "invoice_payment", invoice: "in_efw", status: "paid" }] : [], has_more: false });
+		}
+		if (method === "GET" && path === "/v1/invoices/in_efw") {
+			return record({ id: "in_efw", object: "invoice", parent: { type: "subscription_details", subscription_details: { subscription: "sub_efw" } } });
+		}
+		if (method === "DELETE" && path === "/v1/subscriptions/sub_efw") {
+			subscriptions.set("sub_efw", { ...subscriptions.get("sub_efw"), status: "canceled" });
+			return record(subscriptions.get("sub_efw"));
+		}
+		return stripeApi(request);
+	}
+
+	test("the payment is refunded as fraudulent, the plan it paid for ends at once, and the admins and the owner hear of it", async () => {
+		const user = await signIn("fraud@example.com");
+		subscriptions.set("sub_efw", subscription({ id: "sub_efw", accountId: user.accountId, customer: "cus_efw" }));
+		await deliver("customer.subscription.created", { id: "sub_efw" });
+		charge("ch_paid");
+		mockStripe(fraudApi);
+		const emailsBefore = platformEmails.length;
+
+		const result = await deliver("radar.early_fraud_warning.created", warning("ch_paid"));
+		assert.deepEqual(result, { status: 200, body: { received: true, refunded: true, canceled: "sub_efw" } });
+		const refund = calls.find(({ method, path }) => method === "POST" && path === "/v1/refunds");
+		assert.deepEqual([refund.body.get("charge"), refund.body.get("reason")], ["ch_paid", "fraudulent"]);
+		assert.equal(refund.headers.get("idempotency-key"), "efw-refund-issfr_ch_paid");
+		assert.ok(calls.some(({ method, path }) => method === "DELETE" && path === "/v1/subscriptions/sub_efw"));
+		await deliver("customer.subscription.deleted", { id: "sub_efw" });
+		assert.equal((await account(user)).subscriptionStatus, "canceled", "the plan is off, like any canceled one");
+
+		const emails = platformEmails.slice(emailsBefore);
+		const toAdmins = emails.find(({ to }) => to.includes("admin@example.com"));
+		assert.equal(toAdmins.subject, "[MailCheap] Payment refunded after a fraud warning");
+		assert.ok(
+			toAdmins.text.includes(
+				`Account ${user.accountId}: the card's bank reported a $19.00 payment as fraud (made_with_stolen_card), and MailCheap refunded it and ended the plan it paid for.`
+			),
+			toAdmins.text
+		);
+		const toOwner = emails.find(({ to }) => to.includes("fraud@example.com"));
+		assert.equal(toOwner.subject, "[MailCheap] Your plan ended");
+		assert.ok(
+			toOwner.text.includes("Your card's bank reported a $19.00 payment to MailCheap as unauthorized, so we refunded it and ended the plan it paid for."),
+			toOwner.text
+		);
+
+		calls = [];
+		const emailsAfter = platformEmails.length;
+		const again = await deliver("radar.early_fraud_warning.created", warning("ch_paid"));
+		assert.deepEqual(again.body, { received: true, refunded: false }, "delivered again, nothing more to do");
+		assert.equal(calls.some(({ method, path }) => path === "/v1/refunds" || method === "DELETE"), false);
+		assert.equal(platformEmails.length, emailsAfter, "and nobody is told twice");
+	});
+
+	test("a payment that paid no plan is only refunded, and a disputed one is left to the dispute", async () => {
+		const user = await signIn("fraud-other@example.com");
+		subscriptions.set("sub_other", subscription({ id: "sub_other", accountId: user.accountId, customer: "cus_other" }));
+		await deliver("customer.subscription.created", { id: "sub_other" });
+		charge("ch_loose", { amount: 500, customer: "cus_other" });
+		charge("ch_disputed", { disputed: true, customer: "cus_other" });
+		mockStripe(fraudApi);
+
+		assert.deepEqual((await deliver("radar.early_fraud_warning.created", warning("ch_loose"))).body, { received: true, refunded: true });
+		assert.equal(calls.some(({ method }) => method === "DELETE"), false, "the plan goes on");
+		calls = [];
+		assert.deepEqual((await deliver("radar.early_fraud_warning.created", warning("ch_disputed"))).body, { received: true, refunded: false });
+		assert.equal(calls.some(({ path }) => path === "/v1/refunds"), false);
+		assert.equal((await account(user)).subscriptionStatus, "active");
+	});
+});
+
 describe("customer portal", () => {
 	test("manage billing opens the portal; picking another plan opens Stripe's confirm page for it", async () => {
 		const user = await signIn("portal@example.com");
@@ -410,6 +506,7 @@ describe("customer portal", () => {
 		const portal = calls.findLast(({ path }) => path === "/v1/billing_portal/sessions").body;
 		assert.equal(portal.get("customer"), "cus_portal");
 		assert.equal(portal.get("return_url"), "http://localhost:3000/billing");
+		assert.equal(portal.get("configuration"), null, "the portal set up in Stripe's dashboard");
 
 		assert.equal(await as(user, () => catchRedirect(m.billing.choosePlan(form({ plan: "growth", interval: "month" })))), "https://billing.stripe.com/p/session/bps_1");
 		const change = calls.findLast(({ path }) => path === "/v1/billing_portal/sessions").body;

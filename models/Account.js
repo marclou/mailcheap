@@ -18,6 +18,12 @@ const accountSchema = new mongoose.Schema(
 		currentPeriodStart: { type: Date },
 		currentPeriodEnd: { type: Date },
 		cancelAt: { type: Date },
+		// When MailCheap paused the plan's billing because the account is blocked (lib/billing-pause.js): Stripe keeps the
+		// subscription active and voids its renewals until unblocking resumes it. A pause set by hand in Stripe isn't here.
+		billingPausedAt: { type: Date },
+		// While the hourly check ends the plan of an account blocked too long (lib/billing-pause.js): unblocking waits
+		// for it, so a plan never ends on an unblocked account.
+		planEndingAt: { type: Date },
 		// Emails sent this month of the paid period (lib/usage-period.js): every kind counts. welcomePausedAt: when the
 		// month's first welcome email was skipped for want of emails left, which told the owner; a new month clears it.
 		usage: {

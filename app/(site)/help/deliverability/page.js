@@ -1,6 +1,7 @@
 import Link from "next/link";
 import ArticleHelp from "@/components/ArticleHelp";
 import LinkApp from "@/components/LinkApp";
+import { BLOCKED_PLAN_DAYS } from "@/lib/account-state";
 import { LIMITS, isCloud } from "@/lib/config";
 import { formatPercent } from "@/lib/format";
 import { getHelpHref, getHelpPageMetadata } from "@/lib/help";
@@ -51,15 +52,25 @@ export default function DeliverabilityPage() {
 			</p>
 			<p>
 				A blocked account stops everything: every newsletter&apos;s sends, welcome and confirmation emails, imports, new contacts and
-				its tracked links. You can still pause, unschedule and change billing.{" "}
+				its tracked links. Your website stays online, and you can still pause and unschedule campaigns.{" "}
 				{isCloud()
 					? "Chat with us from the dashboard's banner: we review it and unblock it when it's safe."
 					: "An admin of this server unblocks it from the admin page."}
 			</p>
+			{isCloud() && (
+				<p>
+					While your account is blocked, your plan isn&apos;t billed: it stays active, and its renewals are skipped. Plans can&apos;t
+					change until it&apos;s unblocked, and the <LinkApp href="/billing">billing page</LinkApp> still opens Stripe for your card,
+					invoices and canceling. If it&apos;s still blocked {BLOCKED_PLAN_DAYS} days later, your plan ends: your newsletters,
+					contacts and campaigns are kept, and you can pick a plan again once it&apos;s unblocked.
+				</p>
+			)}
 			<p>
-				Once it&apos;s unblocked, the bounces and complaints from before don&apos;t count again: only the emails sent from then on
-				count toward these levels. A send the block stopped waits for you to resume it from its page, and goes on from where it
-				stopped.
+				Once it&apos;s unblocked, you get an email, and the bounces and complaints from before don&apos;t count again: only the
+				emails sent from then on count toward these levels. A send the block stopped waits for you to resume it from its page, and
+				goes on from where it stopped.
+				{isCloud() &&
+					" Your plan is billed again from its next renewal, or, when a renewal was skipped, starts a new month or year that day, billed then."}
 			</p>
 
 			<h2 id="test-in-spam">When a test lands in spam</h2>

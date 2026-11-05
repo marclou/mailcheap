@@ -112,7 +112,14 @@ test("the numbers at the top count every account, not just the ones listed", asy
 	await m.Account.updateOne({ _id: third.accountId }, { $set: { status: "paused", pausedBy: "admin", pauseReason: "Spam" } });
 
 	assert.equal((await m.accounts.listAccountsForAdmin({ limit: 2 })).length, 2);
-	assert.deepEqual(await m.stats.getAccountTotals(), { accounts: 3, newThisWeek: 3, paying: 1, pastDue: 0, onFreePlan: 0, blocked: 1 });
+	assert.deepEqual(await m.stats.getAccountTotals(), { accounts: 3, newThisWeek: 3, paying: 1, pastDue: 0, billingPaused: 0, onFreePlan: 0, blocked: 1 });
+
+	await m.Account.updateOne(
+		{ _id: third.accountId },
+		{ $set: { subscriptionStatus: "active", stripeSubscriptionId: `sub_${third.accountId}`, billingPausedAt: new Date() } }
+	);
+	const totals = await m.stats.getAccountTotals();
+	assert.deepEqual([totals.paying, totals.billingPaused], [1, 1], "a blocked plan whose billing is paused isn't paying");
 });
 
 test("search finds accounts in the whole database by owner email, newsletter name or account id, in any case", async () => {

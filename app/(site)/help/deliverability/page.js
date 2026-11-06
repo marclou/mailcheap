@@ -28,13 +28,21 @@ export default function DeliverabilityPage() {
 				senders to stay under 0.1% and never reach 0.3%.
 			</p>
 
+			<h2 id="refusals">Gmail refusals</h2>
+			<p>
+				Gmail can refuse an email as likely unsolicited: the address works, but Gmail reads the email as one its reader never asked
+				for. The contact stays as it is, and the refusal counts against the send. A list whose readers signed up for your newsletter
+				almost never gets one.
+			</p>
+
 			<h2 id="pauses">When a send pauses</h2>
 			<p>
 				A campaign pauses by itself when more than {formatPercent(pause.bounceRate)} of its emails hard bounce (at least{" "}
-				{pause.minBounces}) or more than {formatPercent(pause.complaintRate)} are marked as spam (at least {pause.minComplaints}), and
-				you get an email about it, which the bell in the dashboard shows too, with a link to the campaign. Emails already sent stay
-				sent. Look at the campaign&apos;s report: if you know why, resume it from its page to send the rest. Once resumed, only the
-				block level below stops it again.{" "}
+				{pause.minBounces}), more than {formatPercent(pause.complaintRate)} are marked as spam (at least {pause.minComplaints}) or Gmail
+				refuses more than {formatPercent(pause.refusalRate)} of them (at least {pause.minRefusals}), and you get an email about it,
+				which the bell in the dashboard shows too, with a link to the campaign. Emails already sent stay sent. Look at the
+				campaign&apos;s report: if you know why, resume it from its page to send the rest. Once resumed, only the block level below
+				stops it again.{" "}
 				<Link href={getHelpHref("notifications")}>Notifications</Link>
 			</p>
 			<p>

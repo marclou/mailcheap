@@ -39,6 +39,8 @@ const messageSchema = new mongoose.Schema(
 		clickedLinks: { type: [String], default: undefined },
 		bouncedAt: Date,
 		complainedAt: Date,
+		// Gmail refused it as likely unsolicited (lib/email-event-rules.js): it stays sent, and counts against its send.
+		refusedAt: Date,
 		// They unsubscribed through it: the latest issue they got, for an unsubscribe link or their mail app's button
 		// (app/api/unsubscribe), or the email the provider's own unsubscribe names (lib/email-events.js).
 		unsubscribedAt: Date,

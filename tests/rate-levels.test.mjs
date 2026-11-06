@@ -8,8 +8,19 @@ import { getAccountCheckWindow, getAccountRateProblem, getCampaignRateProblem } 
 const level = (counts) => judgeRates(counts)?.level ?? null;
 
 test("the two levels live in one place", () => {
-	assert.deepEqual(LIMITS.pause, { bounceRate: 0.025, minBounces: 5, complaintRate: 0.0008, minComplaints: 2 });
+	assert.deepEqual(LIMITS.pause, { bounceRate: 0.025, minBounces: 5, complaintRate: 0.0008, minComplaints: 2, refusalRate: 0.02, minRefusals: 10 });
 	assert.deepEqual(LIMITS.block, { bounceRate: 0.05, minBounces: 10, complaintRate: 0.003, minComplaints: 3 });
+});
+
+test("Gmail refusals: 10 at least to pause over 2%, and never a block", () => {
+	assert.equal(level({ sent: 100, refused: 9 }), null, "9 refusals, at 9%");
+	assert.equal(level({ sent: 400, refused: 10 }), "pause", "10 refusals at 2.5%");
+	assert.equal(level({ sent: 500, refused: 10 }), null, "10 refusals at exactly 2%");
+	assert.equal(level({ sent: 100, refused: 100 }), "pause", "every email refused still only pauses");
+	assert.deepEqual(judgeRates({ sent: 3503, refused: 2140 }), { level: "pause", metric: "refusal", rate: 2140 / 3503, limit: 0.02 });
+	assert.equal(level({ sent: 100_000, refused: 50 }), null, "a good list's few refusals");
+	assert.deepEqual(judgeRates({ sent: 1000, bounced: 30, refused: 600 }), { level: "pause", metric: "bounce", rate: 0.03, limit: 0.025 }, "bounces first");
+	assert.deepEqual(judgeRates({ sent: 1000, bounced: 60, refused: 600 }), { level: "block", metric: "bounce", rate: 0.06, limit: 0.05 }, "a block before any pause");
 });
 
 test("complaints: one never counts, two pause over 0.08%, three block over 0.3%", () => {
@@ -37,19 +48,40 @@ test("hard bounces: 5 at least to pause over 2.5%, 10 at least to block over 5%"
 test("each place words its level: a campaign, a first send's slice, the last 7 days", () => {
 	assert.deepEqual(getCampaignRateProblem({ sent: 900, bounced: 22 }, { sent: 100, bounced: 4 }), {
 		level: "pause",
+		metric: "bounce",
 		reason:
 			"Bounce rate of 2.60% on this campaign (limit 2.50%). Check where these contacts came from before you resume: at 5.00% with 10 bounces, the account is blocked.",
 	});
 	assert.equal(getCampaignRateProblem({ sent: 900, bounced: 6 }, { sent: 100, bounced: 4 }), null, "last-chance emails count too: 1.00% in all");
 	assert.deepEqual(getCampaignRateProblem({ sent: 900, complained: 1 }, { sent: 100, complained: 3 }), {
 		level: "block",
+		metric: "complaint",
 		reason: "Complaint rate of 0.40% on a campaign (limit 0.30%)",
 	});
 	assert.match(getCampaignRateProblem({ sent: 1000, complained: 2 }).reason, /^Complaint rate of 0.20% on this campaign \(limit 0.08%\)\. Check that these contacts asked/);
+	assert.deepEqual(getCampaignRateProblem({ sent: 900, refused: 20 }, { sent: 100, refused: 5 }), {
+		level: "pause",
+		metric: "refusal",
+		reason:
+			"Gmail refusal rate of 2.50% on this campaign (limit 2.00%). Gmail refuses emails it reads as unsolicited: check that these contacts asked for your emails before you resume.",
+	});
 
-	assert.deepEqual(getFirstSendProblem({ sent: 200, bounced: 6 }), { level: "pause", reason: "The first 200 new contacts had a bounce rate of 3.00% (limit 2.50%)" });
-	assert.deepEqual(getFirstSendProblem({ sent: 200, bounced: 12 }), { level: "block", reason: "The first 200 new contacts had a bounce rate of 6.00% (limit 5.00%)" });
+	assert.deepEqual(getFirstSendProblem({ sent: 200, bounced: 6 }), {
+		level: "pause",
+		metric: "bounce",
+		reason: "The first 200 new contacts had a bounce rate of 3.00% (limit 2.50%)",
+	});
+	assert.deepEqual(getFirstSendProblem({ sent: 200, bounced: 12 }), {
+		level: "block",
+		metric: "bounce",
+		reason: "The first 200 new contacts had a bounce rate of 6.00% (limit 5.00%)",
+	});
 	assert.equal(getFirstSendProblem({ sent: 200, complained: 1 }), null);
+	assert.deepEqual(getFirstSendProblem({ sent: 200, refused: 61 }), {
+		level: "pause",
+		metric: "refusal",
+		reason: "The first 200 new contacts had a Gmail refusal rate of 30.50% (limit 2.00%)",
+	});
 
 	assert.deepEqual(getAccountRateProblem({ sent: 600, delivered: 580, bounced: 36 }), {
 		level: "block",

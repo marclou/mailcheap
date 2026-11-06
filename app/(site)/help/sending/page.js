@@ -192,9 +192,10 @@ export default function SendingPage() {
 				which one is going out.
 			</p>
 			<p>
-				If the new contacts so far get more than {formatPercent(pause.bounceRate)} hard bounces (at least {pause.minBounces}) or{" "}
-				{formatPercent(pause.complaintRate)} complaints (at least {pause.minComplaints}), the rest waits for you to resume it. Far
-				over those rates, your account is blocked.
+				If the new contacts so far get more than {formatPercent(pause.bounceRate)} hard bounces (at least {pause.minBounces}),{" "}
+				{formatPercent(pause.complaintRate)} complaints (at least {pause.minComplaints}) or {formatPercent(pause.refusalRate)} Gmail
+				refusals (at least {pause.minRefusals}), the rest waits for you to resume it. Far over the bounce or complaint rates, your
+				account is blocked.
 			</p>
 
 			<h2 id="pause">Pausing a send</h2>
@@ -203,7 +204,7 @@ export default function SendingPage() {
 				sent stays sent. Resume sends the rest, after checking your account again.
 			</p>
 			<p>
-				MailCheap pauses a send by itself when too many of its emails bounce or get marked as spam.{" "}
+				MailCheap pauses a send by itself when too many of its emails bounce, get marked as spam or are refused by Gmail.{" "}
 				<Link href={getHelpHref("deliverability", "pauses")}>Bounces, complaints and pauses</Link>
 			</p>
 

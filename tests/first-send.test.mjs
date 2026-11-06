@@ -17,7 +17,11 @@ test("new contacts go 2% first, then 5% more, then the rest, each step within it
 
 test("new contacts over a campaign's levels stop the rest", () => {
 	assert.equal(getFirstSendProblem({ sent: 240, bounced: 6 }), null, "2.5% is the pause limit");
-	assert.deepEqual(getFirstSendProblem({ sent: 240, bounced: 7 }), { level: "pause", reason: "The first 240 new contacts had a bounce rate of 2.92% (limit 2.50%)" });
+	assert.deepEqual(getFirstSendProblem({ sent: 240, bounced: 7 }), {
+		level: "pause",
+		metric: "bounce",
+		reason: "The first 240 new contacts had a bounce rate of 2.92% (limit 2.50%)",
+	});
 	assert.equal(getFirstSendProblem({ sent: 2000, complained: 2 }).level, "pause");
 	assert.equal(getFirstSendProblem({ sent: 2000, complained: 1 }), null, "one complaint");
 	assert.equal(getFirstSendProblem({ sent: 0 }), null);

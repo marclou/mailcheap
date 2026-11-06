@@ -52,7 +52,7 @@
     "react-dom": "19.2.9",
     "react-hot-toast": "^2.6.1",
     "react-remove-scroll": "^2.7.2",
-    "sanitize-html": "^2.18.0",
+    "sanitize-html": "^2.18.1",
     "server-only": "^0.0.1",
     "stripe": "^23.0.0",
     "tldts": "^7.4.18",

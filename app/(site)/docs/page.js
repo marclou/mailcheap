@@ -22,8 +22,8 @@ export default function DocsPage() {
 			<div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-10 -z-10 h-80 bg-dots" />
 			<HeaderDocs kicker="REST API and MCP" title="Everything the dashboard does, from code or an AI assistant">
 				The REST API and the MCP server run the same {endpointCount} actions as the dashboard, with the same checks: plan limits, sender
-				rules, pre-send checks, campaigns paused for their bounce or complaint rates or Gmail&apos;s spam rate, blocked accounts and first
-				sends in steps.
+				rules, pre-send checks, campaigns paused for their bounce, complaint or Gmail refusal rates or Gmail&apos;s spam rate, blocked
+				accounts and first sends in steps.
 			</HeaderDocs>
 
 			<div style={{ "--stagger": 1 }} className="grid gap-3 animate-enter sm:grid-cols-2">

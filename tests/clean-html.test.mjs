@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { renderIssueBody } from "../lib/archive-content.js";
 import { CONTENT_TAGS, cleanRichHtml, keepContentAttributes } from "../lib/clean-html.js";
+import { sanitizeIssueHtml } from "../lib/safe-html.js";
 
 const payloads = {
 	audit: '<x_ style="position:fixed;inset:0" onpointerover="alert(document.domain)"></x_>',
@@ -84,4 +85,10 @@ test("markup the cleaners don't know can't run on an archive page, whatever path
 test("a long run of < is escaped, keeping the text before it", () => {
 	const { html } = renderIssueBody({ format: "rich", html: `<p>Hi</p>${"<".repeat(500_000)}>` });
 	assert.ok(html.startsWith("<p>Hi</p>&lt;&lt;"));
+});
+
+test("a run of unclosed iframes that gets past the cleaners stays inert, instead of overflowing the stack", () => {
+	const html = sanitizeIssueHtml(`<p>Hi</p>${"<iframe>".repeat(20_000)}`);
+	assert.ok(html.startsWith("<p>Hi</p>"));
+	assertInert(html, "unclosed iframes");
 });

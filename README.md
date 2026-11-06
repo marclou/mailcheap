@@ -42,7 +42,7 @@ MailCheap is a newsletter app: write an issue, send it to your list, publish it 
   - list cleanup, on by default: readers who ignored several issues get one "do you still want this?" email, then stop getting issues;
   - contact cleaning: imports leave out invalid, misspelled (gmial.com), spam trap, role, throwaway and duplicate addresses, domains that can't receive email, and anyone who unsubscribed, bounced or complained before;
   - one never-email list for the whole server: an address the email provider says doesn't exist (for 180 days) or that turned out to be a spam trap (for good) is left out of every account's imports, signups and sends, and only a keyed hash of it is kept;
-  - spam and bounce limits: a send pauses past 2.5% hard bounces or 0.08% complaints, and the account is blocked past 5% or 0.3%, or on a spam trap hit;
+  - spam and bounce limits: a send pauses past 2.5% hard bounces, 0.08% complaints or 2% of its emails refused by Gmail as unsolicited, and the account is blocked past 5% bounces or 0.3% complaints, or on a spam trap hit;
   - Gmail's spam rates, which Gmail never reports one complaint at a time: every email carries a `Feedback-ID` for Gmail's feedback loop (its campaign or newsletter, its account, its kind), and once an admin connects [Google Postmaster Tools](https://postmaster.google.com), MailCheap reads it every day. An account Gmail flags at 0.08% has its sends paused, at 0.3% it's blocked, and the admins hear when the whole domain reaches 0.1%;
   - one-click unsubscribe (RFC 8058) and a signed unsubscribe link in every email, and confirmed opt-in, on by default.
 - **Several newsletters**: up to 3 per account, each with its own contacts, campaigns and website.
@@ -256,7 +256,7 @@ QStash calls `APP_URL/api/jobs/...` to send each batch, so the app has to be rea
 - **Authenticate everything:** DKIM, SPF through the custom return path, and DMARC on the root domain.
 - **Only email people who asked.** Never import a bought or scraped list. If bots fill your forms, keep confirmed opt-in on.
 - **Warm up a new domain.** Send to your most engaged readers first, and grow each send over a few weeks.
-- **Watch complaints and bounces.** Keep complaints under 0.1% and bounces under 2%. MailCheap pauses a send past 0.08% complaints or 2.5% bounces, and blocks the account past 0.3% complaints or 5% bounces. Gmail only shows its spam rate in [Google Postmaster Tools](https://postmaster.google.com): connect it on `/admin` and MailCheap holds each account to the same levels there.
+- **Watch complaints and bounces.** Keep complaints under 0.1% and bounces under 2%. MailCheap pauses a send past 0.08% complaints, 2.5% bounces or 2% of its emails refused by Gmail as unsolicited, and blocks the account past 0.3% complaints or 5% bounces. Gmail only shows its spam rate in [Google Postmaster Tools](https://postmaster.google.com): connect it on `/admin` and MailCheap holds each account to the same levels there.
 - **Make leaving easy.** Every email has one-click unsubscribe headers and a footer link, which Gmail and Yahoo require.
 - **Clean your list.** Keep list cleanup on to stop emailing people who never open. New newsletters start with it on.
 - **Keep emails under 100 KB**, or Gmail clips them and hides the unsubscribe link.

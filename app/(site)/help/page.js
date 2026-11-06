@@ -102,12 +102,12 @@ function getQuestions() {
 		},
 		{
 			question: "Why did my campaign pause?",
-			answer: `Too many of its emails bounced or were marked as spam: more than ${formatPercent(pause.bounceRate)} hard bounces (at least ${pause.minBounces}) or ${formatPercent(pause.complaintRate)} complaints (at least ${pause.minComplaints}). Emails already sent stay sent, and you can resume the rest from the campaign's page. Past ${formatPercent(block.bounceRate)} bounces or ${formatPercent(block.complaintRate)} complaints, the whole account is blocked.`,
+			answer: `Too many of its emails bounced, were marked as spam or were refused by Gmail as unsolicited: more than ${formatPercent(pause.bounceRate)} hard bounces (at least ${pause.minBounces}), ${formatPercent(pause.complaintRate)} complaints (at least ${pause.minComplaints}) or ${formatPercent(pause.refusalRate)} Gmail refusals (at least ${pause.minRefusals}). Emails already sent stay sent, and you can resume the rest from the campaign's page. Past ${formatPercent(block.bounceRate)} bounces or ${formatPercent(block.complaintRate)} complaints, the whole account is blocked.`,
 			href: getHelpHref("deliverability", "pauses"),
 		},
 		{
 			question: "Why do new contacts get my issue in steps?",
-			answer: `The first time you email contacts who never got an email from you, ${formatPercent(FIRST_SEND.steps[0].share)} of them go first, then ${formatPercent(FIRST_SEND.steps[1].share)} more ${FIRST_SEND.waitMinutes} minutes later, then the rest ${FIRST_SEND.waitMinutes} minutes after that, each step only if bounces and complaints stay low. A list with problems stops after a few hundred emails, before it reaches everyone.`,
+			answer: `The first time you email contacts who never got an email from you, ${formatPercent(FIRST_SEND.steps[0].share)} of them go first, then ${formatPercent(FIRST_SEND.steps[1].share)} more ${FIRST_SEND.waitMinutes} minutes later, then the rest ${FIRST_SEND.waitMinutes} minutes after that, each step only if bounces, complaints and Gmail refusals stay low. A list with problems stops after a few hundred emails, before it reaches everyone.`,
 			href: getHelpHref("sending", "first-send"),
 		},
 		sharedDomain && {

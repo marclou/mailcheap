@@ -9,6 +9,9 @@ test("only local and Blob pictures go through Next's resizer", () => {
 	assert.equal(isOptimizableImage("https://images.example.com/uploads/a.png"), false);
 	assert.equal(isOptimizableImage("https://mailcheap.example.com/archive/weekly/og?p=x"), false);
 	assert.equal(isOptimizableImage("https://evil.test/x.public.blob.vercel-storage.com/a.png"), false);
+	assert.equal(isOptimizableImage("https://b0f3a91c24d.blob.upstash.io/accounts/a/images/cover-3xK9mBqR.png"), true);
+	assert.equal(isOptimizableImage("https://evil.test/x.blob.upstash.io/a.png"), false);
+	assert.equal(isOptimizableImage("https://blob.upstash.io.evil.test/a.png"), false);
 });
 
 test("pictures on the images CDN go through it too, once IMAGES_CDN_URL names it", () => {

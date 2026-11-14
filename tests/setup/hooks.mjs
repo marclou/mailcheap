@@ -18,6 +18,7 @@ const STUBS = {
 	"next/image": stub("next-image.mjs"),
 	"next/font/google": stub("next-font-google.mjs"),
 	"@vercel/blob": stub("vercel-blob.mjs"),
+	"@upstash/blob": stub("upstash-blob.mjs"),
 	"@aws-sdk/client-s3": stub("s3.mjs"),
 	"@aws-sdk/client-cloudfront": stub("cloudfront.mjs"),
 	"@upstash/qstash": stub("qstash.mjs"),

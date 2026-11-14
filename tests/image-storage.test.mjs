@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { withEnv } from "./helpers/app.mjs";
 import { clients, objects } from "./stubs/s3.mjs";
-import { stored as blobs } from "./stubs/vercel-blob.mjs";
+import * as upstash from "./stubs/upstash-blob.mjs";
+import { deleted as blobsDeleted, stored as blobs } from "./stubs/vercel-blob.mjs";
 
-const { getImageStorage, getImageStorageProblem, putImage } = await import("../lib/image-storage.js");
+const { deleteImages, getImageStorage, getImageStorageProblem, putImage } = await import("../lib/image-storage.js");
 
 const S3 = {
 	IMAGES_S3_BUCKET: "mailcheap-images-test",
@@ -69,4 +70,61 @@ test("without S3, images go to Vercel Blob as before", async () => {
 		cacheControlMaxAge: 31536000,
 	});
 	assert.equal(objects.length, s3Count, "nothing went to S3");
+});
+
+test("with an Upstash Blob token and no S3 bucket, new images go to Upstash Blob, ahead of Vercel Blob", () => {
+	assert.equal(getImageStorage({ UPSTASH_BLOB_TOKEN: "upstash", BLOB_READ_WRITE_TOKEN: "blob" }), "upstash");
+	assert.equal(getImageStorage({ ...S3, UPSTASH_BLOB_TOKEN: "upstash" }), "s3");
+	assert.equal(getImageStorageProblem({ UPSTASH_BLOB_TOKEN: "upstash" }), null);
+	assert.match(getImageStorageProblem({}), /UPSTASH_BLOB_TOKEN/);
+});
+
+test("Upstash Blob uploads get a name of their own, a year of cache, never replace a file, and its public URL", async () => {
+	const s3Count = objects.length;
+	const blobCount = blobs.length;
+	const stored = await withEnv({ UPSTASH_BLOB_TOKEN: "upstash-test", BLOB_READ_WRITE_TOKEN: "blob" }, () =>
+		putImage("accounts/abc/images/hero.jpg", PNG, "image/jpeg")
+	);
+	assert.match(stored.pathname, /^accounts\/abc\/images\/hero-\w{8}\.jpg$/);
+	assert.equal(stored.url, `https://b0f3a91c24d.blob.upstash.io/${stored.pathname}`);
+	assert.deepEqual(upstash.stored.at(-1), {
+		path: stored.pathname,
+		bytes: PNG.length,
+		options: { contentType: "image/jpeg", cache: "immutable", allowOverwrite: false },
+	});
+	assert.deepEqual(upstash.buckets[0].options, { token: "upstash-test", enableTelemetry: false });
+	assert.equal(objects.length, s3Count, "nothing went to S3");
+	assert.equal(blobs.length, blobCount, "nothing went to Vercel Blob");
+});
+
+test("a private Upstash Blob bucket refuses the upload: emails need public URLs", async () => {
+	upstash.state.private = true;
+	try {
+		await assert.rejects(
+			withEnv({ UPSTASH_BLOB_TOKEN: "upstash-test" }, () => putImage("accounts/abc/images/hero.png", PNG, "image/png")),
+			/private: image uploads need a public bucket/
+		);
+		assert.equal(upstash.deleted.at(-1), upstash.stored.at(-1).path, "the file it couldn't link to doesn't stay behind");
+	} finally {
+		upstash.state.private = false;
+	}
+});
+
+test("deleting images reaches each one where it is: Upstash Blob by path, Vercel Blob by URL", async () => {
+	const uploads = [
+		{ url: "https://b0f3a91c24d.blob.upstash.io/accounts/abc/images/a-11111111.png", pathname: "accounts/abc/images/a-11111111.png" },
+		{ url: "https://blob.example.com/accounts/abc/images/b-1.png", pathname: "accounts/abc/images/b-1.png" },
+		{ url: "https://evil.test/x.blob.upstash.io/c.png", pathname: "accounts/other/images/c.png" },
+	];
+	await withEnv({ UPSTASH_BLOB_TOKEN: "upstash-test" }, () => deleteImages(uploads));
+	assert.deepEqual(upstash.deleted.slice(-1), ["accounts/abc/images/a-11111111.png"]);
+	assert.deepEqual(blobsDeleted.slice(-2), ["https://blob.example.com/accounts/abc/images/b-1.png", "https://evil.test/x.blob.upstash.io/c.png"]);
+});
+
+test("images on Upstash Blob without its token aren't silently left behind", async () => {
+	const upload = { url: "https://b0f3a91c24d.blob.upstash.io/accounts/abc/images/a.png", pathname: "accounts/abc/images/a.png" };
+	await assert.rejects(
+		withEnv({ UPSTASH_BLOB_TOKEN: "" }, () => deleteImages([upload])),
+		/UPSTASH_BLOB_TOKEN isn't set, so 1 images on Upstash Blob weren't deleted/
+	);
 });

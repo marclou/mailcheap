@@ -28,7 +28,7 @@
 
 ![MailCheap's overview: emails sent, delivery, open, click, bounce and complaint rates, and subscribers over the last 30 days](docs/screenshots/overview.webp)
 
-MailCheap is a newsletter app: write an issue, send it to your list, publish it on the web, from the dashboard or from your AI agent. This repository is the whole app. Self-host it with your own Amazon SES or PostShiba account, or use [MailCheap Cloud](https://mailcheap.ai), which runs this same code.
+MailCheap is a newsletter app: write an issue, send it to your list, publish it on the web, from the dashboard or from your AI agent. This repository is the whole app. Self-host it with your own Amazon SES, Google Workspace or PostShiba account, or use [MailCheap Cloud](https://mailcheap.ai), which runs this same code.
 
 ## Features
 
@@ -59,7 +59,7 @@ All names and addresses in the screenshots are made up.
 | | [MailCheap Cloud](https://mailcheap.ai) | Self-hosted |
 | --- | --- | --- |
 | Price | From $19 a month for 20,000 emails | Free, plus what your provider charges per email: $0.10 to $0.16 per 1,000 on Amazon SES |
-| Sending | Set up for you, from `hello@<slug>.mailcheap.ai` or your domain | Your Amazon SES or PostShiba account, from your domain |
+| Sending | Set up for you, from `hello@<slug>.mailcheap.ai` or your domain | Your Amazon SES, Google Workspace or PostShiba account, from your domain |
 | Website | `<slug>.mailcheap.ai` | `/archive/<slug>` on your server's domain |
 | Who signs in | Anyone who signs up | The emails you allow |
 | Limits | Emails a month and active subscribers, by plan | None |
@@ -72,7 +72,7 @@ With your own sending account, you pay your provider for the emails you send: 10
 
 ## Self-hosting
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmarclou%2Fmailcheap&project-name=mailcheap&repository-name=mailcheap&env=MONGODB_URI,BETTER_AUTH_SECRET,SUPPRESSION_HASH_KEY,ADMIN_EMAILS,EMAIL_FROM&envDescription=Database%2C%20a%20signing%20secret%20and%20a%20hash%20key%20%2832%2B%20characters%20each%3A%20openssl%20rand%20-base64%2048%29%2C%20your%20email%20to%20sign%20in%20with%2C%20and%20the%20from%20address%20of%20sign-in%20codes.%20Add%20RESEND_API_KEY%2C%20or%20set%20up%20SES%20or%20PostShiba%2C%20so%20the%20codes%20can%20reach%20you.&envLink=https%3A%2F%2Fgithub.com%2Fmarclou%2Fmailcheap%23environment-variables)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmarclou%2Fmailcheap&project-name=mailcheap&repository-name=mailcheap&env=MONGODB_URI,BETTER_AUTH_SECRET,SUPPRESSION_HASH_KEY,ADMIN_EMAILS,EMAIL_FROM&envDescription=Database%2C%20a%20signing%20secret%20and%20a%20hash%20key%20%2832%2B%20characters%20each%3A%20openssl%20rand%20-base64%2048%29%2C%20your%20email%20to%20sign%20in%20with%2C%20and%20the%20from%20address%20of%20sign-in%20codes.%20Add%20RESEND_API_KEY%2C%20or%20set%20up%20SES%2C%20Google%20Workspace%20or%20PostShiba%2C%20so%20the%20codes%20can%20reach%20you.&envLink=https%3A%2F%2Fgithub.com%2Fmarclou%2Fmailcheap%23environment-variables)
 
 Plan for about an hour, most of it waiting for DNS and for your provider to approve production sending. Self-hosting comes without support: issues are off and setup questions go unanswered.
 
@@ -81,14 +81,14 @@ Plan for about an hour, most of it waiting for DNS and for your provider to appr
 | Service | For | Cost |
 | --- | --- | --- |
 | [MongoDB](https://www.mongodb.com/atlas) | Contacts, campaigns, stats | Free tier works |
-| [Amazon SES](https://aws.amazon.com/ses/) or [PostShiba](https://postshiba.com) | Sending | SES: $0.10 to $0.16 per 1,000 emails, depending on its pricing plan. PostShiba: a fixed price per cluster, invite only for now |
+| [Amazon SES](https://aws.amazon.com/ses/), a [Google Workspace](https://workspace.google.com) mailbox or [PostShiba](https://postshiba.com) | Sending | SES: $0.10 to $0.16 per 1,000 emails, depending on its pricing plan. Google Workspace: the mailbox you already pay for, about 1,500 emails a day. PostShiba: a fixed price per cluster, invite only for now |
 | [Upstash QStash](https://upstash.com/docs/qstash) | Background sending and scheduling | Free tier to start, then pay per message. One message sends 50 emails |
 | [Vercel](https://vercel.com) or any Node.js 22+ host | Hosting | Free tier works |
-| [Resend](https://resend.com) (optional) | Sign-in codes and alerts. Without it, they go through SES or PostShiba | Free plan works |
+| [Resend](https://resend.com) (optional) | Sign-in codes and alerts. Without it, they go through SES, Google Workspace or PostShiba | Free plan works |
 | [Upstash Redis](https://upstash.com/docs/redis) (optional) | Rate limits shared by every server instance | Free tier |
-| [Amazon S3](https://aws.amazon.com/s3/) with [CloudFront](https://aws.amazon.com/cloudfront/), or [Vercel Blob](https://vercel.com/docs/vercel-blob) (optional) | Image uploads in the editor, the newsletter settings and the API | S3 and CloudFront: pay per use. Blob: free tier |
+| [Amazon S3](https://aws.amazon.com/s3/) with [CloudFront](https://aws.amazon.com/cloudfront/), or [Upstash Blob](https://upstash.com/docs/blob) or [Vercel Blob](https://vercel.com/docs/vercel-blob) (optional) | Image uploads in the editor, the newsletter settings and the API | S3 and CloudFront: pay per use. Upstash Blob, Vercel Blob: free tier |
 
-Without Redis, MailCheap counts the same rate limits in each server instance's memory. That still stops a script hammering a form, but on serverless hosts the limits aren't shared between instances and reset on each deploy. Add Redis before you put a signup form on a busy site. Without S3 or Blob, image uploads are off; HTML and Markdown campaigns can still use images hosted anywhere.
+Without Redis, MailCheap counts the same rate limits in each server instance's memory. That still stops a script hammering a form, but on serverless hosts the limits aren't shared between instances and reset on each deploy. Add Redis before you put a signup form on a busy site. Without S3, Upstash Blob or Vercel Blob, image uploads are off; HTML and Markdown campaigns can still use images hosted anywhere.
 
 ### Environment variables
 
@@ -119,7 +119,7 @@ Without Redis, MailCheap counts the same rate limits in each server instance's m
 
 1. Click **Deploy** above.
 2. Fill in `MONGODB_URI`, `BETTER_AUTH_SECRET` (at least 32 characters; generate it with `openssl rand -base64 48`), `SUPPRESSION_HASH_KEY` (generated the same way, another value), `ADMIN_EMAILS` (your email) and `EMAIL_FROM` (like `MailCheap <login@mail.example.com>`, on a domain your Resend account or email provider verified). With a short secret, MailCheap refuses to start and the logs say why.
-3. Sign-in codes need a way to reach you. The quickest is [Resend](https://resend.com): verify `EMAIL_FROM`'s domain there and add `RESEND_API_KEY`. Without it, codes go through SES or PostShiba once step 4 is done.
+3. Sign-in codes need a way to reach you. The quickest is [Resend](https://resend.com): verify `EMAIL_FROM`'s domain there and add `RESEND_API_KEY`. Without it, codes go through SES, Google Workspace or PostShiba once step 4 is done.
 4. Open `https://<your-project>.vercel.app/signin` and sign in with your email.
 
 Sending stays off until you finish the next steps, so nothing goes out to readers by mistake. On any other Node.js host: `npm ci && npm run build && npm start`, with the same variables, behind HTTPS. `/api/health` answers 200, or 503 with what to fix.
@@ -136,7 +136,7 @@ To work on a newsletter together, its owner invites people from the newsletter's
 
 ### 4. Email provider
 
-Pick Amazon SES or PostShiba (invite only for now). `EMAIL_PROVIDER` picks one; without it, MailCheap uses PostShiba when `POSTSHIBA_API_KEY` is set and SES otherwise. Every account gets its own tenant there, with its own domains, suppression list and pause switch. MailCheap creates them; you set up the provider account and its events once.
+Pick Amazon SES, a Google Workspace mailbox, or PostShiba (invite only for now). `EMAIL_PROVIDER` picks one; without it, MailCheap uses PostShiba when `POSTSHIBA_API_KEY` is set, Google Workspace when `WORKSPACE_APP_PASSWORD` is, and SES otherwise. Every account gets its own tenant there, with its own domains, suppression list and pause switch. MailCheap creates them; you set up the provider account and its events once.
 
 #### Amazon SES
 
@@ -182,6 +182,17 @@ Use one AWS region for everything below (the examples use `us-east-1`). An AWS a
 
 Without Resend, sign-in codes and alerts go out through SES from `EMAIL_FROM`, outside every tenant, so its domain has to be verified in the AWS account before your first sign-in: **Identities > Create identity > Domain**, with Easy DKIM. In the sandbox, the addresses you sign in with have to be verified too.
 
+#### Google Workspace
+
+For a small list: one Workspace mailbox sends every email, about 1,500 a day. There are no delivery or complaint reports, and newsletters share the mailbox's reputation with your own email from it.
+
+1. **App password.** Turn on 2-Step Verification for the mailbox's Google account, then create an app password at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
+2. **DKIM.** In the Google Admin console, **Apps > Google Workspace > Gmail > Authenticate email**: generate the record for your domain, add it to your DNS, then start authentication. A selector other than `google` goes in `WORKSPACE_DKIM_SELECTOR`.
+3. **Add the variables** and redeploy: `EMAIL_PROVIDER=workspace`, `WORKSPACE_EMAIL`, `WORKSPACE_APP_PASSWORD`, and `WORKSPACE_DAILY_LIMIT` if 1,500 doesn't suit you. Sends past it wait until the mailbox has room again.
+4. **Bounces.** Set `CRON_SECRET` so `/api/cron/hourly` runs: it reads the inbox for bounces, as does a job a few minutes after each send. Keep bounce notifications in the mailbox (archived is fine, deleted isn't).
+
+Newsletters send from the mailbox's own domain: add it in **Domains**, where it's ready once Google's DKIM record is found.
+
 #### PostShiba
 
 PostShiba approves production sending by hand: until then, sends to anyone outside your team answer `kyc_required` (campaigns pause with that reason) and a team can have one cluster.
@@ -218,7 +229,7 @@ QStash calls `APP_URL/api/jobs/...` to send each batch, so the app has to be rea
   3. On `/admin`, under **Gmail spam rates**, click **Connect** and allow access with that Google account. Google warns that it hasn't verified the app: it's your own, continue. MailCheap asks for read access to traffic statistics only, and stores the refresh token encrypted with `CREDENTIALS_ENCRYPTION_KEY`.
 
   Vercel Cron then runs `/api/cron/postmaster` every day (`vercel.json`); elsewhere, have a scheduler call it with `Authorization: Bearer <CRON_SECRET>`. It acts on the newest day of Gmail's data once, with the thresholds in `POSTMASTER` (`lib/config.js`). Gmail only reports domains that send to at least 50 Gmail users a day, and a feedback ID once it has enough emails and spam reports, so until then it finds nothing and says nothing. If Google refuses the connection, one alert says so. Every email's `Feedback-ID` is `<campaign or newsletter id>:mc-<accountId>:<kind>:mailcheap` (`lib/sending-rules.js`): SES sends it as it is, and PostShiba writes its own in its place, also led by `mc-<accountId>`, so each ID maps back to its account (`lib/postmaster-rules.js`).
-- **Image uploads.** The quickest is Vercel Blob: in Vercel, **Storage > Create > Blob**, connect it to the project, and redeploy. To serve images from a subdomain of your own (like `cdn.example.com`), put an S3 bucket behind CloudFront. It takes over new uploads, and images already on Blob keep their URLs:
+- **Image uploads.** The quickest is a blob store. Upstash Blob: in the Upstash console, **Blob > Create Bucket**, make it public (emails need public links), and set its token as `UPSTASH_BLOB_TOKEN`. Or Vercel Blob: in Vercel, **Storage > Create > Blob**, connect it to the project. Then redeploy. With both set, Upstash Blob takes new uploads. To serve images from a subdomain of your own (like `cdn.example.com`), put an S3 bucket behind CloudFront. It takes over new uploads, and images already on Blob keep their URLs:
   1. Create a private S3 bucket with Block Public Access on.
   2. In ACM, request a certificate for the subdomain in `us-east-1`, validated by DNS. If your domain has CAA records, add `0 issue "amazon.com"`.
   3. Create a CloudFront distribution: the bucket as origin through Origin Access Control (add the bucket policy CloudFront gives you), viewer protocol HTTPS only, the CachingOptimized cache policy, and the subdomain as alternate domain name with that certificate. Point the subdomain at the distribution with a CNAME.

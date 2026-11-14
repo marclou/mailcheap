@@ -48,6 +48,7 @@ const nextConfig = {
 	images: {
 		remotePatterns: [
 			{ protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
+			{ protocol: "https", hostname: "*.blob.upstash.io" },
 			...(IMAGES_CDN_HOST ? [{ protocol: "https", hostname: IMAGES_CDN_HOST }] : []),
 		],
 	},

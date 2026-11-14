@@ -4,6 +4,7 @@ import { withQStashSignature } from "@/lib/qstash-route";
 import { publishBatchRetry, sendMessageBatch } from "@/lib/sending";
 import { MAX_BATCH_MESSAGES } from "@/lib/sending-rules";
 import { isObjectIdString } from "@/lib/validation";
+import { scheduleBounceRead } from "@/lib/workspace-bounces";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -27,6 +28,7 @@ async function handleBatch(request) {
 	}
 
 	const result = await sendMessageBatch({ accountId: body.accountId, messageIds });
+	if (result.sent > 0) await scheduleBounceRead();
 	// A provider that says when it has room again (a cluster's hourly cap) gets the batch back then, past
 	// QStash's own few retries. Otherwise QStash retries non-2xx responses, which is what a throttled batch needs.
 	if (result.retry && result.retryAfter) {

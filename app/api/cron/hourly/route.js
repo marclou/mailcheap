@@ -5,22 +5,25 @@ import { recheckDomains } from "@/lib/domains";
 import { mendStalledImports } from "@/lib/import-jobs";
 import { checkPostshibaStatus } from "@/lib/postshiba-status";
 import { queueDueSummaries } from "@/lib/summary-send";
+import { readBouncesQuietly } from "@/lib/workspace-bounces";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 // Every hour: PostShiba's word on whether MailCheap can send, Telegram's first message once it's set up, the summary
 // emails due this hour in their owners' timezones, the daily look at verified sending domains' DNS records, the
-// imports nobody looked at since they stalled, and blocked accounts' billing, plans blocked too long included.
+// imports nobody looked at since they stalled, blocked accounts' billing, plans blocked too long included, and the bounces
+// in a Google Workspace mailbox's inbox.
 export const GET = withCronSecret(async () => {
-	const [postshiba, telegram, summaries, domains, imports, billing] = await Promise.all([
+	const [postshiba, telegram, summaries, domains, imports, billing, bounces] = await Promise.all([
 		checkPostshibaStatus(),
 		announceTelegram(),
 		queueDueSummaries(),
 		recheckDomains(),
 		mendStalledImports(),
 		reconcileBillingPauses(),
+		readBouncesQuietly(),
 	]);
-	console.info(`[hourly] ${JSON.stringify({ postshiba, telegram, summaries, domains, imports, billing })}`);
-	return { postshiba, telegram, summaries, domains, imports, billing };
+	console.info(`[hourly] ${JSON.stringify({ postshiba, telegram, summaries, domains, imports, billing, bounces })}`);
+	return { postshiba, telegram, summaries, domains, imports, billing, bounces };
 });

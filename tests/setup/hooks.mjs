@@ -26,6 +26,7 @@ const STUBS = {
 	"botid/server": stub("botid-server.mjs"),
 	"canvas-confetti": stub("canvas-confetti.mjs"),
 	"@/lib/ses": stub("ses.mjs"),
+	"@/lib/google-workspace": stub("google-workspace.mjs"),
 	"@/lib/dns-check": stub("dns-check.mjs"),
 	"@/lib/mail-domains": stub("mail-domains.mjs"),
 	"@/lib/dns-broker": stub("dns-broker.mjs"),
